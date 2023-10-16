@@ -4,10 +4,11 @@ from os import environ
 SESSION_CONFIGS = [
     dict(
         name='public_goods_simple',
-        display_name="Public goods simple",
-        app_sequence=['public_goods_simple', 'payment_info'],
+        display_name="public_goods_simple",
+        app_sequence=['public_goods_simple'],
         num_demo_participants=4,
-    )
+    ),
+
 ]
 
 # if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs
@@ -21,7 +22,6 @@ SESSION_CONFIG_DEFAULTS = dict(
 
 PARTICIPANT_FIELDS = []
 SESSION_FIELDS = []
-CHANNEL_ROUTING = 'routing.channel_routing'
 
 # ISO-639 code
 # for example: de, fr, ja, ko, zh-hans
@@ -49,7 +49,6 @@ Here are some oTree games.
 """
 
 
-SECRET_KEY = '5513532560785'
+SECRET_KEY = '6974100366510'
 
-INSTALLED_APPS = ['otree','otreechat']
-DEBUG = False
+INSTALLED_APPS = ['otree']

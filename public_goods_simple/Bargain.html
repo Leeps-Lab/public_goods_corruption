@@ -1,468 +1,871 @@
-{{ extends "global/Page.html" }}
-
+{{ block title }}
+{{ endblock }}
 {{ block content }}
-<script>
-    function displayTextFuncionario() {
-  var text = document.getElementById("textFieldFuncionario");
-  text.style.display = "block";
-}
-    function displayTextCiudadano() {
-  var text = document.getElementById("textFieldCiudadano");
-  text.style.display = "block";
-}
-</script>
-<style>
-
-table {
-width: 100%;
-margin: 0 auto;
-}
-td {
-
-vertical-align: top;
-}
-    /* Split the screen in half */
-.split {
-  height: 100%;
-  width: 40%;
-  position: fixed;
-  z-index: 1;
-  top: 0;
-  overflow-x: auto;
-  padding-top: 20px;
-}
-
-/* Control the left side */
-.left {
-  left: 0;
-  border-right:1px solid black;
-}
-
-/* Control the right side */
-.right {
-  right: 0;
-  height: 100vh;
-  width: 60vw;
-  border-left:1px solid black;
-}
-
-/* If you want the content centered horizontally and vertically */
-.centered {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-/* Style the image inside the centered container, if needed */
-.centered img {
-  width: 150px;
-  border-radius: 50%;
-}
-</style>
-<div class="split left">
-    <div class="centered">
-        <div id="decide" style="display: none">
-        <p>
-            Tu rol es {{ player.role }}.
-        </p>
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
         
-        {{ if player.role == 'Funcionario' }}
-            <p>
-                Hay 1000 puntos para dar a los otros ciudadanos.
-            </p>
-            <p>
-                Si presionas el siguiente botón se convierten en 3000 puntos.
-            </p>
-            <button type="button" onclick="displayTextFuncionario()"> Botón</button>
-            <br><br>
-            <div id="textFieldFuncionario" style="display: none;">
-                
-                <p>
-                    Distribuye ahora los 3000 puntos:
-                </p>
-                <table class="table">
-                    <tr>
-                        <th>Ciudadano 1: </th>
-                        <td>
-                            <input type="number" id="monto_fun1">
-                            <button type="button" onclick="sendOfferFun1()" id="btn-offer">Distribuir</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Ciudadano 2: </th>
-                        <td>
-                            <input type="number" id="monto_fun2">
-                            <button type="button" onclick="sendOfferFun2()" id="btn-offer">Distribuir</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Ciudadano 3: </th>
-                        <td>
-                            <input type="number" id="monto_fun3">
-                            <button type="button" onclick="sendOfferFun3()" id="btn-offer">Distribuir</button>
-                        </td>
-                    </tr>
-                </table>
+        .otree-body {
+            max-width:85%
+        }
+        .otree-chat{
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .otree-chat__messages {
+            height: 150px;
+            width: 90%
+        }
+        .otree-chat__input {
+            width: 150px
+        }
+    </style>
+</head>
+<body>
+    <div class="container ">
+
+
+
+
+        
+            <div class="row border border-5 rounded rounded-5">
+                <div class="col-3 d-flex align-items-center">
+                    
+                    
+                    <div>
+                    {{ if  player.id_in_group == player.session.num_participants }}
+                        <p class="text-center">Tu rol es el de funcionario</p>
+                         
+                        <br>
+                        <div class="text-center" id="activar_texto_de_puntaje_triplicado_en_total" style="visibility: hidden;" > El total de puntos se ha convertido a <div id="puntaje_triplicado"></div>, repártelos entre los ciudadanos. </div>
+                        <div class="text-center" id="activar_texto_de_fondo_comun"></div>
+                        
+                        
+                    {{else}}
+                        
+                        <p class="text-center">Tu rol es el de ciudadano {{player.id_in_group}}</p>
+                        <br>
+                        <div id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
+                            <p class="text-center">Tienes {{player.payoff}} para distribuir entre tu cuenta y un proyecto común.</p>
+                            <p class="text-center" >Puntos a dar:</p>
+                            
+                            <div class="row">
+                                <div class="col-6"><input type="text" id="proyecto_comun_{{player.id_in_group}}"></div>
+                                <div class="col-6"><input type="button" value="Enviar puntos" onclick="enviar_puntos_proyecto_comun({{player.id_in_group}})"></div>
+                            </div>
+                        </div>
+                        
+                    {{ endif }}
+                    </div>
+                </div>
+                <div class="col-9 ">
+                    <div class="row">
+ 
+                    </div>
+                    <div class="row ">
+                        
+                        {% for item in lista_de_ciudadanos  %}
+                            
+                            <div class="col"> 
+                                <div class="row">
+                                    
+                                    {{if player.id_in_group == item}}
+                                        Chat con funcionario
+                                    {{else}}
+                                        Chat con ciudadano {{ item }}    
+                                    {{endif}}
+                                </div>
+                                <div class="row">
+                                        {{for grupo in chat_grupos}}
+                                            {# En caso el usuario actual sea funcionario, se crea un chat con cada ciudadano #}
+                                            {{if player.id_in_group == id_de_funcionario}}
+                                                {{if item == grupo.user1 and grupo.user2 == id_de_funcionario}}
+                                                
+                                                    <div class="row">
+                                                        {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                    </div>
+                                                    <div class="row">
+                                                        Interaccion con participante
+                                                    </div>
+
+                                                    <div class="row">
+
+                                                        <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user2}},{{grupo.user1}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Enviar puntos: </button> </div>
+                                                        <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                    </div>
+                                                    
+                                                    <div class="row">
+                                                        <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{grupo.user2}},{{grupo.user1}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                        <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                    </div>
+                                                    <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
+                                                    <div class="row" id="mensaje_al_enviar_{{grupo.nombre_canal_chat}}"></div>
+                                                    <div class="row" id="mensaje_al_solicitar_{{grupo.nombre_canal_chat}}"></div>
+
+
+
+
+
+
+
+
+                                                {{endif}}
+                                            {# En caso el usuario actual sea ciudadano, se crea un chat con el funcionario #}
+                                            {{elif item == player.id_in_group}}
+                                                {{if grupo.user1 == item and grupo.user2 == id_de_funcionario}}
+                                                    <div class="row">
+                                                        {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                    </div>
+                                                
+                                                <div class="row">
+                                                    Interaccion con participante
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user1}},{{grupo.user2}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Enviar puntos: </button> </div>
+                                                    <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                </div>
+                                                
+                                                <div class="row">
+                                                    <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{grupo.user1}},{{grupo.user2}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                    <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                </div>
+                                                <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
+                                                <div class="row" id="mensaje_al_enviar_{{grupo.nombre_canal_chat}}"></div>
+                                                <div class="row" id="mensaje_al_solicitar_{{grupo.nombre_canal_chat}}"></div>
+                                                {{endif}}
+
+
+
+
+
+
+
+                                            {# En caso el usuario actual sea ciudadano, se crea un chat con los otros ciudadanos #}
+                                            {{else}}
+                                                {{if item > player.id_in_group}}
+                                                    {{if grupo.user1 == player.id_in_group and grupo.user2 == item}}
+                                                        <div class="row">
+                                                            {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                        </div>
+
+                                                        <div class="row">
+                                                            Interaccion con participante
+                                                        </div>
+                                                        
+                                                        <div class="row">
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Enviar puntos: </button> </div>
+                                                            <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                        </div>
+                                                        
+                                                        <div class="row">
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{player.id_in_group}},{{item}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                            <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                        </div>
+                                                        <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
+                                                        <div class="row" id="mensaje_al_enviar_{{grupo.nombre_canal_chat}}"></div>
+                                                        <div class="row" id="mensaje_al_solicitar_{{grupo.nombre_canal_chat}}"></div>
+
+                                                    {{endif}}
+                                                {{else}}
+
+
+
+
+
+                                                    {{if grupo.user1 == item and grupo.user2 == player.id_in_group }}
+                                                        <div class="row"> 
+                                                            {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                        </div>
+                                                        <div class="row">
+                                                            Interaccion con participante
+                                                        </div>
+                                                        
+                                                        <div class="row">
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Enviar puntos: </button> </div>
+                                                            <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                        </div>
+                                                        
+                                                        <div class="row">
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{player.id_in_group}},{{item}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                            <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
+                                                        </div>
+                                                        <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
+                                                        <div class="row" id="mensaje_al_enviar_{{grupo.nombre_canal_chat}}"></div>
+                                                        <div class="row" id="mensaje_al_solicitar_{{grupo.nombre_canal_chat}}"></div>
+                                                        <div class=""></div>
+                                                    {{endif}}
+                                                {{endif}}
+                                            {{endif}}
+                                        {{endfor}}
+                                </div>
+                                
+                                
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <br>
+                    <div class="row">
+                        Balance de transacciones
+                    </div>
+                    <div class="row">
+                        <table class="table">
+                            <thead>
+                              <tr>
+                                <th scope="col">Envia</th>
+                                <th scope="col">Recibe</th>
+                                <th scope="col">Transf Aceptada</th>
+                                <th scope="col">Puntos</th>
+                              </tr>
+                            </thead>
+                            <tbody id="balance_de_transacciones_body">
+
+                            </tbody>
+                          </table>
+                    </div>
+                </div>
             </div>
-        
-
-        {{ else }}
-            <p>
-                Tienes 500 para distribuir entre tu cuenta y un proyecto común.
-            </p>
-            <p>
-                Puntos a dar:
-            </p>
-            <input type="number" id="my_offer">
-            <button type="button" onclick="sendOffer()" id="btn-offer">Enviar puntos</button>
-
-        {{ endif }}
     </div>
-
-    <div id="wait" style="display: none">
-        <p>
-            Esperando a que los otros ciudadanos respondan...
-        </p>
-        <progress></progress>
-    </div>    
-
-    <div id="results" style="display: none;">
-        <p>
-            Tu rol es {{ player.role }}.
-        </p>
-        {{ if player.role == 'Funcionario' }}
-        Todos los ciudadanos contribuyeron <span id="sum_montos"></span> puntos.
-        <p>
-            Tu pago de la ronda es de --- puntos. 
-        </p>
-        {{ else }}
-        <p>
-        Contribuiste <span id="my-proposal"></span>.
-        </p>
-        <p>
-        Todos los ciudadanos contribuyeron <span id="sum_montos"></span> puntos, los que se convirtieron en --- puntos. 
-        </p>
-        <p>
-        La autoridad te distribuyó a ti {{ if player.role == 'Ciudadano 1' }}<span id="monto1"></span>{{ elif player.role == 'Ciudadano 2' }}<span id="monto2"></span>{{ elif player.role == 'Ciudadano 3' }}<span id="monto3"></span>{{ endif }} puntos. 
-        </p>
-        <p>
-        Tu pago de la ronda es de --- puntos. 
-        </p>
-        {{ endif }}
-        <p>
-            <button type="button" onclick="nextRound()" id="btn-next">Pasar a la siguiente ronda</button>
-        </p>
-    </div>
-    <br><br>
-
     
-    <div id="wait_ronda" style="display: none">
-        <p>
-            Esperando a los otros jugadores del grupo...
-        </p>
-        <progress></progress>
-    </div>  
-    
-    {{ next_button }}
 
-</div>
-
-</div>
-
-<div class="split right">
-
-        <table>
-        <tr>
-        {% for config in player.chat_configs %}
-        <th>
-            <h6>{{ config.label }}</h6>
-            {% chat nickname=player.chat_nickname channel=config.channel %}
-        </th>
-        {% endfor %}
-        </tr>
-        </table>
-
-        <br><br>
-
-        <table>
-            <tr>
-                <th>
-                    Interacción con {{ role1 }}
-                </th>
-                <th>
-                    Interacción con {{ role2 }}
-                </th>
-                <th>
-                    Interacción con {{ role3 }}
-                </th>
-            </tr>
-            <tr>
-                <th>
-                    <button type="button" onclick="sendOfferOther1()" id="btn_offer1">Enviar puntos&#160&#160</button><input type="number" id="offer_other1">
-                </th>
-                <th>
-                    <button type="button" onclick="sendOfferOther2()" id="btn_offer2">Enviar puntos&#160&#160</button><input type="number" id="offer_other2">
-                </th>
-                <th>
-                    <button type="button" onclick="sendOfferOther3()" id="btn_offer3">Enviar puntos&#160&#160</button><input type="number" id="offer_other3">
-                </th>
-            </tr>
-            <tr>
-                <th>
-                    <button type="button" onclick="sendRequestOther1()" id="btn_request1">Solicitar puntos&#160</button><input type="number" id="request_other1">
-                </th>
-                <th>
-                    <button type="button" onclick="sendRequestOther2()" id="btn_request2">Solicitar puntos&#160</button><input type="number" id="request_other2">
-                </th>
-                <th>
-                    <button type="button" onclick="sendRequestOther3()" id="btn_request3">Solicitar puntos&#160</button><input type="number" id="request_other3">
-                </th>
-            </tr>    
-        </table>
-
-
-            <br><br>
-        <h6>Balance de transacciones</h6>
-        <table>
-            <table class="table table-striped">
-                <tbody id="balance-body">
-            
-                </tbody>
-            </table>
-        </table>
-
-
-</div>
-
-
-<style>
-    .otree-chat{
-        width: 250px
-    }
-    .otree-chat__messages {
-        height: 200px;
-        width: 230px
-    }
-    .otree-chat__input {
-        width: 230px
-    }
-
-</style>
-
-    <script>
-    let waitDiv = document.getElementById('wait');
-    let decideDiv = document.getElementById('decide');
-    let resultsDiv = document.getElementById('results');
-    let waitRondaDiv = document.getElementById('wait_ronda');
-    let my_offer= document.getElementById('my_offer');
-    let msgMyProposal = document.getElementById('my-proposal');
-    let monto_fun1 = document.getElementById('monto_fun1');
-    let monto_fun2 = document.getElementById('monto_fun2');
-    let monto_fun3 = document.getElementById('monto_fun3');
-    let msgMontoFun1 = document.getElementById('monto1');
-    let msgMontoFun2 = document.getElementById('monto2');
-    let msgMontoFun3 = document.getElementById('monto3');
-    let sum_montos = 0;
-    let msgSumMontos = document.getElementById('sum_montos');
-    let btn_offer1 = document.getElementById('btn_offer1');
-    let btn_offer2 = document.getElementById('btn_offer2');
-    let btn_offer3 = document.getElementById('btn_offer3');
-    let btn_request1 = document.getElementById('btn_request1');
-    let btn_request2 = document.getElementById('btn_request2');
-    let btn_request3 = document.getElementById('btn_request3');
-    let rolePlayer = {{ player.role | json }}
-    let btn_next = document.getElementById('btn-next');
-
-    let myBalance = document.getElementById('balance-body');
-    let cartTotal = document.getElementById('cart-total');
-
-//     var interval;
-
-//     var interval;
-
-// function countdown() {
-//   clearInterval(interval);
-//   interval = setInterval( function() {
-//       var timer = $('.js-timeout').html();
-//       timer = timer.split(':');
-//       var minutes = timer[0];
-//       var seconds = timer[1];
-//       seconds -= 1;
-//       if (minutes < 0) return;
-//       else if (seconds < 0 && minutes != 0) {
-//           minutes -= 1;
-//           seconds = 59;
-//       }
-//       else if (seconds < 10 && length.seconds != 2) seconds = '0' + seconds;
-
-//       $('.js-timeout').html(minutes + ':' + seconds);
-
-//       if (minutes == 0 && seconds == 0) clearInterval(interval);
-//   }, 1000);
-// }
-
-// $('#js-startTimer').click(function () {
-//   $('.js-timeout').text("2:00");
-//   countdown();
-// });
-
-// $('#js-resetTimer').click(function () {
-//   $('.js-timeout').text("2:00");
-//   clearInterval(interval);
-// });
-
-
-    if (rolePlayer === 'Funcionario'){
-        monto_fun1.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            sendOfferFun1();
-        }
-        })
-        monto_fun2.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            sendOfferFun2();
-        }
-        })
-        monto_fun3.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            sendOfferFun3();
-        }
-        })
-    } else {
-        my_offer.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            sendOffer();
-        }
-    });
-    }
-    function sendOffer() {
-        liveSend({ 'type':'bien_publico', 'monto': my_offer.value });
-        my_offer.value = ''
-    }
-    function sendOfferFun1() {
-        liveSend({ 'type':'bien_publico', 'monto_fun1': monto_fun1.value });
-        monto_fun1.value = ''
-    }
-    function sendOfferFun2() {
-        liveSend({ 'type':'bien_publico', 'monto_fun2': monto_fun2.value });
-        monto_fun2.value = ''
-    }
-    function sendOfferFun3() {
-        liveSend({ 'type':'bien_publico', 'monto_fun3': monto_fun3.value });
-        monto_fun3.value = ''
-    }
-    function sendOfferOther1() {
-        liveSend({ 'type':'offer', 'monto_offer1': offer_other1.value, });
-        offer_other1.value = '';
-    }
-    function sendOfferOther2() {
-        liveSend({ 'type':'offer', 'monto_offer2': offer_other2.value });
-        offer_other2.value = ''
-    }
-    function sendOfferOther3() {
-        liveSend({ 'type':'offer', 'monto_offer3': offer_other3.value });
-        offer_other3.value = ''
-    }
-    function sendRequestOther1() {
-        liveSend({ 'type':'request', 'monto_request1': request_other1.value });
-        request_other1.value = ''
-    }
-    function sendRequestOther2() {
-        liveSend({ 'type':'request', 'monto_request2': request_other2.value });
-        request_other2.value = ''
-    }
-    function sendRequestOther3() {
-        liveSend({ 'type':'request', 'monto_request3': request_other3.value });
-        request_other3.value = ''
-    }
-    function nextRound() {
-        liveSend({ 'type': 'finish_round', 'next_round': true });
-    }
-
-    function show(ele) {
-        for (let div of [waitDiv, decideDiv, resultsDiv, waitRondaDiv]) {
-            div.style.display = (div === ele) ? 'block' : 'none';
-        }
-    }
-
-    function cu(monto) {
-        return `${monto} puntos`;
-    }
-
+</body>
+</html>
+<script>
+    var aportes_al_proyecto_comun = 0
+    var monto_comun = 0
     function liveRecv(data) {
-        console.log('liveRecv', JSON.stringify(data))
         console.log('received a message!', data);
         
-        if ('proposals' in data){
-            sum_montos = 0
-            for (let [id_in_group, proposal] of data.proposals){
-                if (id_in_group === js_vars.my_id){
+        if(data.operacion == 'negociar_puntos')
+        {
+            if(data.sub_operacion == 'enviar_puntos')
+            {
+                console.log('han enviado puntos')
+            
+                // encontrar el nombre del canal del chat
+                if (data.emisor > data.receptor){grupo_chat = String(data.receptor) + String(data.emisor)}
+                else {grupo_chat = String(data.emisor) + String(data.receptor)}
+                console.log('solicitudes_'+grupo_chat)
 
-                msgMyProposal.innerHTML = cu(proposal)
-                console.log(proposal)
-                } else {
-                    sum_montos = sum_montos + proposal
-                }
-                }
-            }
-        msgSumMontos.innerHTML = sum_montos
-        
-        let is_waiting = data.should_wait;
-        let is_results = data.show_results;
-        let is_nextRound = data.wait_ronda;
-        if (is_waiting) {
-            show(waitDiv)
-            } else if (is_results) {
-            show(resultsDiv) 
-            } else if (is_nextRound){
-            show(waitRondaDiv)
-            }else {
-                show(decideDiv)
-            }
 
-        let html = '';
-        if ('montos_privados' in data){
-            for (let [role, monto, type] of data.montos_privados) {
-                if (type === 'offer'){
-                html += `
-            <tr>
-                <td>${'-'}</td>
-                <td>${role}</td>
-                <td>${'<-'}</td>
-                <td>${cu(monto)}</td>
-            </tr>`;
-            } else if (type === 'request') {
-                html += `
-            <tr>
-                <td>${'+'}</td>
-                <td>${role}</td>
-                <td>${'->'}</td>
-                <td>${cu(monto)}</td>
-            </tr>`;
+                solicitudes = document.getElementById('solicitudes_'+grupo_chat)
+                // Crear un nuevo div con la clase "row"
+                var nuevaFila = document.createElement('div');
+                nuevaFila.classList.add('row');
+                nuevaFila.setAttribute('id', 'solicitud_enviar'+grupo_chat);
+
+                // Crear un div con la clase "col" para el texto dinámico
+                var divTexto = document.createElement('div');
+                divTexto.classList.add('col');
+                //divTexto.textContent = 'El participante ' + data.emisor + ' quiere enviarte ' + data.puntos + ' puntos.';
+                divTexto.textContent = 'Quiere enviar ' + data.puntos + ' puntos.';
+
+                // Crear un div con la clase "col" para el input de tipo botón "Aceptar"
+                var divAceptar = document.createElement('div');
+                divAceptar.classList.add('col-3');
+                var inputAceptar = document.createElement('input');
+                inputAceptar.setAttribute('type', 'button');
+                inputAceptar.setAttribute('id', 'aceptar_solicitud_envio'+grupo_chat);
+                inputAceptar.setAttribute('onclick', 'aceptar_enviar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
+                inputAceptar.setAttribute('value', 'Si');
+                divAceptar.appendChild(inputAceptar);
+
+                // Crear un div con la clase "col" para el botón "Rechazar"
+                var divRechazar = document.createElement('div');
+                divRechazar.classList.add('col-3');
+                var inputRechazar = document.createElement('input');
+                inputRechazar.setAttribute('type', 'button');
+                inputRechazar.setAttribute('onclick', 'rechazar_enviar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
+                inputRechazar.setAttribute('value', 'No');
+                divRechazar.appendChild(inputRechazar);
+
+                // Agregar los elementos a la fila
+                nuevaFila.appendChild(divTexto);
+                nuevaFila.appendChild(divAceptar);
+                nuevaFila.appendChild(divRechazar);
+
+                // Agregar la fila al elemento "solicitudes"
+                solicitudes.appendChild(nuevaFila);
+
+                //bloquear bootnes por parte del receptor
+                bloquear_un_boton_envio(data.receptor, data.emisor);
+                bloquear_un_boton_solicitud(data.receptor, data.emisor);
             }
-            myBalance.innerHTML = html;
-            //cartTotal.innerText = cu(data.total_price);
-        }}
-        if ('montos_funcionario' in data){
-            if (rolePlayer === 'Ciudadano 1'){
-                msgMontoFun1.innerHTML = data.montos_funcionario[0]
-        } else if (rolePlayer === 'Ciudadano 2'){
-            msgMontoFun2.innerHTML = data.montos_funcionario[1]
-        } else if (rolePlayer ==='Ciudadano 3'){
-            msgMontoFun3.innerHTML = data.montos_funcionario[2]
+            if (data.sub_operacion == 'enviar_puntos_respuesta')
+            {
+                if(data.respuesta == 'no'){
+                    console.log('el usuario '+data.emisor+' ha rechazado tu solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'envío')
+                    
+                }
+                if(data.respuesta == 'si'){
+                    console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'envío')
+                }
+
+                //desbloquear botones de envio
+                desbloquear_todos_botones_enviar_puntos(data.receptor,data.emisor)
+                //desbloquear boton de solicitud
+                desbloquear_un_boton_solicitud(data.emisor,data.receptor)
+
+            }
+            if(data.sub_operacion == 'cancelar_enviar_puntos')
+            {
+                //desbloquear boton de envio 
+                desbloquear_un_boton_envio(data.emisor,data.receptor)
+                //desbloquear boton de solicitud
+                desbloquear_un_boton_solicitud(data.emisor,data.receptor)
+                //eliminar mensaje de solicitud
+                grupo_chat_canal = obtener_nombre_de_canal(data.emisor,data.receptor)
+                a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat_canal)
+                a_eliminar.parentNode.removeChild(a_eliminar);
+
+            }
+            if(data.sub_operacion == 'solicitar_puntos'){
+                if (data.emisor > data.receptor){grupo_chat = String(data.receptor) + String(data.emisor)}
+                else {grupo_chat = String(data.emisor) + String(data.receptor)}
+                console.log('solicitudes_'+grupo_chat)
+
+
+                solicitudes = document.getElementById('solicitudes_'+grupo_chat)
+                // Crear un nuevo div con la clase "row"
+                var nuevaFila = document.createElement('div');
+                nuevaFila.classList.add('row');
+                nuevaFila.setAttribute('id', 'solicitud_solicitar'+grupo_chat);
+
+                // Crear un div con la clase "col" para el texto dinámico
+                var divTexto = document.createElement('div');
+                divTexto.classList.add('col');
+                //divTexto.textContent = 'El participante ' + data.emisor + ' quiere enviarte ' + data.puntos + ' puntos.';
+                divTexto.textContent = 'Quiere recibir ' + data.puntos + ' puntos.';
+
+                // Crear un div con la clase "col" para el input de tipo botón "Aceptar"
+                var divAceptar = document.createElement('div');
+                divAceptar.classList.add('col-3');
+                var inputAceptar = document.createElement('input');
+                inputAceptar.setAttribute('type', 'button');
+                inputAceptar.setAttribute('id', 'aceptar_solicitud_solicitado'+grupo_chat);
+                inputAceptar.setAttribute('onclick', 'aceptar_solicitar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
+                inputAceptar.setAttribute('value', 'Si');
+                divAceptar.appendChild(inputAceptar);
+
+                // Crear un div con la clase "col" para el botón "Rechazar"
+                var divRechazar = document.createElement('div');
+                divRechazar.classList.add('col-3');
+                var inputRechazar = document.createElement('input');
+                inputRechazar.setAttribute('type', 'button');
+                inputRechazar.setAttribute('onclick', 'rechazar_solicitar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
+                inputRechazar.setAttribute('value', 'No');
+                divRechazar.appendChild(inputRechazar);
+
+                // Agregar los elementos a la fila
+                nuevaFila.appendChild(divTexto);
+                nuevaFila.appendChild(divAceptar);
+                nuevaFila.appendChild(divRechazar);
+
+                // Agregar la fila al elemento "solicitudes"
+                solicitudes.appendChild(nuevaFila);
+
+
+                //bloquear bootnes por parte del receptor
+                bloquear_un_boton_envio(data.receptor, data.emisor);
+                bloquear_un_boton_solicitud(data.receptor, data.emisor);
+            }
+            if (data.sub_operacion == 'solicitar_puntos_respuesta')
+            {
+                if(data.respuesta == 'no'){
+                    console.log('el usuario '+data.emisor+' ha rechazado tu solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'solicitud')
+                }
+                if(data.respuesta == 'si'){
+                    console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'solicitud')
+                }
+                //desbloquear botones de envio
+                desbloquear_todos_botones_solicitar_puntos(data.receptor,data.emisor)
+                //desbloquear boton de solicitud
+                desbloquear_un_boton_envio(data.emisor,data.receptor)
+            }
+            if(data.sub_operacion == 'cancelar_solicitar_puntos')
+            {
+                //desbloquear boton de envio 
+                desbloquear_un_boton_envio(data.emisor,data.receptor)
+                //desbloquear boton de solicitud
+                desbloquear_un_boton_solicitud(data.emisor,data.receptor)
+                //eliminar mensaje de solicitud
+                grupo_chat_canal = obtener_nombre_de_canal(data.emisor,data.receptor)
+                a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat_canal)
+                a_eliminar.parentNode.removeChild(a_eliminar);
+
+            }
         }
+        if(data.operacion == 'proyecto_comun')
+        {
+            if(data.sub_operacion == 'enviar_puntos')
+            {
+                if(data.receptor == {{id_de_funcionario}}){
+                    console.log('se enviaron ' + data.puntos + ' puntos al proyecto comun de parte del ciudadano ' + data.emisor)
+                    aportes_al_proyecto_comun = aportes_al_proyecto_comun + 1
+                    sumar_al_monto_comun(data.puntos)
+                    if (verificar_envio_de_puntos_de_todos_al_proyecto())
+                    {mostrar_reparticion_de_puntos_de_funcionario(monto_comun)}
+                }
+            }
+        }
+    }
+
+    function enviarPuntos(emisor, receptor) {
+        if (emisor > receptor)
+        {puntos = document.getElementById('enviar_puntos_'+String(receptor)+String(emisor))      }
+        
+        else
+        {puntos = document.getElementById('enviar_puntos_'+String(emisor)+String(receptor))      }
+        console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
+        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos','puntos': puntos.value});
+        bloquear_todos_botones_enviar_puntos(emisor, receptor)
+        bloquear_un_boton_solicitud(emisor, receptor)
+        mostrar_mensaje_de_envio(emisor,receptor,puntos.value)
+    }
+
+
+    function aceptar_enviar_puntos(grupo_chat,emisor,receptor,puntos)
+    {   
+        a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat)
+        a_eliminar.parentNode.removeChild(a_eliminar);
+        console.log(grupo_chat)
+        agregarRegistro(emisor,receptor,'si',puntos,'envío')
+        liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos_respuesta','respuesta': 'si','puntos':puntos});
+        //desbloquear boton de envio 
+        desbloquear_un_boton_envio(emisor,receptor)
+        //desbloquear boton de solicitud
+        desbloquear_un_boton_solicitud(emisor,receptor)
+    }
+
+    function rechazar_enviar_puntos(grupo_chat,emisor,receptor,puntos)
+    {
+        a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat)
+        a_eliminar.parentNode.removeChild(a_eliminar);
+        agregarRegistro(emisor,receptor,'no',puntos,'envío')
+        liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos_respuesta','respuesta': 'no','puntos':puntos});
+        //desbloquear boton de envio 
+        desbloquear_un_boton_envio(emisor,receptor)
+        //desbloquear boton de solicitud
+        desbloquear_un_boton_solicitud(emisor,receptor)
+    }
+
+    function solicitarPuntos(emisor, receptor) {
+        if (emisor > receptor)
+        {puntos = document.getElementById('solicitar_puntos_'+String(receptor)+String(emisor))      }
+        
+        else
+        {puntos = document.getElementById('solicitar_puntos_'+String(emisor)+String(receptor))      }
+        console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
+        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos','puntos': puntos.value});
+        bloquear_todos_botones_solicitar_puntos (emisor, receptor)
+        bloquear_un_boton_envio(emisor, receptor)
+        mostrar_mensaje_de_solicitud(emisor,receptor)
+    }
+    function aceptar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
+    {   
+        a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat)
+        a_eliminar.parentNode.removeChild(a_eliminar);
+        console.log(grupo_chat)
+        agregarRegistro(emisor,receptor,'si',puntos,'solicitud')
+        liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos_respuesta','respuesta': 'si','puntos':puntos});
+        //desbloquear boton de envio 
+        desbloquear_un_boton_envio(emisor,receptor)
+        //desbloquear boton de solicitud
+        desbloquear_un_boton_solicitud(emisor,receptor)
+    }
+    function rechazar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
+    {
+        a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat)
+        a_eliminar.parentNode.removeChild(a_eliminar);
+        agregarRegistro(emisor, receptor,'no',puntos,'solicitud')
+        liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos_respuesta','respuesta': 'no','puntos':puntos});
+        //desbloquear boton de envio 
+        desbloquear_un_boton_envio(emisor,receptor)
+        //desbloquear boton de solicitud
+        desbloquear_un_boton_solicitud(emisor,receptor)
+    }
+
+    // agrega un registro a la tabla de transacciones
+    function agregarRegistro(emisor,receptor,aceptado,puntos, tipo)
+    {
+        if (emisor == {{id_de_funcionario}}){emisor= 'Funcionario'}
+        else {emisor = 'Ciudadano '+ emisor}
+        if (receptor == {{id_de_funcionario}}){receptor= 'Funcionario'}
+        else {receptor = 'Ciudadano '+ receptor}
+
+
+        // Obtén el elemento tbody con el ID "balance_de_transacciones_body"
+        var tbody = document.getElementById('balance_de_transacciones_body');
+
+        // Crea un nuevo elemento <tr> (fila) para el registro
+        var nuevaFila = document.createElement('tr');
+
+        // Crea un elemento <th> para el número de fila
+        var th = document.createElement('th');
+        th.setAttribute('scope', 'row');
+        th.textContent = emisor + ' ('+ tipo + ')'; // Cambia el número según corresponda
+
+        // Crea un elemento <td> para el nombre del ciudadano
+        var nombreCiudadano = document.createElement('td');
+        nombreCiudadano.textContent = receptor; // Cambia el nombre según corresponda
+
+        // Crea un elemento <td> para la flecha (-->)
+        var flecha = document.createElement('td');
+        flecha.textContent = aceptado;
+
+        // Crea un elemento <td> para el monto
+        var monto = document.createElement('td');
+        monto.textContent = puntos; // Cambia el monto según corresponda
+
+        // Agrega los elementos a la fila
+        nuevaFila.appendChild(th);
+        nuevaFila.appendChild(nombreCiudadano);
+        nuevaFila.appendChild(flecha);
+        nuevaFila.appendChild(monto);
+
+        // Agrega la nueva fila al tbody
+        tbody.appendChild(nuevaFila);
+    }
+    
+    function enviar_puntos_proyecto_comun(id)
+    {
+        puntos_a_enviar = document.getElementById('proyecto_comun_'+id)
+        console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
+        liveSend({'emisor': id, 'receptor': {{id_de_funcionario}},  'operacion':'proyecto_comun', 'sub_operacion': 'enviar_puntos','respuesta': '--','puntos':puntos_a_enviar.value});
+        texto_a_reemplazar_en_div = document.getElementById('reemplazar_texto_al_enviar_al_proyecto_comun_'+id);
+        texto_a_reemplazar_en_div.textContent = 'Haz enviado ' +puntos_a_enviar.value+ ' puntos al proyecto comun.' 
+    }
+
+    function sumar_al_monto_comun(puntos) 
+    {
+        monto_comun = parseInt(monto_comun) + parseInt(puntos)
+    }
+    function verificar_envio_de_puntos_de_todos_al_proyecto()
+    {
+        if (aportes_al_proyecto_comun == ({{id_de_funcionario}}-1))
+        {
+            console.log('todos los ciudadnos colaboraron al proyecto comun')
+            return true
+        }
+        else 
+        {
+            console.log('NO todos los ciudadnos colaboraron al proyecto comun')
+            return false
+        }
+
+        
+    }
+    function mostrar_reparticion_de_puntos_de_funcionario(monto_comun)
+    {
+        // Crear un elemento 'p' para el primer párrafo
+        var primerParrafo = document.createElement('p');
+        primerParrafo.textContent = "Hay " +monto_comun+ " puntos para dar a los otros ciudadanos.";
+        primerParrafo.innerHTML += "<br><br>";
+
+        // Crear un elemento 'p' para el segundo párrafo
+        var segundoParrafo = document.createElement('p');
+        segundoParrafo.className = "text-center";
+        segundoParrafo.textContent = "Si presionas el siguiente botón se convierten en " +monto_comun*3+ " puntos.";
+
+        // Crear un div con clase "row" y centrar el contenido
+        var rowDiv = document.createElement('div');
+        rowDiv.className = "row text-center";
+
+        // Crear un div con clase "col" para contener el botón
+        var colDiv = document.createElement('div');
+        colDiv.className = "col";
+
+        // Crear el botón y configurarlo
+        var boton = document.createElement('input');
+        boton.type = "button";
+        boton.setAttribute('onClick', 'mostrar_reparticion_de_puntos_de_funcionario_inputs()');
+        boton.value = "Triplicar";
+
+        // Agregar el botón al div 'col'
+        colDiv.appendChild(boton);
+
+        // Agregar 'col' al div 'row'
+        rowDiv.appendChild(colDiv);
+
+        // Agregar los elementos 'p' y 'div' al div con id 'activar_texto_de_fondo_comun'
+        var contenedor = document.getElementById('activar_texto_de_fondo_comun');
+        contenedor.appendChild(primerParrafo);
+        contenedor.appendChild(segundoParrafo);
+        contenedor.appendChild(rowDiv);
+        console.log(monto_comun)
+    }
+    function mostrar_reparticion_de_puntos_de_funcionario_inputs()
+    {
+        crearInputsYBotones();
+        for (var i = 1; i < {{id_de_funcionario}}; i++) {
+            
+            console.log(i)
+        }
+
+        mostrar_puntaje_triplicado = document.getElementById('puntaje_triplicado')
+        mostrar_puntaje_triplicado.textContent = parseInt(monto_comun) + parseInt(monto_comun) +parseInt(monto_comun)
+        mostrar_texto_adicional = document.getElementById('activar_texto_de_puntaje_triplicado_en_total')
+        mostrar_texto_adicional.setAttribute("Style","")
+    }
+    function crearInputsYBotones() {
+        // Obtener la etiqueta con el ID deseado
+        var etiqueta = document.getElementById("activar_texto_de_fondo_comun");
+
+        if (etiqueta) {
+            // Eliminar todo el contenido existente
+            etiqueta.innerHTML = '';
+
+            // Crear 3 inputs y 3 botones
+            for (var i = 1; i < {{id_de_funcionario}}; i++) {
+            // Crear un input
+            var input = document.createElement("input");
+            input.type = "text"; 
+            input.setAttribute('id', 'otorgar_puntos_a_ciudadano_'+i);
+            input.placeholder = "Para ciudadano " + (i);
+
+            // Crear un botón
+            //var boton = document.createElement("input");
+            //boton.setAttribute('type', 'button');
+            //boton.value = "Enviar ";
+
+            // Agregar el input y el botón a la etiqueta
+            
+
+            etiqueta.appendChild(input);
+            //etiqueta.appendChild(boton);
+            }
+            var boton = document.createElement("input");
+            boton.setAttribute('type', 'button');
+            boton.setAttribute('onClick', 'enviar_puntos_a_ciudadanos()');
+            boton.value = "Enviar puntos a participantes ";
+            etiqueta.appendChild(boton)
+            
+        } 
+        else 
+        {
+            console.log("El elemento con el ID especificado no se encontró.");
+        }
+    }
+    function enviar_puntos_a_ciudadanos() {
+        sumatoria_de_puntos = 0
+        for (let i = 1; i < parseInt({{id_de_funcionario}}); i++) {
+            elementoId = "otorgar_puntos_a_ciudadano_" + i;
+            elemento = document.getElementById(elementoId);
+
+            if (elemento) {
+                sumatoria_de_puntos = parseInt(sumatoria_de_puntos) + parseInt(elemento.value)
+                puntos_triplicados = document.getElementById('puntaje_triplicado')
+
+                
+            } else {
+                // Manejar el caso en el que el elemento no se encontró.
+                console.log("Elemento " + elementoId + " no encontrado.");
+            }
+        }
+        console.log(puntos_triplicados.textContent,sumatoria_de_puntos)
+        if (parseInt(puntos_triplicados.textContent) == sumatoria_de_puntos)
+                {alert('puntos_enviados')}
+                else
+                {alert('La suma de puntos enviados debe tener el mismo valor que el puntaje triplicado ')}
+    }
+
+    // Llamada pra bloquear botones
+
+    function bloquear_un_boton_envio(emisor,receptor)
+    {
+        if (emisor < receptor)  {id_boton_a_bloquear = 'enviar_puntos_boton_' + emisor + receptor}
+        else                    {id_boton_a_bloquear = 'enviar_puntos_boton_' + receptor + emisor}
+        bloquear_boton(id_boton_a_bloquear)
+    }
+    function desbloquear_un_boton_envio(emisor,receptor)
+    {
+        
+        if (emisor < receptor)  {id_boton_a_desbloquear = 'enviar_puntos_boton_' + emisor + receptor}
+        else                    {id_boton_a_desbloquear = 'enviar_puntos_boton_' + receptor + emisor}
+        console.log('desbloquear boton con id: ' + id_boton_a_desbloquear)
+        desbloquear_boton(id_boton_a_desbloquear)
+    }
+    function bloquear_todos_botones_enviar_puntos(emisor,receptor)
+    {   
+        for(i = 1; i <= parseInt({{id_de_funcionario}}); i++ )      
+        {   
+            if(i == emisor) { }
+
+            else {
+                console.log('Emisor: ' + emisor + '  Receptor: ' + i)
+                if (emisor <= i)        {id_boton_a_bloquear = 'enviar_puntos_boton_' + emisor + i}
+                else                    {id_boton_a_bloquear = 'enviar_puntos_boton_' + i + emisor}
+                console.log('Bloquear boton con id: ' + id_boton_a_bloquear)
+                bloquear_boton(id_boton_a_bloquear)
+            }
+        }
+    }
+    function desbloquear_todos_botones_enviar_puntos(emisor,receptor)
+    {   
+        for(i = 1; i <= parseInt({{id_de_funcionario}}); i++ )      
+        {   
+            if(i == emisor) { }
+
+            else {
+                //console.log('Emisor: ' + emisor + '  Receptor: ' + i)
+                if (emisor <= i)        {id_boton_a_desbloquear = 'enviar_puntos_boton_' + emisor + i}
+                else                    {id_boton_a_desbloquear = 'enviar_puntos_boton_' + i + emisor}
+                //console.log('des Bloquear boton con id: ' + id_boton_a_bloquear)
+                desbloquear_boton(id_boton_a_desbloquear)
+            }
+        }
+    }
+
+    function bloquear_un_boton_solicitud(emisor,receptor)
+    {
+        if (emisor < receptor)  {id_boton_a_bloquear = 'solicitar_puntos_boton_' + emisor + receptor}
+        else                    {id_boton_a_bloquear = 'solicitar_puntos_boton_' + receptor + emisor}
+        bloquear_boton(id_boton_a_bloquear)
+    }
+    function desbloquear_un_boton_solicitud(emisor,receptor)
+    {
+        if (emisor < receptor)  {id_boton_a_desbloquear = 'solicitar_puntos_boton_' + emisor + receptor}
+        else                    {id_boton_a_desbloquear = 'solicitar_puntos_boton_' + receptor + emisor}
+        desbloquear_boton(id_boton_a_desbloquear)
+    }
+    function bloquear_todos_botones_solicitar_puntos(emisor,receptor)
+    {   
+        for(i = 1; i <= parseInt({{id_de_funcionario}}); i++ )      
+        {   
+            if(i == emisor) { }
+            else {
+                console.log('Emisor: ' + emisor + '  Receptor: ' + i)
+                if (emisor < i)  {id_boton_a_bloquear = 'solicitar_puntos_boton_' + emisor + i}
+                else                    {id_boton_a_bloquear = 'solicitar_puntos_boton_' + i + emisor}
+                console.log('Bloquear boton con id: ' + id_boton_a_bloquear)
+                bloquear_boton(id_boton_a_bloquear)
+            }
+        }
+    }
+    function desbloquear_todos_botones_solicitar_puntos(emisor,receptor)
+    {   
+        for(i = 1; i <= parseInt({{id_de_funcionario}}); i++ )      
+        {   
+            if(i == emisor) { }
+            else {
+                //console.log('Emisor: ' + emisor + '  Receptor: ' + i)
+                if (emisor < i)  {id_boton_a_desbloquear = 'solicitar_puntos_boton_' + emisor + i}
+                else                    {id_boton_a_desbloquear = 'solicitar_puntos_boton_' + i + emisor}
+                //console.log('Bloquear boton con id: ' + id_boton_a_bloquear)
+                desbloquear_boton(id_boton_a_desbloquear)
+            }
+        }
+    }
+
+
+    
+    function bloquear_boton(idBoton) {
+        const boton = document.getElementById(idBoton);
+
+        if (boton) {
+            boton.disabled = true;
+        } else {
+            console.log("El botón con el ID proporcionado no se encontró en el documento. " + idBoton);
+        }
+    }
+
+    function desbloquear_boton(idBoton) {
+        const boton = document.getElementById(idBoton);
+
+        if (boton) {
+            boton.disabled = false;
+        } else {
+            console.log("desbloqueo: El botón con el ID  " + idBoton + "  proporcionado no se encontró en el documento.");
         }
     }
         
-    window.addEventListener('DOMContentLoaded', (event) => {
-        liveSend({'type':'load'});
-    });
+    function mostrar_mensaje_de_envio(emisor,receptor,puntos) 
+    {
+        nombre_del_canal = obtener_nombre_de_canal(emisor,receptor)
+        elemento_a_modificar = document.getElementById('mensaje_al_enviar_'+nombre_del_canal)
+        div1 = document.createElement('div');
+        div2 = document.createElement('input');
+        div1.classList.add('col-8');
+        div2.classList.add('col-4');
+        div2.type = 'button';
+        div2.value = 'Cancelar';
+        div2.setAttribute("onClick", "cancelar_envio_puntos("+emisor + "," +receptor+")");
+        mensaje = 'Ofreciste ' + puntos + ' puntos a este participante.';
+        div1.textContent = mensaje;
+        elemento_a_modificar.appendChild(div1);
+        elemento_a_modificar.appendChild(div2);
 
+    }
+    function eliminar_mensaje_de_envio(emisor,receptor) 
+    {
+        nombre_del_canal = obtener_nombre_de_canal(emisor,receptor)
+        elemento_a_modificar = document.getElementById('mensaje_al_enviar_'+nombre_del_canal)
+        //console.log('Ofreciste ' + puntos+ ' puntos. Canal: ' +nombre_del_canal )
+        mensaje = '';
+        elemento_a_modificar.textContent = '';
+    }
+    function mostrar_mensaje_de_solicitud(emisor,receptor,puntos) 
+    {
+        nombre_del_canal = obtener_nombre_de_canal(emisor,receptor)
+        elemento_a_modificar = document.getElementById('mensaje_al_solicitar_'+nombre_del_canal)
+        div1 = document.createElement('div');
+        div2 = document.createElement('input');
+        div1.classList.add('col-8');
+        div2.classList.add('col-4');
+        div2.type = 'button';
+        div2.value = 'Cancelar';
+        div2.setAttribute("onClick", "cancelar_solicitud_puntos("+emisor + "," +receptor+")");
+        mensaje = 'Solicitaste ' + puntos + ' puntos a este participante.';
+        div1.textContent = mensaje;
+        elemento_a_modificar.appendChild(div1);
+        elemento_a_modificar.appendChild(div2);
 
-    </script>
+    }
+    function eliminar_mensaje_de_solicitud(emisor,receptor) 
+    {
+        nombre_del_canal = obtener_nombre_de_canal(emisor,receptor)
+        elemento_a_modificar = document.getElementById('mensaje_al_solicitar_'+nombre_del_canal)
+        //console.log('Ofreciste ' + puntos+ ' puntos. Canal: ' +nombre_del_canal )
+        mensaje = '';
+        elemento_a_modificar.textContent = '';
+    }
 
+     
+    function cancelar_envio_puntos(emisor,receptor)
+    {
+        console.log('cancelar')
+        eliminar_mensaje_de_envio(emisor,receptor) 
+        desbloquear_todos_botones_enviar_puntos(emisor, receptor)
+        desbloquear_un_boton_solicitud(emisor, receptor)
+        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'cancelar_enviar_puntos'});
+        
+    }
+    function cancelar_solicitud_puntos(emisor,receptor)
+    {
+        console.log('cancelar solicitud')
+        eliminar_mensaje_de_solicitud(emisor,receptor) 
+        desbloquear_todos_botones_solicitar_puntos(emisor, receptor)
+        desbloquear_un_boton_envio(emisor, receptor)
+        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'cancelar_solicitar_puntos'});
+        
+    }
+
+    function obtener_nombre_de_canal(emisor,receptor)
+    {
+        if(emisor > receptor)       {nombre_del_canal = String(receptor) + String(emisor)}
+        else                        {nombre_del_canal = String(emisor) + String(receptor)}
+        return nombre_del_canal
+    }  
+</script>
+
+{{ formfields }}
     
+    {{ next_button }}
 
 {{ endblock }}
