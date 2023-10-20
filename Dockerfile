@@ -1,5 +1,5 @@
 # Etapa de construcción (instalación de dependencias)
-FROM ubuntu:20.04 AS builder
+FROM ubuntu:22.04 AS builder
 
 RUN apt update && apt upgrade -y
 RUN apt install software-properties-common -y
