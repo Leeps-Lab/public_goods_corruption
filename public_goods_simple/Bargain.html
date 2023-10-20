@@ -21,6 +21,10 @@
         .otree-chat__input {
             width: 150px
         }
+        .scroll_wrap {
+            overflow-y:scroll;
+            height:630px;
+        }
     </style>
 </head>
 <body>
@@ -29,9 +33,19 @@
 
 
 
-        
-            <div class="row border border-5 rounded rounded-5">
-                <div class="col-3 d-flex align-items-center">
+            <div class="row border border-dark border-3 border-bottom-0 py-4 ">
+                <div class="col text-end" >
+                    Segmento
+                </div>
+                <div class="col text-center">
+                    Periodo
+                </div>
+                <div class="col text-start">
+                    Rol                    
+                </div>
+            </div>
+            <div class="row border-dark border border-3 ">
+                <div class="col-3 d-flex align-items-center   py-2 px-4 ">
                     
                     
                     <div>
@@ -39,8 +53,10 @@
                         <p class="text-center">Tu rol es el de funcionario</p>
                          
                         <br>
-                        <div class="text-center" id="activar_texto_de_puntaje_triplicado_en_total" style="visibility: hidden;" > El total de puntos se ha convertido a <div id="puntaje_triplicado"></div>, repártelos entre los ciudadanos. </div>
-                        <div class="text-center" id="activar_texto_de_fondo_comun"></div>
+                        <div class="text-center" id="texto_mostrado_al_funcionario">
+                            <div class="text-center" id="activar_texto_de_puntaje_triplicado_en_total" style="visibility: hidden;" > El total de puntos se ha convertido a <div id="puntaje_triplicado"></div>, repártelos entre los ciudadanos. </div>
+                            <div class="text-center" id="activar_texto_de_fondo_comun"></div>
+                        </div>
                         
                         
                     {{else}}
@@ -48,7 +64,7 @@
                         <p class="text-center">Tu rol es el de ciudadano {{player.id_in_group}}</p>
                         <br>
                         <div id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
-                            <p class="text-center">Tienes {{player.payoff}} para distribuir entre tu cuenta y un proyecto común.</p>
+                            <p class="text-center">Tienes {{player.endowment_izquierda}} para distribuir entre tu cuenta y un proyecto común.</p>
                             <p class="text-center" >Puntos a dar:</p>
                             
                             <div class="row">
@@ -56,35 +72,44 @@
                                 <div class="col-6"><input type="button" value="Enviar puntos" onclick="enviar_puntos_proyecto_comun({{player.id_in_group}})"></div>
                             </div>
                         </div>
+                        <div class="text-center" id="reemplazar_texto_al_recibir_puntos_del_funcionario_{{player.id_in_group}}"> </div>
                         
                     {{ endif }}
                     </div>
                 </div>
-                <div class="col-9 ">
+                <div class="col-9 border-start border-dark p-2 px-4 scroll_wrap"">
                     <div class="row">
  
                     </div>
                     <div class="row ">
                         
-                        {% for item in lista_de_ciudadanos  %}
+                        {% for item in lista_de_ciudadanos_y_nicknames  %}
+                        
                             
                             <div class="col"> 
                                 <div class="row">
                                     
-                                    {{if player.id_in_group == item}}
+                                    {{if player.id_in_group == item.id}}
                                         Chat con funcionario
                                     {{else}}
-                                        Chat con ciudadano {{ item }}    
+                                        Chat con ciudadano {{ item.id }}    
                                     {{endif}}
                                 </div>
                                 <div class="row">
                                         {{for grupo in chat_grupos}}
                                             {# En caso el usuario actual sea funcionario, se crea un chat con cada ciudadano #}
                                             {{if player.id_in_group == id_de_funcionario}}
-                                                {{if item == grupo.user1 and grupo.user2 == id_de_funcionario}}
+                                                {{if item.id == grupo.user1 and grupo.user2 == id_de_funcionario}}
                                                 
                                                     <div class="row">
-                                                        {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                        {{for nick in nicknames}}
+                                                            
+                                                            {{if nick.id == player.id_in_group}}
+                                                                {{ chat nickname=nick.nickname channel=grupo.nombre_canal_chat}}
+                                                             
+                                                            {{endif}}
+
+                                                        {{endfor}}
                                                     </div>
                                                     <div class="row">
                                                         Interaccion con participante
@@ -92,12 +117,12 @@
 
                                                     <div class="row">
 
-                                                        <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user2}},{{grupo.user1}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Enviar puntos: </button> </div>
+                                                        <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user2}},{{grupo.user1}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Ofrecer puntos: </button> </div>
                                                         <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                     </div>
                                                     
                                                     <div class="row">
-                                                        <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{grupo.user2}},{{grupo.user1}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                        <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{grupo.user2}},{{grupo.user1}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
                                                         <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                     </div>
                                                     <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
@@ -112,11 +137,16 @@
 
 
                                                 {{endif}}
+                                                
                                             {# En caso el usuario actual sea ciudadano, se crea un chat con el funcionario #}
-                                            {{elif item == player.id_in_group}}
-                                                {{if grupo.user1 == item and grupo.user2 == id_de_funcionario}}
+                                            {{elif item.id == player.id_in_group}}
+                                                {{if grupo.user1 == item.id and grupo.user2 == id_de_funcionario}}
                                                     <div class="row">
-                                                        {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                        {{for nick in nicknames}}
+                                                            {{if nick.id == player.id_in_group}}
+                                                                {{ chat nickname=nick.nickname channel=grupo.nombre_canal_chat}}
+                                                            {{endif}}
+                                                        {{endfor}}
                                                     </div>
                                                 
                                                 <div class="row">
@@ -124,12 +154,12 @@
                                                 </div>
                                                 
                                                 <div class="row">
-                                                    <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user1}},{{grupo.user2}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Enviar puntos: </button> </div>
+                                                    <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{grupo.user1}},{{grupo.user2}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}">Ofrecer puntos: </button> </div>
                                                     <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                 </div>
                                                 
                                                 <div class="row">
-                                                    <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{grupo.user1}},{{grupo.user2}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                    <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{grupo.user1}},{{grupo.user2}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
                                                     <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                 </div>
                                                 <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
@@ -145,10 +175,14 @@
 
                                             {# En caso el usuario actual sea ciudadano, se crea un chat con los otros ciudadanos #}
                                             {{else}}
-                                                {{if item > player.id_in_group}}
-                                                    {{if grupo.user1 == player.id_in_group and grupo.user2 == item}}
+                                                {{if item.id > player.id_in_group}}
+                                                    {{if grupo.user1 == player.id_in_group and grupo.user2 == item.id}}
                                                         <div class="row">
-                                                            {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                            {{for nick in nicknames}}
+                                                                {{if nick.id == grupo.user1}}
+                                                                    {{ chat nickname=nick.nickname channel=grupo.nombre_canal_chat}}
+                                                                {{endif}}
+                                                                {{endfor}}
                                                         </div>
 
                                                         <div class="row">
@@ -156,12 +190,12 @@
                                                         </div>
                                                         
                                                         <div class="row">
-                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Enviar puntos: </button> </div>
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item.id}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Ofrecer puntos: </button> </div>
                                                             <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                         </div>
                                                         
                                                         <div class="row">
-                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{player.id_in_group}},{{item}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{player.id_in_group}},{{item.id}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
                                                             <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                         </div>
                                                         <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
@@ -175,21 +209,26 @@
 
 
 
-                                                    {{if grupo.user1 == item and grupo.user2 == player.id_in_group }}
+                                                    {{if grupo.user1 == item.id and grupo.user2 == player.id_in_group }}
                                                         <div class="row"> 
-                                                            {{ chat nickname=player.role channel=grupo.nombre_canal_chat}}
+                                                            {{for nick in nicknames}}
+                                                                {{if nick.id == grupo.user2}}
+                                                                    {{ chat nickname=nick.nickname channel=grupo.nombre_canal_chat}}
+                                                                {{endif}}
+                                                                {{endfor}}
+                                                            
                                                         </div>
                                                         <div class="row">
                                                             Interaccion con participante
                                                         </div>
                                                         
                                                         <div class="row">
-                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Enviar puntos: </button> </div>
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="enviarPuntos({{player.id_in_group}},{{item.id}})" id="enviar_puntos_boton_{{grupo.nombre_canal_chat}}"> Ofrecer puntos: </button> </div>
                                                             <div class="col-3"> <input type="text" class="form-control" id="enviar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                         </div>
                                                         
                                                         <div class="row">
-                                                            <div class="col-8"> <button type="button" class="btn btn-outline-primary" onclick="solicitarPuntos({{player.id_in_group}},{{item}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                            <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{player.id_in_group}},{{item.id}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
                                                             <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                         </div>
                                                         <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
@@ -207,25 +246,70 @@
                         {% endfor %}
                     </div>
                     <br>
-                    <div class="row">
+                    <div class="row" >
                         Balance de transacciones
                     </div>
-                    <div class="row">
-                        <table class="table">
-                            <thead>
-                              <tr>
-                                <th scope="col">Envia</th>
-                                <th scope="col">Recibe</th>
-                                <th scope="col">Transf Aceptada</th>
-                                <th scope="col">Puntos</th>
-                              </tr>
-                            </thead>
-                            <tbody id="balance_de_transacciones_body">
-
-                            </tbody>
-                          </table>
+                    <div class="row" style="min-height: 100px;">
+                        <div>
+                            <table class="table" >
+                                <thead>
+                                  <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Envia</th>
+                                    <th scope="col">Recibe</th>
+                                    <th scope="col">Transf Aceptada</th>
+                                    <th scope="col">Puntos</th>
+                                    <th scope="col">Balance</th>
+                                  </tr>
+                                </thead>
+                                <tbody id="balance_de_transacciones_body" >
+                                    <tr>
+                                        <th scope="">--</th>
+                                        <th scope="">--</th>
+                                        <th scope="col">--</th>
+                                        <th scope="col">--</th>
+                                        <th>--</th>
+                                        <th> {{player.endowment_derecha}} </th>
+                                    </tr>
+                                </tbody>
+                              </table>
+                        </div>
                     </div>
                 </div>
+            
+            
+            </div>
+            <div class="row border border-dark border-3 border-top-0  px-2"> 
+                    <div class="row py-4 text-center"> <strong>Historia</strong> </div>
+                    <div class="row">
+                        <div class="container">
+                            <table class="table">
+                            <thead>
+                                <tr>
+                                <th>Segmento</th>
+                                <th>Periodo</th>
+                                <th>Contribución</th>
+                                <th>Asignación de servicios públicos</th>
+                                <th>Total transferencias recibidas</th>
+                                <th>Total transferencias enviadas</th>
+                                <th>Pago del Periodo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                <td>1</td>
+                                <td>2</td>
+                                <td>10</td>
+                                <td>50</td>
+                                <td>5</td>
+                                <td>20</td>
+                                <td>65</td>
+                                </tr>
+                            </tbody>
+                            </table>
+                        </div>
+                    </div>
+
             </div>
     </div>
     
@@ -233,8 +317,11 @@
 </body>
 </html>
 <script>
+    transferencia_neta_derecha = 0
+    transferencia_neta_izquierda = 0
     var aportes_al_proyecto_comun = 0
     var monto_comun = 0
+    numero_de_transaccion = 0
     function liveRecv(data) {
         console.log('received a message!', data);
         
@@ -297,18 +384,22 @@
             {
                 if(data.respuesta == 'no'){
                     console.log('el usuario '+data.emisor+' ha rechazado tu solicitud')
-                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'envío')
+                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'ofrece')
                     
                 }
                 if(data.respuesta == 'si'){
+                    transferencia_neta_derecha = transferencia_neta_derecha - data.puntos
+                    console.log('transferencia_neta_derecha: ' + transferencia_neta_derecha)
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
-                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'envío')
+                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'ofrece')
+                    
                 }
 
                 //desbloquear botones de envio
                 desbloquear_todos_botones_enviar_puntos(data.receptor,data.emisor)
                 //desbloquear boton de solicitud
                 desbloquear_un_boton_solicitud(data.emisor,data.receptor)
+                eliminar_mensaje_de_envio(data.emisor,data.receptor) 
 
             }
             if(data.sub_operacion == 'cancelar_enviar_puntos')
@@ -377,16 +468,18 @@
             {
                 if(data.respuesta == 'no'){
                     console.log('el usuario '+data.emisor+' ha rechazado tu solicitud')
-                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'solicita')
                 }
                 if(data.respuesta == 'si'){
+                    transferencia_neta_derecha = transferencia_neta_derecha + data.puntos
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
-                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'solicitud')
+                    agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'solicita')
                 }
                 //desbloquear botones de envio
                 desbloquear_todos_botones_solicitar_puntos(data.receptor,data.emisor)
                 //desbloquear boton de solicitud
                 desbloquear_un_boton_envio(data.emisor,data.receptor)
+                eliminar_mensaje_de_solicitud(data.emisor,data.receptor) 
             }
             if(data.sub_operacion == 'cancelar_solicitar_puntos')
             {
@@ -403,7 +496,7 @@
         }
         if(data.operacion == 'proyecto_comun')
         {
-            if(data.sub_operacion == 'enviar_puntos')
+            if(data.sub_operacion == 'ciudadano_envia_puntos')
             {
                 if(data.receptor == {{id_de_funcionario}}){
                     console.log('se enviaron ' + data.puntos + ' puntos al proyecto comun de parte del ciudadano ' + data.emisor)
@@ -413,20 +506,32 @@
                     {mostrar_reparticion_de_puntos_de_funcionario(monto_comun)}
                 }
             }
+            if(data.sub_operacion == 'funcionario_envia_puntos')
+            {   
+                elemento_a_modificar = document.getElementById('reemplazar_texto_al_recibir_puntos_del_funcionario_'+data.receptor)
+                elemento_a_modificar.textContent = "Los puntos que enviaste se triplicaron y el funcionario te ha otorgado " + data.puntos + " puntos."
+                console.log("el funcionario te ha otorgado puntos: " + data.puntos)
+            }
         }
     }
 
     function enviarPuntos(emisor, receptor) {
+
         if (emisor > receptor)
         {puntos = document.getElementById('enviar_puntos_'+String(receptor)+String(emisor))      }
         
         else
         {puntos = document.getElementById('enviar_puntos_'+String(emisor)+String(receptor))      }
-        console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
-        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos','puntos': puntos.value});
-        bloquear_todos_botones_enviar_puntos(emisor, receptor)
-        bloquear_un_boton_solicitud(emisor, receptor)
-        mostrar_mensaje_de_envio(emisor,receptor,puntos.value)
+        
+        continuar = verificar_no_vacio_o_nulo(puntos)
+        
+        if (continuar) {
+            console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
+            liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos','puntos': puntos.value});
+            bloquear_todos_botones_enviar_puntos(emisor, receptor)
+            bloquear_un_boton_solicitud(emisor, receptor)
+            mostrar_mensaje_de_envio(emisor,receptor,puntos.value)
+        } 
     }
 
 
@@ -435,19 +540,22 @@
         a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
         console.log(grupo_chat)
-        agregarRegistro(emisor,receptor,'si',puntos,'envío')
+        
         liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos_respuesta','respuesta': 'si','puntos':puntos});
+        transferencia_neta_derecha = transferencia_neta_derecha + puntos
+        console.log('transferencia_neta_derecha: ' + transferencia_neta_derecha)
         //desbloquear boton de envio 
         desbloquear_un_boton_envio(emisor,receptor)
         //desbloquear boton de solicitud
         desbloquear_un_boton_solicitud(emisor,receptor)
+        agregarRegistro(emisor,receptor,'si',puntos,'ofrece')
     }
 
     function rechazar_enviar_puntos(grupo_chat,emisor,receptor,puntos)
     {
         a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
-        agregarRegistro(emisor,receptor,'no',puntos,'envío')
+        agregarRegistro(emisor,receptor,'no',puntos,'ofrece')
         liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'enviar_puntos_respuesta','respuesta': 'no','puntos':puntos});
         //desbloquear boton de envio 
         desbloquear_un_boton_envio(emisor,receptor)
@@ -458,32 +566,38 @@
     function solicitarPuntos(emisor, receptor) {
         if (emisor > receptor)
         {puntos = document.getElementById('solicitar_puntos_'+String(receptor)+String(emisor))      }
-        
         else
         {puntos = document.getElementById('solicitar_puntos_'+String(emisor)+String(receptor))      }
-        console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
-        liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos','puntos': puntos.value});
-        bloquear_todos_botones_solicitar_puntos (emisor, receptor)
-        bloquear_un_boton_envio(emisor, receptor)
-        mostrar_mensaje_de_solicitud(emisor,receptor)
+
+        continuar = verificar_no_vacio_o_nulo(puntos)
+        if (continuar)
+        {
+            console.log("Emisor: " + emisor  + " Receptor: " + receptor + ' puntos: ' + puntos.value + ' operacion: ')
+            liveSend({'emisor': parseInt(emisor), 'receptor': receptor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos','puntos': puntos.value});
+            bloquear_todos_botones_solicitar_puntos (emisor, receptor)
+            bloquear_un_boton_envio(emisor, receptor)
+            mostrar_mensaje_de_solicitud(emisor,receptor,puntos.value)
+        }
+        
     }
     function aceptar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
     {   
         a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
         console.log(grupo_chat)
-        agregarRegistro(emisor,receptor,'si',puntos,'solicitud')
+        transferencia_neta_derecha = transferencia_neta_derecha - puntos
         liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos_respuesta','respuesta': 'si','puntos':puntos});
         //desbloquear boton de envio 
         desbloquear_un_boton_envio(emisor,receptor)
         //desbloquear boton de solicitud
         desbloquear_un_boton_solicitud(emisor,receptor)
+        agregarRegistro(emisor,receptor,'si',puntos,'solicita')
     }
     function rechazar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
     {
         a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
-        agregarRegistro(emisor, receptor,'no',puntos,'solicitud')
+        agregarRegistro(emisor, receptor,'no',puntos,'solicita')
         liveSend({'emisor': parseInt(receptor), 'receptor': emisor,  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos_respuesta','respuesta': 'no','puntos':puntos});
         //desbloquear boton de envio 
         desbloquear_un_boton_envio(emisor,receptor)
@@ -494,6 +608,8 @@
     // agrega un registro a la tabla de transacciones
     function agregarRegistro(emisor,receptor,aceptado,puntos, tipo)
     {
+        numero_de_transaccion = numero_de_transaccion + 1 
+
         if (emisor == {{id_de_funcionario}}){emisor= 'Funcionario'}
         else {emisor = 'Ciudadano '+ emisor}
         if (receptor == {{id_de_funcionario}}){receptor= 'Funcionario'}
@@ -506,40 +622,55 @@
         // Crea un nuevo elemento <tr> (fila) para el registro
         var nuevaFila = document.createElement('tr');
 
-        // Crea un elemento <th> para el número de fila
         var th = document.createElement('th');
         th.setAttribute('scope', 'row');
-        th.textContent = emisor + ' ('+ tipo + ')'; // Cambia el número según corresponda
+        th.textContent = numero_de_transaccion;
+        // Crea un elemento <th> para el número de fila
+
+        var emisor_ = document.createElement('td');
+        emisor_.setAttribute('scope', 'row');
+        emisor_.textContent = emisor + ' ('+ tipo + ')'; // Cambia el número según corresponda
 
         // Crea un elemento <td> para el nombre del ciudadano
         var nombreCiudadano = document.createElement('td');
         nombreCiudadano.textContent = receptor; // Cambia el nombre según corresponda
 
         // Crea un elemento <td> para la flecha (-->)
-        var flecha = document.createElement('td');
-        flecha.textContent = aceptado;
+        var transf_aceptado = document.createElement('td');
+        transf_aceptado.textContent = aceptado;
 
         // Crea un elemento <td> para el monto
         var monto = document.createElement('td');
         monto.textContent = puntos; // Cambia el monto según corresponda
 
+        var balance = document.createElement('td');
+        balance.textContent = parseInt({{player.endowment_derecha}}) + parseInt(transferencia_neta_derecha) ;
+
         // Agrega los elementos a la fila
         nuevaFila.appendChild(th);
+        nuevaFila.appendChild(emisor_);
         nuevaFila.appendChild(nombreCiudadano);
-        nuevaFila.appendChild(flecha);
+        nuevaFila.appendChild(transf_aceptado);
         nuevaFila.appendChild(monto);
+        nuevaFila.appendChild(balance);
 
         // Agrega la nueva fila al tbody
-        tbody.appendChild(nuevaFila);
+        //tbody.appendChild(nuevaFila);
+        tbody.insertBefore(nuevaFila, tbody.firstChild);
     }
     
     function enviar_puntos_proyecto_comun(id)
     {
         puntos_a_enviar = document.getElementById('proyecto_comun_'+id)
-        console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
-        liveSend({'emisor': id, 'receptor': {{id_de_funcionario}},  'operacion':'proyecto_comun', 'sub_operacion': 'enviar_puntos','respuesta': '--','puntos':puntos_a_enviar.value});
-        texto_a_reemplazar_en_div = document.getElementById('reemplazar_texto_al_enviar_al_proyecto_comun_'+id);
-        texto_a_reemplazar_en_div.textContent = 'Haz enviado ' +puntos_a_enviar.value+ ' puntos al proyecto comun.' 
+        continuar = verificar_no_vacio_o_nulo(puntos_a_enviar)
+        if (continuar)
+        {
+            console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
+            liveSend({'emisor': id, 'receptor': {{id_de_funcionario}},  'operacion':'proyecto_comun', 'sub_operacion': 'ciudadano_envia_puntos','respuesta': '--','puntos':puntos_a_enviar.value});
+            texto_a_reemplazar_en_div = document.getElementById('reemplazar_texto_al_enviar_al_proyecto_comun_'+id);
+            texto_a_reemplazar_en_div.textContent = 'Haz enviado ' +puntos_a_enviar.value+ ' puntos al proyecto comun.' 
+        }
+        
     }
 
     function sumar_al_monto_comun(puntos) 
@@ -654,9 +785,14 @@
     }
     function enviar_puntos_a_ciudadanos() {
         sumatoria_de_puntos = 0
-        for (let i = 1; i < parseInt({{id_de_funcionario}}); i++) {
+        continuar = true
+        id_de_funcionario = parseInt({{id_de_funcionario}})
+        for (let i = 1; i < id_de_funcionario; i++) {
             elementoId = "otorgar_puntos_a_ciudadano_" + i;
+            // verificar si se continua o no
             elemento = document.getElementById(elementoId);
+            if (!(elemento && elemento.value.trim() !== "" && elemento.value != 0))
+            {continuar = false}
 
             if (elemento) {
                 sumatoria_de_puntos = parseInt(sumatoria_de_puntos) + parseInt(elemento.value)
@@ -668,11 +804,30 @@
                 console.log("Elemento " + elementoId + " no encontrado.");
             }
         }
-        console.log(puntos_triplicados.textContent,sumatoria_de_puntos)
-        if (parseInt(puntos_triplicados.textContent) == sumatoria_de_puntos)
-                {alert('puntos_enviados')}
-                else
-                {alert('La suma de puntos enviados debe tener el mismo valor que el puntaje triplicado ')}
+        if(continuar)
+        {
+            console.log(puntos_triplicados.textContent,sumatoria_de_puntos)
+            if (parseInt(puntos_triplicados.textContent) == sumatoria_de_puntos)
+            {
+                alert('puntos_enviados')
+                for (let j = 1; j < id_de_funcionario; j++)
+                {
+                    puntos_a_enviar_a_un_ciudadano = document.getElementById("otorgar_puntos_a_ciudadano_"+j);
+                    liveSend({'emisor': id_de_funcionario, 'receptor': j,  'operacion':'proyecto_comun', 'sub_operacion': 'funcionario_envia_puntos', 'puntos':puntos_a_enviar_a_un_ciudadano.value});
+                }
+
+            }
+
+            else
+            {alert('La suma de puntos enviados debe tener el mismo valor que el puntaje triplicado ')}
+            
+            
+        }
+        else {alert("El puntaje a enviar debe ser mayor a cero")}
+
+        reemplazar = document.getElementById('texto_mostrado_al_funcionario')
+        reemplazar.textContent = 'Se han repartido los puntos a los ciudadanos'
+        
     }
 
     // Llamada pra bloquear botones
@@ -862,6 +1017,11 @@
         else                        {nombre_del_canal = String(emisor) + String(receptor)}
         return nombre_del_canal
     }  
+    function verificar_no_vacio_o_nulo(puntos)
+        {
+            if (puntos && puntos.value.trim() !== "" && puntos.value != 0)  {return true}
+            else {alert("El valor de entrada no puede ser nulo o vacío"); return false}
+        }
 </script>
 
 {{ formfields }}
