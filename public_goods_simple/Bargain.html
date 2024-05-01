@@ -28,6 +28,7 @@
     </style>
 </head>
 <body>
+    
     <div class="container ">
 
 
@@ -35,13 +36,18 @@
 
             <div class="row border border-dark border-3 border-bottom-0 py-4 ">
                 <div class="col text-end" >
-                    Segmento
+                    Segmento: {{player.round_number}}
                 </div>
                 <div class="col text-center">
-                    Periodo
+                    Periodo:  {{player.periodo}}
                 </div>
                 <div class="col text-start">
-                    Rol                    
+                    Rol: 
+                    {{if player.id_in_group == id_de_funcionario}}
+                        Funcionario
+                    {{else}}
+                        Ciudadano: {{player.id_in_group}}
+                    {{endif}}
                 </div>
             </div>
             <div class="row border-dark border border-3 ">
@@ -251,7 +257,7 @@
                     </div>
                     <div class="row" style="min-height: 100px;">
                         <div>
-                            <table class="table" >
+                            <table class="table"  >
                                 <thead>
                                   <tr>
                                     <th scope="col">#</th>
@@ -283,10 +289,10 @@
                     <div class="row py-4 text-center"> <strong>Historia</strong> </div>
                     <div class="row">
                         <div class="container">
-                            <table class="table">
+                            <table class="table" id="historial_tabla">
                             <thead>
                                 <tr>
-                                <th>Segmento</th>
+                                <th>Segmento:  </th>
                                 <th>Periodo</th>
                                 <th>Contribución</th>
                                 <th>Asignación de servicios públicos</th>
@@ -297,13 +303,7 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                <td>1</td>
-                                <td>2</td>
-                                <td>10</td>
-                                <td>50</td>
-                                <td>5</td>
-                                <td>20</td>
-                                <td>65</td>
+                                
                                 </tr>
                             </tbody>
                             </table>
@@ -312,13 +312,24 @@
 
             </div>
     </div>
-    
+    <input type="button" class=" btn btn-primary" onclick="actualizar_resultados()" value="Next">
 
 </body>
 </html>
+{{ next_button }}
 <script>
+    // desactivar boton next
+    
+
+
     transferencia_neta_derecha = 0
     transferencia_neta_izquierda = 0
+    transferencia_enviada = 0
+    transferencia_recibida = 0
+    contribucion_comun = 0
+    contribucion_ciudadano = 0
+    asignacion_de_servicios_publicos = 0
+    // # de aportantes
     var aportes_al_proyecto_comun = 0
     var monto_comun = 0
     numero_de_transaccion = 0
@@ -388,6 +399,7 @@
                     
                 }
                 if(data.respuesta == 'si'){
+                    transferencia_enviada = transferencia_enviada + data.puntos
                     transferencia_neta_derecha = transferencia_neta_derecha - data.puntos
                     console.log('transferencia_neta_derecha: ' + transferencia_neta_derecha)
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
@@ -471,6 +483,7 @@
                     agregarRegistro(data.receptor,data.emisor,'no',data.puntos,'solicita')
                 }
                 if(data.respuesta == 'si'){
+                    transferencia_recibida = transferencia_recibida + data.puntos 
                     transferencia_neta_derecha = transferencia_neta_derecha + data.puntos
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
                     agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'solicita')
@@ -508,6 +521,7 @@
             }
             if(data.sub_operacion == 'funcionario_envia_puntos')
             {   
+                asignacion_de_servicios_publicos = data.puntos
                 elemento_a_modificar = document.getElementById('reemplazar_texto_al_recibir_puntos_del_funcionario_'+data.receptor)
                 elemento_a_modificar.textContent = "Los puntos que enviaste se triplicaron y el funcionario te ha otorgado " + data.puntos + " puntos."
                 console.log("el funcionario te ha otorgado puntos: " + data.puntos)
@@ -537,6 +551,9 @@
 
     function aceptar_enviar_puntos(grupo_chat,emisor,receptor,puntos)
     {   
+        //actualizar transferencia recibida
+        transferencia_recibida = transferencia_recibida + puntos
+
         a_eliminar = document.getElementById('solicitud_enviar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
         console.log(grupo_chat)
@@ -582,6 +599,9 @@
     }
     function aceptar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
     {   
+        //actualizar transferencia 
+        transferencia_enviada = transferencia_enviada + puntos
+
         a_eliminar = document.getElementById('solicitud_solicitar'+grupo_chat)
         a_eliminar.parentNode.removeChild(a_eliminar);
         console.log(grupo_chat)
@@ -661,8 +681,12 @@
     
     function enviar_puntos_proyecto_comun(id)
     {
+        
         puntos_a_enviar = document.getElementById('proyecto_comun_'+id)
-        continuar = verificar_no_vacio_o_nulo(puntos_a_enviar)
+        //actualizar aportes al proyexcto comun
+        contribucion_ciudadano = puntos_a_enviar.value
+
+        continuar = verificar_mayor_igual_a_cero(puntos_a_enviar)
         if (continuar)
         {
             console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
@@ -791,7 +815,7 @@
             elementoId = "otorgar_puntos_a_ciudadano_" + i;
             // verificar si se continua o no
             elemento = document.getElementById(elementoId);
-            if (!(elemento && elemento.value.trim() !== "" && elemento.value != 0))
+            if (!(elemento && elemento.value.trim() !== "" && elemento.value >= 0))
             {continuar = false}
 
             if (elemento) {
@@ -815,7 +839,8 @@
                     puntos_a_enviar_a_un_ciudadano = document.getElementById("otorgar_puntos_a_ciudadano_"+j);
                     liveSend({'emisor': id_de_funcionario, 'receptor': j,  'operacion':'proyecto_comun', 'sub_operacion': 'funcionario_envia_puntos', 'puntos':puntos_a_enviar_a_un_ciudadano.value});
                 }
-
+                reemplazar = document.getElementById('texto_mostrado_al_funcionario')
+                reemplazar.textContent = 'Se han repartido los puntos a los ciudadanos'
             }
 
             else
@@ -825,8 +850,7 @@
         }
         else {alert("El puntaje a enviar debe ser mayor a cero")}
 
-        reemplazar = document.getElementById('texto_mostrado_al_funcionario')
-        reemplazar.textContent = 'Se han repartido los puntos a los ciudadanos'
+        
         
     }
 
@@ -1017,15 +1041,106 @@
         else                        {nombre_del_canal = String(emisor) + String(receptor)}
         return nombre_del_canal
     }  
+    function verificar_mayor_igual_a_cero(puntos)
+        {
+            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value < {{player.endowment_izquierda}})  {return true}
+            else {alert("Ingresa una cantidad válida"); return false}
+        }
     function verificar_no_vacio_o_nulo(puntos)
         {
             if (puntos && puntos.value.trim() !== "" && puntos.value != 0)  {return true}
             else {alert("El valor de entrada no puede ser nulo o vacío"); return false}
         }
+
+    function actualizar_resultados()
+    {
+        obtener_boton = document.getElementsByClassName("otree-btn-next")[0];
+        console.log("transferencia enviada:" + transferencia_enviada)
+        obtener_boton.click();
+        liveSend({'operacion':'actualizar_puntuacion', 'transferencia_enviada':transferencia_enviada, 'transferencia_recibida':transferencia_recibida, 'contribucion_ciudadano': contribucion_ciudadano, 'asignacion_de_servicios_publicos' : asignacion_de_servicios_publicos, periodo: {{player.periodo}}, pago_del_periodo : calcular_pago_del_periodo()   });
+    }
+    function calcular_pago_del_periodo()
+    {
+        pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)
+        pago_izquierda = parseInt({{player.endowment_izquierda}}) - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
+        pago_total = parseInt(pago_izquierda) + parseInt(pago_derecha) 
+        return pago_total;
+    }
+    function cargar_historial()
+    {
+        
+        var miLista = {{player.lista_de_resultados}}
+        
+        if (!miLista.length) {
+        console.log('El historial esta vacio');
+        } else 
+        
+            for (j = 0; j < miLista.length; j++){console.log("Historial: " + j)
+            {
+                var newRow = document.createElement("tr");
+
+                //segmento
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.round_number}}
+                newRow.appendChild(newTh);
+                
+                //periodo
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.lista_de_resultados}}[j].periodo;
+                newRow.appendChild(newTh);
+
+                //contribucion
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.lista_de_resultados}}[j].contribucion_ciudadano;
+                newRow.appendChild(newTh);
+
+                // asignacion de servicios publicos
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.lista_de_resultados}}[j].asignacion_de_servicios_publicos
+                newRow.appendChild(newTh);
+
+
+                // Total transferencias recibidas
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_recibida;
+                newRow.appendChild(newTh);
+
+                // Total transferencias enviadas
+                var newTh = document.createElement("th");
+                newTh.setAttribute("scope", "col");
+                newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_enviada;
+                newRow.appendChild(newTh);
+
+                // Pago del Periodo
+                var newTh = document.createElement("th");
+                newTh.textContent = {{player.lista_de_resultados}}[j].pago_del_periodo;
+                newRow.appendChild(newTh);
+
+                // Ahora, insertar la fila creada en un elemento existente (por ejemplo, una tabla)
+                var table = document.getElementById("historial_tabla"); // Obtiene la tabla existente
+                table.appendChild(newRow); // Inserta la fila en la tabla
+                console.log('El historial no esta vacio');
+            }
+        }
+    }
+    cargar_historial()
+
+
+    // ocultar el boton next por defecto
+    // Obtener el elemento con la clase "otree-btn-next"
+    var botonNext = document.querySelector('.otree-btn-next');
+    // Ocultar el botón
+    botonNext.style.visibility = "hidden";
+    
 </script>
 
 {{ formfields }}
     
-    {{ next_button }}
+    
 
 {{ endblock }}

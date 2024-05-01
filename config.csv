@@ -1,0 +1,2 @@
+segments,periods_per_segment,left_endowment,right_endowment,multiplication_factor,private_interaction,equal_asigment
+4,3,500,500,0.5,true,false
