@@ -243,9 +243,9 @@ class Bargain(Page):
 
             player.asignacion_servicios_publicos = int(data['asignacion_de_servicios_publicos'])
             player.contribucion_ciudadano = int(data['contribucion_ciudadano'])
-            #player.lista_de_resultados = player.lista_de_resultados
+            
             lista = player.lista_de_resultados
-            #player.lista_de_resultados = lista
+            
             print(player.lista_de_resultados)
             lista.append(data)
             
