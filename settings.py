@@ -7,6 +7,14 @@ SESSION_CONFIGS = [
         display_name="public_goods_simple",
         app_sequence=['public_goods_simple'],
         num_demo_participants=4,
+        exchange_point_betwen_players = True,
+    ),
+    dict(
+        name='public_goods_simple_without_exchange_points_between_players',
+        display_name="public goods without exchange points between players",
+        app_sequence=['public_goods_simple'],
+        num_demo_participants=4,
+        exchange_point_betwen_players = False,
     ),
 
 ]

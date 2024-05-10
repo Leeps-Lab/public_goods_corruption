@@ -50,39 +50,49 @@
                     {{endif}}
                 </div>
             </div>
+            
             <div class="row border-dark border border-3 ">
+                {{if exchange_point_betwen_players}}
                 <div class="col-3 d-flex align-items-center   py-2 px-4 ">
+                {{else}}
+                <div class="col align-items-center   py-2 px-4 ">
+
+                {{endif}}
                     
-                    
+                    {{if exchange_point_betwen_players}}
                     <div>
-                    {{ if  player.id_in_group == player.session.num_participants }}
-                        <p class="text-center">Tu rol es el de funcionario</p>
-                         
-                        <br>
-                        <div class="text-center" id="texto_mostrado_al_funcionario">
-                            <div class="text-center" id="activar_texto_de_puntaje_triplicado_en_total" style="visibility: hidden;" > El total de puntos se ha convertido a <div id="puntaje_triplicado"></div>, repártelos entre los ciudadanos. </div>
-                            <div class="text-center" id="activar_texto_de_fondo_comun"></div>
-                        </div>
-                        
-                        
-                    {{else}}
-                        
-                        <p class="text-center">Tu rol es el de ciudadano {{player.id_in_group}}</p>
-                        <br>
-                        <div id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
-                            <p class="text-center">Tienes {{player.endowment_izquierda}} para distribuir entre tu cuenta y un proyecto común.</p>
-                            <p class="text-center" >Puntos a dar:</p>
+                    {{endif}}
+                        {{ if  player.id_in_group == player.session.num_participants }}
+                            <p class="text-center">Tu rol es el de funcionario</p>
                             
-                            <div class="row">
-                                <div class="col-6"><input type="text" id="proyecto_comun_{{player.id_in_group}}"></div>
-                                <div class="col-6"><input type="button" value="Enviar puntos" onclick="enviar_puntos_proyecto_comun({{player.id_in_group}})"></div>
+                            <br>
+                            <div class="text-center" id="texto_mostrado_al_funcionario">
+                                <div class="text-center" id="activar_texto_de_puntaje_triplicado_en_total" style="visibility: hidden;" > El total de puntos se ha convertido a <div id="puntaje_triplicado"></div>, repártelos entre los ciudadanos. </div>
+                                <div class="text-center" id="activar_texto_de_fondo_comun"></div>
                             </div>
-                        </div>
-                        <div class="text-center" id="reemplazar_texto_al_recibir_puntos_del_funcionario_{{player.id_in_group}}"> </div>
-                        
-                    {{ endif }}
+                            
+                            
+                        {{else}}
+                            
+                            <p class="text-center">Tu rol es el de ciudadano {{player.id_in_group}}</p>
+                            <br>
+                            <div class="text-center" id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
+                                <p class="text-center">Tienes {{player.endowment_izquierda}} para distribuir entre tu cuenta y un proyecto común.</p>
+                                <p class="text-center" >Puntos a dar:</p>
+                                
+                                <div class="row">
+                                    <div class="col-6 text-end"><input type="text" id="proyecto_comun_{{player.id_in_group}}"></div>
+                                    <div class="col-6 text-start"><input type="button" value="Enviar puntos" onclick="enviar_puntos_proyecto_comun({{player.id_in_group}})"></div>
+                                </div>
+                            </div>
+                            <div class="text-center" id="reemplazar_texto_al_recibir_puntos_del_funcionario_{{player.id_in_group}}"> </div>
+                            
+                        {{ endif }}
+                    {{if exchange_point_betwen_players}}
                     </div>
+                    {{endif}}
                 </div>
+                {{if exchange_point_betwen_players}}
                 <div class="col-9 border-start border-dark p-2 px-4 scroll_wrap"">
                     <div class="row">
  
@@ -100,6 +110,12 @@
                                     {{else}}
                                         Chat con ciudadano {{ item.id }}    
                                     {{endif}}
+                                    {{if exchange_point_betwen_players}}
+                                        si hay
+                                    {{else}}
+                                        no hay
+                                    {{endif}}
+
                                 </div>
                                 <div class="row">
                                         {{for grupo in chat_grupos}}
@@ -282,9 +298,12 @@
                         </div>
                     </div>
                 </div>
+                {{endif}}
             
             
             </div>
+
+            
             <div class="row border border-dark border-3 border-top-0  px-2"> 
                     <div class="row py-4 text-center"> <strong>Historia</strong> </div>
                     <div class="row">
@@ -1060,8 +1079,13 @@
         liveSend({'operacion':'actualizar_puntuacion', 'transferencia_enviada':transferencia_enviada, 'transferencia_recibida':transferencia_recibida, 'contribucion_ciudadano': contribucion_ciudadano, 'asignacion_de_servicios_publicos' : asignacion_de_servicios_publicos, periodo: {{player.periodo}}, pago_del_periodo : calcular_pago_del_periodo()   });
     }
     function calcular_pago_del_periodo()
-    {
-        pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)
+    {   
+        //console.log({{exchange_point_betwen_players}})
+
+        if ('{{exchange_point_betwen_players}}' == 'True')
+        {pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)}
+        else
+            {pago_derecha = 0}
         pago_izquierda = parseInt({{player.endowment_izquierda}}) - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
         pago_total = parseInt(pago_izquierda) + parseInt(pago_derecha) 
         return pago_total;

@@ -165,7 +165,7 @@ class Bargain(Page):
         #for i in range(1,numero_de_participantes):
         #    nuevo_diccionario = {"user1": i, "user2": j, "nombre_canal_chat": str(i)+str(j)}
         
-
+        exchange_point_betwen_players = player.session.config.get('exchange_point_betwen_players', False)
 
         return dict(
             id_de_funcionario = id_de_funcionario,
@@ -173,6 +173,7 @@ class Bargain(Page):
             lista_de_participantes = lista_de_participantes,
             chat_grupos = chat_grupos,
             nicknames = nicknames,
+            exchange_point_betwen_players = exchange_point_betwen_players,
             #endowment_izquierda = player.endowment_izquierda,
             #endowment_derecha = player.endowment_izquierda,
         )
