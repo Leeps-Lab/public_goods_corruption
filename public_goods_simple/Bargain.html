@@ -77,7 +77,7 @@
                             <p class="text-center">Tu rol es el de ciudadano {{player.id_in_group}}</p>
                             <br>
                             <div class="text-center" id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
-                                <p class="text-center">Tienes {{player.endowment_izquierda}} para distribuir entre tu cuenta y un proyecto común.</p>
+                                <p class="text-center">Tienes <span id="endowment_izquierda">{{player.endowment_izquierda}}</span> para distribuir entre tu cuenta y un proyecto común.</p>
                                 <p class="text-center" >Puntos a dar:</p>
                                 
                                 <div class="row">
@@ -377,7 +377,7 @@
                 var divTexto = document.createElement('div');
                 divTexto.classList.add('col');
                 //divTexto.textContent = 'El participante ' + data.emisor + ' quiere enviarte ' + data.puntos + ' puntos.';
-                divTexto.textContent = 'Quiere enviar ' + data.puntos + ' puntos.';
+                divTexto.textContent = 'Te ha ofrecido ' + data.puntos + ' puntos.';
 
                 // Crear un div con la clase "col" para el input de tipo botón "Aceptar"
                 var divAceptar = document.createElement('div');
@@ -423,6 +423,7 @@
                     console.log('transferencia_neta_derecha: ' + transferencia_neta_derecha)
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
                     agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'ofrece')
+                    igualar_endowment_izquierda_con_derecha_en_dowment_compartido(data.receptor,'restar',data.puntos)
                     
                 }
 
@@ -461,7 +462,7 @@
                 var divTexto = document.createElement('div');
                 divTexto.classList.add('col');
                 //divTexto.textContent = 'El participante ' + data.emisor + ' quiere enviarte ' + data.puntos + ' puntos.';
-                divTexto.textContent = 'Quiere recibir ' + data.puntos + ' puntos.';
+                divTexto.textContent = 'Te ha solicitado ' + data.puntos + ' puntos.';
 
                 // Crear un div con la clase "col" para el input de tipo botón "Aceptar"
                 var divAceptar = document.createElement('div');
@@ -506,6 +507,10 @@
                     transferencia_neta_derecha = transferencia_neta_derecha + data.puntos
                     console.log('el usuario '+data.emisor+' ha aceptado tu solicitud')
                     agregarRegistro(data.receptor,data.emisor,'si',data.puntos,'solicita')
+                    console.log("este usuario es: " + data.receptor)
+                    igualar_endowment_izquierda_con_derecha_en_dowment_compartido(data.receptor,'sumar',data.puntos)
+
+                    
                 }
                 //desbloquear botones de envio
                 desbloquear_todos_botones_solicitar_puntos(data.receptor,data.emisor)
@@ -546,6 +551,12 @@
                 console.log("el funcionario te ha otorgado puntos: " + data.puntos)
             }
         }
+        if(data.operacion == 'actualizar_endowment_izquierda')
+        {
+            console.log(data.endowment_izquierda_actualizado);
+            end_izquierda = document.getElementById('endowment_izquierda')
+            end_izquierda.innerHTML = data.endowment_izquierda_actualizado
+        }
     }
 
     function enviarPuntos(emisor, receptor) {
@@ -585,6 +596,7 @@
         //desbloquear boton de solicitud
         desbloquear_un_boton_solicitud(emisor,receptor)
         agregarRegistro(emisor,receptor,'si',puntos,'ofrece')
+        igualar_endowment_izquierda_con_derecha_en_dowment_compartido(receptor,'sumar',puntos)
     }
 
     function rechazar_enviar_puntos(grupo_chat,emisor,receptor,puntos)
@@ -631,6 +643,7 @@
         //desbloquear boton de solicitud
         desbloquear_un_boton_solicitud(emisor,receptor)
         agregarRegistro(emisor,receptor,'si',puntos,'solicita')
+        igualar_endowment_izquierda_con_derecha_en_dowment_compartido(receptor,'restar',puntos)
     }
     function rechazar_solicitar_puntos(grupo_chat,emisor,receptor,puntos)
     {
@@ -696,6 +709,17 @@
         // Agrega la nueva fila al tbody
         //tbody.appendChild(nuevaFila);
         tbody.insertBefore(nuevaFila, tbody.firstChild);
+        //igualar_endowment_izquierda_con_derecha_en_dowment_compartido(emisor,receptor,aceptado,puntos, tipo)
+    }
+    function igualar_endowment_izquierda_con_derecha_en_dowment_compartido(receptor,sumar_o_restar,puntos)
+    {   
+        if(sumar_o_restar == 'sumar')
+        {endowment_derecha = parseInt({{player.endowment_derecha}}) + puntos}
+        else if (sumar_o_restar == 'restar')
+        {endowment_derecha = parseInt({{player.endowment_derecha}}) - puntos}
+        
+        liveSend({'emisor': parseInt(receptor), 'operacion':'igualar_endowment_comun', 'sub_operacion': 'enviar_puntos_respuesta','endowment_derecha':endowment_derecha});
+        console.log("Player_endowment_izquierda actual:  "+{{player.endowment_izquierda}})
     }
     
     function enviar_puntos_proyecto_comun(id)
@@ -745,7 +769,7 @@
         // Crear un elemento 'p' para el segundo párrafo
         var segundoParrafo = document.createElement('p');
         segundoParrafo.className = "text-center";
-        segundoParrafo.textContent = "Si presionas el siguiente botón se convierten en " +monto_comun*3+ " puntos.";
+        segundoParrafo.textContent = "Si presionas el siguiente botón se convertirán en " +monto_comun*3+ " puntos.";
 
         // Crear un div con clase "row" y centrar el contenido
         var rowDiv = document.createElement('div');
@@ -815,6 +839,7 @@
             //etiqueta.appendChild(boton);
             }
             var boton = document.createElement("input");
+            boton.setAttribute('id', 'enviar_puntos_a');
             boton.setAttribute('type', 'button');
             boton.setAttribute('onClick', 'enviar_puntos_a_ciudadanos()');
             boton.value = "Enviar puntos a participantes ";
@@ -825,7 +850,11 @@
         {
             console.log("El elemento con el ID especificado no se encontró.");
         }
+        setTimeout(() => {
+            repartir_puntos_por_igual_a_ciudadanos();
+        }, 1000);
     }
+
     function enviar_puntos_a_ciudadanos() {
         sumatoria_de_puntos = 0
         continuar = true
@@ -871,6 +900,32 @@
 
         
         
+    }
+    // Enviar de manera automatica los mismos puntos a cada ciudadano
+    function repartir_puntos_por_igual_a_ciudadanos()
+    {   
+        if ('{{equitable_distribution_of_officials_to_citizens}}' == 'True')
+        //if(true_false)
+        {   
+            id_de_funcionario = parseInt({{id_de_funcionario}})
+            puntos_a_repartir = parseInt(document.getElementById('puntaje_triplicado').innerHTML);
+            monto_individual = puntos_a_repartir/(id_de_funcionario-1)
+            console.log('Puntos a repartir: '+puntos_a_repartir+ ' Monto individual: ' + monto_individual)
+            for (let j = 1; j < id_de_funcionario; j++)
+                {
+                    monto_ciudadano = document.getElementById("otorgar_puntos_a_ciudadano_"+j);
+                    monto_ciudadano.value = monto_individual;
+                }
+            //boton_enviar = document.getElementById('enviar_puntos_a_ciudadanos');
+            setTimeout(() => {
+                    enviar_puntos_a_ciudadanos();
+            }, 1000);
+        }
+    }
+
+    function igualar_endowment_izquierda_con_endowment_derecha()
+    {
+        //player.endowment_izquierda == 45
     }
 
     // Llamada pra bloquear botones
@@ -1062,7 +1117,7 @@
     }  
     function verificar_mayor_igual_a_cero(puntos)
         {
-            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value < {{player.endowment_izquierda}})  {return true}
+            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value <= {{player.endowment_izquierda}})  {return true}
             else {alert("Ingresa una cantidad válida"); return false}
         }
     function verificar_no_vacio_o_nulo(puntos)
@@ -1070,7 +1125,6 @@
             if (puntos && puntos.value.trim() !== "" && puntos.value != 0)  {return true}
             else {alert("El valor de entrada no puede ser nulo o vacío"); return false}
         }
-
     function actualizar_resultados()
     {
         obtener_boton = document.getElementsByClassName("otree-btn-next")[0];

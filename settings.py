@@ -8,15 +8,45 @@ SESSION_CONFIGS = [
         app_sequence=['public_goods_simple'],
         num_demo_participants=4,
         exchange_point_betwen_players = True,
+        equitable_distribution_of_officials_to_citizens = False,
+        endowment_comun = False,
     ),
     dict(
-        name='public_goods_simple_without_exchange_points_between_players',
-        display_name="public goods without exchange points between players",
+        name='public_goods_simple_T1',
+        display_name="public goods simple T1",
+        app_sequence=['public_goods_simple'],
+        num_demo_participants=4,
+        exchange_point_betwen_players = True,
+        equitable_distribution_of_officials_to_citizens = True,
+        endowment_comun = False,
+    ),
+    dict(
+        name='public_goods_simple_BL1',
+        display_name="public goods simple BL1",
         app_sequence=['public_goods_simple'],
         num_demo_participants=4,
         exchange_point_betwen_players = False,
+        equitable_distribution_of_officials_to_citizens = False,
+        endowment_comun = False,
     ),
-
+    dict(
+        name='public_goods_simple_BL2',
+        display_name="public goods simple BL2",
+        app_sequence=['public_goods_simple'],
+        num_demo_participants=4,
+        exchange_point_betwen_players = False,
+        equitable_distribution_of_officials_to_citizens = True,
+        endowment_comun = False,
+    ),
+    dict(
+        name='public_goods_simple_V3',
+        display_name="public goods simple V3",
+        app_sequence=['public_goods_simple'],
+        num_demo_participants=4,
+        exchange_point_betwen_players = True,
+        equitable_distribution_of_officials_to_citizens = False,
+        endowment_comun = True,
+    ),
 ]
 
 # if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs

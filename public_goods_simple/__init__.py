@@ -166,6 +166,7 @@ class Bargain(Page):
         #    nuevo_diccionario = {"user1": i, "user2": j, "nombre_canal_chat": str(i)+str(j)}
         
         exchange_point_betwen_players = player.session.config.get('exchange_point_betwen_players', False)
+        equitable_distribution_of_officials_to_citizens = player.session.config.get('equitable_distribution_of_officials_to_citizens',False)
 
         return dict(
             id_de_funcionario = id_de_funcionario,
@@ -174,6 +175,7 @@ class Bargain(Page):
             chat_grupos = chat_grupos,
             nicknames = nicknames,
             exchange_point_betwen_players = exchange_point_betwen_players,
+            equitable_distribution_of_officials_to_citizens=equitable_distribution_of_officials_to_citizens,
             #endowment_izquierda = player.endowment_izquierda,
             #endowment_derecha = player.endowment_izquierda,
         )
@@ -209,7 +211,14 @@ class Bargain(Page):
                             - 'puntos' : (int)
             -'sub_operacion': 'funcionario_envia_puntos'
                             - 'puntos' : (int)
-
+        -'operacion': 'igualar_endowment_comun'
+            -'igualar_lado': 'izquierda'
+                            - 'endowment_derecha' : (int)
+            -'sub_operacion': 'enviar_puntos_respuesta'
+                            - 'endowment_derecha' : (int)
+            -'sub_operacion': 'solicitar_puntos_respuesta'
+                            - 'endowment_derecha' : (int)
+    
         ejem en el js: liveSend({'emisor': parseInt(emisor), 'receptor': parseInt(receptor),  'operacion':'negociar_puntos', 'sub_operacion': 'solicitar_puntos','puntos': 44});
 
         -'operacion'. 'actualizar_puntuacion'
@@ -225,14 +234,32 @@ class Bargain(Page):
         if(data['operacion'] == 'proyecto_comun'):
             if(data['sub_operacion'] == 'ciudadano_envia_puntos'):
                 print("ciudadano envia ", data['puntos'], "puntos")
+                endowment_comun = player.session.config.get('endowment_comun',False)
+                if(endowment_comun):
+                    endowment_izquierda_actualizado = player.endowment_izquierda - int(data['puntos'])
+                    print("Tienen un endowment comun: "+ str(endowment_izquierda_actualizado))
+                    player.endowment_izquierda = endowment_izquierda_actualizado
+                    player.endowment_derecha = endowment_izquierda_actualizado
 
                 pass
             elif(data['sub_operacion'] == 'funcionario_envia_puntos'):
                 pass
             pass
         
-            
-            
+        if(data['operacion']=='igualar_endowment_comun'):
+            print("igualar_endowment")
+            puntos_a_actualizar = data['endowment_derecha']
+            print("puntos a actualizar endowment izquierda: " + str(puntos_a_actualizar))
+            print("emisor: " + str(data['emisor']))
+            player.endowment_derecha = data['endowment_derecha']
+            player.endowment_izquierda = player.endowment_derecha
+            endowment_comun = player.session.config.get('endowment_comun',False)
+            if (endowment_comun):
+                player.endowment_izquierda = player.endowment_derecha
+                return {data['emisor']:{'operacion':'actualizar_endowment_izquierda', 'endowment_izquierda_actualizado':player.endowment_derecha}}
+            return 0
+            #return 0            
+        # Esta parte se llama cuando se pasa a la siguiente pagina    
         if(data['operacion'] == 'actualizar_puntuacion'):
             print("round_number: ",player.round_number)
             if (player.round_number != 1):
@@ -249,13 +276,16 @@ class Bargain(Page):
             
             print(player.lista_de_resultados)
             lista.append(data)
-            
+            #print("actualizar_puntuacion_: "+ data)
             player.lista_de_resultados = lista
             print(len(player.lista_de_resultados))
             return 0
         if(data['sub_operacion'] == 'enviar_puntos_respuesta'):
-            
             print("actualizar puntos: " + str(data['puntos']))
+
+        if(data['sub_operacion'] == 'solicitar_puntos_respuesta'):
+            print("actualizar puntos: " + str(data['puntos']))
+
         
         return {data['receptor']: data}
     pass
