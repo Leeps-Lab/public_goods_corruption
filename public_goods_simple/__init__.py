@@ -180,7 +180,7 @@ class Bargain(Page):
         
         exchange_point_betwen_players = player.session.config.get('exchange_point_betwen_players', False)
         equitable_distribution_of_officials_to_citizens = player.session.config.get('equitable_distribution_of_officials_to_citizens',False)
-
+        endowment_comun = player.session.config.get('endowment_comun',False)
         return dict(
             id_de_funcionario = id_de_funcionario,
             lista_de_ciudadanos_y_nicknames = lista_de_ciudadanos_y_nicknames,
@@ -189,6 +189,7 @@ class Bargain(Page):
             nicknames = nicknames,
             exchange_point_betwen_players = exchange_point_betwen_players,
             equitable_distribution_of_officials_to_citizens=equitable_distribution_of_officials_to_citizens,
+            endowment_comun = endowment_comun,
             #endowment_izquierda = player.endowment_izquierda,
             #endowment_derecha = player.endowment_izquierda,
         )
@@ -269,6 +270,7 @@ class Bargain(Page):
             endowment_comun = player.session.config.get('endowment_comun',False)
             if (endowment_comun):
                 player.endowment_izquierda = player.endowment_derecha
+                print("player.endowment_derecha" + str(player.endowment_derecha))
                 return {data['emisor']:{'operacion':'actualizar_endowment_izquierda', 'endowment_izquierda_actualizado':player.endowment_derecha}}
             return 0
             #return 0            

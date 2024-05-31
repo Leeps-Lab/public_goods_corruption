@@ -553,6 +553,7 @@
         }
         if(data.operacion == 'actualizar_endowment_izquierda')
         {
+            //esta parte actualiza el endowment de la izquierda cuando el endowment es compartido
             console.log(data.endowment_izquierda_actualizado);
             end_izquierda = document.getElementById('endowment_izquierda')
             end_izquierda.innerHTML = data.endowment_izquierda_actualizado
@@ -1121,7 +1122,9 @@
     }  
     function verificar_mayor_igual_a_cero(puntos)
         {
-            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value <= {{player.endowment_izquierda}})  {return true}
+            endowment_izquierda = document.getElementById('endowment_izquierda')
+            
+            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value <= endowment_izquierda.innerHTML)  {return true}
             else {alert("Ingresa una cantidad válida"); return false}
         }
     function verificar_no_vacio_o_nulo(puntos)
@@ -1149,10 +1152,13 @@
         return pago_total;
     }
 
-    function actualizar_endowment_izquierda()
+    function actualizar_endowment_izquierda(value)
     {
         endowment_izquierda = document.getElementById('endowment_izquierda')
+        endowment_izquierda.innerHTML = value
         //endowment_izquierda.innerHTML
+
+
     }
     function cargar_historial()
     {
