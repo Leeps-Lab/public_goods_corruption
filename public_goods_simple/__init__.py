@@ -107,6 +107,19 @@ class Player(BasePlayer):
 
 
 # PAGES
+
+class Instructions(Page):
+    @staticmethod
+    def vars_for_template(player):
+        return dict(
+            app_name = player.session.config.get('name'),
+        )
+    
+
+class RoleAssign(Page):
+    pass
+
+
 class InitPage(Page):
     pass
 
@@ -319,6 +332,8 @@ class EndPage(Page):
 
 #sequence = [InitPage]
 sequence = [FirstWaitPage]
+sequence.append(Instructions)
+sequence.append(RoleAssign)
 for i in range(periods_per_segment):
     sequence.append(Bargain)
     #sequence.append(Results)

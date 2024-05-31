@@ -39,8 +39,8 @@ SESSION_CONFIGS = [
         endowment_comun = False,
     ),
     dict(
-        name='public_goods_simple_V3',
-        display_name="public goods simple V3",
+        name='public_goods_simple_T2',
+        display_name="public goods simple T2",
         app_sequence=['public_goods_simple'],
         num_demo_participants=4,
         exchange_point_betwen_players = True,

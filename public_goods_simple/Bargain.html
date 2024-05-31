@@ -78,7 +78,7 @@
                             <br>
                             <div class="text-center" id="reemplazar_texto_al_enviar_al_proyecto_comun_{{player.id_in_group}}">
                                 <p class="text-center">Tienes <span id="endowment_izquierda">{{player.endowment_izquierda}}</span> para distribuir entre tu cuenta y un proyecto común.</p>
-                                <p class="text-center" >Puntos a dar:</p>
+                                <p class="text-center" >Puntos a contribuir:</p>
                                 
                                 <div class="row">
                                     <div class="col-6 text-end"><input type="text" id="proyecto_comun_{{player.id_in_group}}"></div>
@@ -729,7 +729,8 @@
         //actualizar aportes al proyexcto comun
         contribucion_ciudadano = puntos_a_enviar.value
 
-        continuar = verificar_mayor_igual_a_cero(puntos_a_enviar)
+        
+        continuar = verificar_mayor_igual_a_cero(puntos_a_enviar) // esta aprte tambien verifica que sea menor igual al valor maximo
         if (continuar)
         {
             console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
@@ -881,14 +882,17 @@
             console.log(puntos_triplicados.textContent,sumatoria_de_puntos)
             if (parseInt(puntos_triplicados.textContent) == sumatoria_de_puntos)
             {
+                texto_mostrado_al_funcionario_despues_de_enviar = ""
                 alert('puntos_enviados')
                 for (let j = 1; j < id_de_funcionario; j++)
                 {
                     puntos_a_enviar_a_un_ciudadano = document.getElementById("otorgar_puntos_a_ciudadano_"+j);
                     liveSend({'emisor': id_de_funcionario, 'receptor': j,  'operacion':'proyecto_comun', 'sub_operacion': 'funcionario_envia_puntos', 'puntos':puntos_a_enviar_a_un_ciudadano.value});
+                    texto_mostrado_al_funcionario_despues_de_enviar = texto_mostrado_al_funcionario_despues_de_enviar + "<br>Se han enviado " + puntos_a_enviar_a_un_ciudadano.value + " puntos al ciudadano " + j + "."
                 }
                 reemplazar = document.getElementById('texto_mostrado_al_funcionario')
-                reemplazar.textContent = 'Se han repartido los puntos a los ciudadanos'
+                //reemplazar.textContent = 'Se han repartido los puntos a los ciudadanos'
+                reemplazar.innerHTML = texto_mostrado_al_funcionario_despues_de_enviar
             }
 
             else
@@ -1144,6 +1148,12 @@
         pago_total = parseInt(pago_izquierda) + parseInt(pago_derecha) 
         return pago_total;
     }
+
+    function actualizar_endowment_izquierda()
+    {
+        endowment_izquierda = document.getElementById('endowment_izquierda')
+        //endowment_izquierda.innerHTML
+    }
     function cargar_historial()
     {
         
@@ -1206,6 +1216,9 @@
             }
         }
     }
+
+
+
     cargar_historial()
 
 
