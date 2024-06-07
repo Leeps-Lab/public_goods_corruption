@@ -111,9 +111,9 @@
                                         Chat con ciudadano {{ item.id }}    
                                     {{endif}}
                                     {{if exchange_point_betwen_players}}
-                                        si hay
+                                        
                                     {{else}}
-                                        no hay
+                                    
                                     {{endif}}
 
                                 </div>
@@ -1144,10 +1144,23 @@
         //console.log({{exchange_point_betwen_players}})
 
         if ('{{exchange_point_betwen_players}}' == 'True')
-        {pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)}
+            if('{{endowment_comun}}' == 'True')
+                //{pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)}
+                {   pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)
+                    pago_izquierda = - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
+                }
+        
+            else
+                {
+                    pago_derecha = parseInt({{player.endowment_derecha}}) - parseInt(transferencia_enviada) + parseInt(transferencia_recibida)
+                    pago_izquierda = parseInt({{player.endowment_izquierda}}) - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
+                }
         else
-            {pago_derecha = 0}
-        pago_izquierda = parseInt({{player.endowment_izquierda}}) - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
+            {
+                pago_derecha = 0
+                pago_izquierda = parseInt({{player.endowment_izquierda}}) - parseInt(contribucion_ciudadano) + parseInt(asignacion_de_servicios_publicos)
+            }
+        
         pago_total = parseInt(pago_izquierda) + parseInt(pago_derecha) 
         return pago_total;
     }

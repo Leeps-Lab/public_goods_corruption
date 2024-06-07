@@ -105,15 +105,21 @@ class Player(BasePlayer):
 
     pass
 
+#Functions
+
 
 # PAGES
 
 class Instructions(Page):
+    endowment_izquierda = C.LEFT_ENDOWMENT
     @staticmethod
     def vars_for_template(player):
+        endowment_izquierda = C.LEFT_ENDOWMENT
         return dict(
             app_name = player.session.config.get('name'),
+            endowment_izquierda = endowment_izquierda,
         )
+
     
 
 class RoleAssign(Page):
@@ -316,11 +322,14 @@ class FirstWaitPage(WaitPage):
     pass
 
 class ResultsWaitPage(WaitPage):
-    
-    @staticmethod
+    left_endowment = int(datos[0]['left_endowment'])
+    right_endowment = int(datos[0]['right_endowment'])
+    @staticmethod 
     def after_all_players_arrive(group: Group):
         for p in group.get_players():
             p.periodo = p.periodo +1
+            p.endowment_izquierda = int(left_endowment)
+            p.endowment_derecha = int(right_endowment)
     
     pass
 
