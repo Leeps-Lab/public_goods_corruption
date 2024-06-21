@@ -144,7 +144,7 @@
                                                     </div>
                                                     
                                                     <div class="row">
-                                                        <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{grupo.user2}},{{grupo.user1}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar  puntos: </button> </div>
+                                                        <div class="col-8"> <button type="button" class="btn btn-outline-success" onclick="solicitarPuntos({{grupo.user2}},{{grupo.user1}})" id="solicitar_puntos_boton_{{grupo.nombre_canal_chat}}">Solicitar puntos: </button> </div>
                                                         <div class="col-3"> <input type="text" class="form-control" id="solicitar_puntos_{{grupo.user1}}{{grupo.user2}}">  </div>
                                                     </div>
                                                     <div class="row" id="solicitudes_{{grupo.nombre_canal_chat}}"></div>
@@ -557,6 +557,21 @@
             console.log(data.endowment_izquierda_actualizado);
             end_izquierda = document.getElementById('endowment_izquierda')
             end_izquierda.innerHTML = data.endowment_izquierda_actualizado
+            // Selecciona el tbody por su id
+            var tbody = document.getElementById('balance_de_transacciones_body');
+
+            // Selecciona la primera fila del tbody
+            var primeraFila = tbody.getElementsByTagName('tr')[0];
+
+            // Selecciona la última celda de la primera fila
+            var ultimaCelda = primeraFila.getElementsByTagName('td')[primeraFila.getElementsByTagName('td').length - 1];
+
+            // Obtén el valor de la última celda
+            var valorUltimaCelda = ultimaCelda.textContent || ultimaCelda.innerText;
+
+            console.log("Primera fila:", primeraFila);
+            console.log("Valor de la columna más a la derecha en la primera fila:", valorUltimaCelda);
+            end_izquierda.innerHTML = valorUltimaCelda
         }
     }
 

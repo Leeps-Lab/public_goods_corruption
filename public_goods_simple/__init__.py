@@ -329,8 +329,7 @@ class ResultsWaitPage(WaitPage):
         for p in group.get_players():
             p.periodo = p.periodo +1
             p.endowment_izquierda = int(left_endowment)
-            p.endowment_derecha = int(right_endowment)
-    
+            p.endowment_derecha = int(right_endowment)    
     pass
 
 
