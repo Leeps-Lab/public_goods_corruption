@@ -131,7 +131,7 @@ class InitPage(Page):
 
 
 class Bargain(Page):
-    #timeout_seconds = 180
+    timeout_seconds = 180
 
     
     endowment_izquierda = C.LEFT_ENDOWMENT;

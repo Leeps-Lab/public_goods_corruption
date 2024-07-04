@@ -388,7 +388,7 @@
                 inputAceptar.setAttribute('type', 'button');
                 inputAceptar.setAttribute('id', 'aceptar_solicitud_envio'+grupo_chat);
                 inputAceptar.setAttribute('onclick', 'aceptar_enviar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
-                inputAceptar.setAttribute('value', 'Si');
+                inputAceptar.setAttribute('value', 'Aceptar');
                 divAceptar.appendChild(inputAceptar);
 
                 // Crear un div con la clase "col" para el botón "Rechazar"
@@ -397,7 +397,7 @@
                 var inputRechazar = document.createElement('input');
                 inputRechazar.setAttribute('type', 'button');
                 inputRechazar.setAttribute('onclick', 'rechazar_enviar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
-                inputRechazar.setAttribute('value', 'No');
+                inputRechazar.setAttribute('value', 'Rechazar');
                 divRechazar.appendChild(inputRechazar);
 
                 // Agregar los elementos a la fila
