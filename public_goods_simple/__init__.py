@@ -131,6 +131,7 @@ class InitPage(Page):
 
 
 class Bargain(Page):
+    #timeout_seconds = 180
 
     
     endowment_izquierda = C.LEFT_ENDOWMENT;
@@ -339,11 +340,14 @@ class Results(Page):
 class EndPage(Page):
     pass
 
+class SecondWaitPage(WaitPage):    
+    pass 
 
 #sequence = [InitPage]
 sequence = [FirstWaitPage]
 sequence.append(Instructions)
 sequence.append(RoleAssign)
+sequence.append(FirstWaitPage)
 for i in range(periods_per_segment):
     sequence.append(Bargain)
     #sequence.append(Results)

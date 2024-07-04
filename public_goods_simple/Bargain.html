@@ -315,8 +315,10 @@
                                 <th>Periodo</th>
                                 <th>Contribución</th>
                                 <th>Asignación de servicios públicos</th>
-                                <th>Total transferencias recibidas</th>
-                                <th>Total transferencias enviadas</th>
+                                {{if exchange_point_betwen_players}}
+                                    <th>Total transferencias recibidas</th>
+                                    <th>Total transferencias enviadas</th>
+                                {{endif}}
                                 <th>Pago del Periodo</th>
                                 </tr>
                             </thead>
@@ -471,7 +473,7 @@
                 inputAceptar.setAttribute('type', 'button');
                 inputAceptar.setAttribute('id', 'aceptar_solicitud_solicitado'+grupo_chat);
                 inputAceptar.setAttribute('onclick', 'aceptar_solicitar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
-                inputAceptar.setAttribute('value', 'Si');
+                inputAceptar.setAttribute('value', 'Aceptar');
                 divAceptar.appendChild(inputAceptar);
 
                 // Crear un div con la clase "col" para el botón "Rechazar"
@@ -480,7 +482,7 @@
                 var inputRechazar = document.createElement('input');
                 inputRechazar.setAttribute('type', 'button');
                 inputRechazar.setAttribute('onclick', 'rechazar_solicitar_puntos('+grupo_chat+','+data.emisor+','+data.receptor+','+data.puntos+')');
-                inputRechazar.setAttribute('value', 'No');
+                inputRechazar.setAttribute('value', 'Rechazar');
                 divRechazar.appendChild(inputRechazar);
 
                 // Agregar los elementos a la fila
@@ -744,15 +746,24 @@
         puntos_a_enviar = document.getElementById('proyecto_comun_'+id)
         //actualizar aportes al proyexcto comun
         contribucion_ciudadano = puntos_a_enviar.value
-
+        
         
         continuar = verificar_mayor_igual_a_cero(puntos_a_enviar) // esta aprte tambien verifica que sea menor igual al valor maximo
         if (continuar)
         {
-            console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
-            liveSend({'emisor': id, 'receptor': {{id_de_funcionario}},  'operacion':'proyecto_comun', 'sub_operacion': 'ciudadano_envia_puntos','respuesta': '--','puntos':puntos_a_enviar.value});
-            texto_a_reemplazar_en_div = document.getElementById('reemplazar_texto_al_enviar_al_proyecto_comun_'+id);
-            texto_a_reemplazar_en_div.textContent = 'Haz enviado ' +puntos_a_enviar.value+ ' puntos al proyecto comun.' 
+            // confirmcion de envio de puntos
+            var result = confirm("Estás enviando " + contribucion_ciudadano + " puntos al proyecto común.");
+            if (result) {
+                console.log("Enviar puntos a proyecto comun " + puntos_a_enviar.value)
+                liveSend({'emisor': id, 'receptor': {{id_de_funcionario}},  'operacion':'proyecto_comun', 'sub_operacion': 'ciudadano_envia_puntos','respuesta': '--','puntos':puntos_a_enviar.value});
+                texto_a_reemplazar_en_div = document.getElementById('reemplazar_texto_al_enviar_al_proyecto_comun_'+id);
+                texto_a_reemplazar_en_div.textContent = 'Haz enviado ' +puntos_a_enviar.value+ ' puntos al proyecto comun.' 
+            
+            } else {
+
+            
+            }
+            
         }
         
     }
@@ -1225,18 +1236,22 @@
                 newTh.textContent = {{player.lista_de_resultados}}[j].asignacion_de_servicios_publicos
                 newRow.appendChild(newTh);
 
-
                 // Total transferencias recibidas
-                var newTh = document.createElement("th");
-                newTh.setAttribute("scope", "col");
-                newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_recibida;
-                newRow.appendChild(newTh);
+                {{if exchange_point_betwen_players}}
+                    var newTh = document.createElement("th");
+                    newTh.setAttribute("scope", "col");
+                    newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_recibida;
+                    newRow.appendChild(newTh);
+                {{endif}}
+                
 
                 // Total transferencias enviadas
-                var newTh = document.createElement("th");
-                newTh.setAttribute("scope", "col");
-                newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_enviada;
-                newRow.appendChild(newTh);
+                {{if exchange_point_betwen_players}}
+                    var newTh = document.createElement("th");
+                    newTh.setAttribute("scope", "col");
+                    newTh.textContent = {{player.lista_de_resultados}}[j].transferencia_enviada;
+                    newRow.appendChild(newTh);
+                {{endif}}
 
                 // Pago del Periodo
                 var newTh = document.createElement("th");
