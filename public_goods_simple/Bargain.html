@@ -1149,8 +1149,8 @@
     function verificar_mayor_igual_a_cero(puntos)
         {
             endowment_izquierda = document.getElementById('endowment_izquierda')
-            
-            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value <= endowment_izquierda.innerHTML)  {return true}
+            //console.log(typeof endowment_izquierda.innerHTML + endowment_izquierda.innerHTML + " puntos: "+ puntos.value.trim())
+            if (puntos && puntos.value.trim() !== "" && puntos.value >= 0  && puntos.value.trim() <= Number(endowment_izquierda.innerHTML))  {return true}
             else {alert("Ingresa una cantidad válida"); return false}
         }
     function verificar_no_vacio_o_nulo(puntos)
