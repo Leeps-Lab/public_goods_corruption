@@ -3,6 +3,15 @@ from os import environ
 
 SESSION_CONFIGS = [
     dict(
+        name='new_public_goods',
+        display_name="new_public_goods",
+        app_sequence=['new_public_goods'],
+        num_demo_participants=4,
+        exchange_point_betwen_players = True,
+        equitable_distribution_of_officials_to_citizens = False,
+        endowment_comun = False,
+    ),
+    dict(
         name='public_goods_simple',
         display_name="public_goods_simple",
         app_sequence=['public_goods_simple'],
@@ -58,7 +67,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS = []
+PARTICIPANT_FIELDS = ['segment']
 SESSION_FIELDS = []
 
 # ISO-639 code

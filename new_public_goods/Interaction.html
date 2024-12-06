@@ -1,0 +1,158 @@
+{{ extends "../_templates/global/Page.html" }}
+
+{{ block content }}
+
+    <div class="container" style="padding-bottom: 20px;">
+        
+        <!-- Header Row -->
+        <div class="row p-5">
+            <div class="col-4 text-center">
+                <b>Segmento:</b> {{ segment }}
+            </div>
+            <div class="col-4 text-center">
+                <b>Ronda:</b> {{ player.round_number }}
+            </div>
+            <div class="col-4 text-center">
+                <b>Rol:</b> {{ player.role }}
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row main-content-row">
+            
+            <!-- Left Column: Role Info -->
+            <div class="col-3 d-flex flex-column align-items-center justify-content-center p-5 text-center">
+                {{ if player.id_in_group == 4 }}
+                    <p>Tu rol es el de funcionario.</p>
+                {{ else }}
+                    <p>Tu rol es el de ciudadano {{ player.id_in_group }}.</p>
+                    <p>Tienes {{ player.current_points }} puntos para distribuir entre tu cuenta y el proyecto común.</p>
+                    <p>Puntos a contribuir:</p>
+                    <div class="d-flex">
+                        <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
+                        <button type="button" id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button>
+                    </div>
+                {{ endif }}
+            </div>
+
+            <!-- Right Column: Interaction Interface -->
+            <div class="col-9 right-column">
+
+                    <!-- Chats and send/request buttons -->
+                    <div class="chat-container row" style="padding-bottom: 20px;">
+                        {{ for other in others }}
+                            <div class="col">
+                                <div class="row" style="margin-bottom: 30px;">
+                                    <p class="text-center">Chat con {{ other.role }}</p>
+                                    {{ chat nickname=player.role channel=other.channel }}
+                                </div>
+                                <div class="row">
+                                    <p class="text-center">Interacción con {{ other.role }}</p>
+
+                                    <div class="d-flex align-items-center spacing-between" style="gap: 10px; justify-content: center;">
+                                        <button type="button" id="send_points_to_{{ other.id }}" class="btn btn-outline-primary" onclick="offerPoints()">Ofrecer puntos:</button>
+                                        <input type="text" id="id_offer{{ other.id }}" name="offer{{ other.id }}" class="form-control" style="width: 30%;">
+                                    </div>
+
+                                    <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
+                                        <button type="button" id="request_points_to_{{ other.id }}" class="btn btn-outline-success" onclick="requestPoints()">Solicitar puntos:</button>
+                                        <input type="text" id="id_request{{ other.id }}" name="request{{ other.id }}" class="form-control" style="width: 30%;">
+                                    </div>
+                                </div>
+                            </div>
+                        {{ endfor }}
+                    </div>
+
+                <!-- Balance of Transactions -->
+                <div class="row">
+                    <h5 class="text-center">Balance de transacciones</h5>
+                    <table class="table">
+                        <!-- TO-DO: Loop DB to get this values -->
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Jugador</th>
+                                <th>Acción</th>
+                                <th>A</th>
+                                <th>Puntos</th>
+                                <th>¿Se aceptó?</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- History Section -->
+        <div>
+            <h5 class="text-center">Historia</h5>
+            <div class="row">
+                <div class="container">
+                    <table class="table" id="historial_tabla">
+                        <thead>
+                            <tr>
+                                <th>Segmento</th>
+                                <th>Ronda</th>
+                                <th>Contribución</th>
+                                <th>Asignación de servicios públicos</th>
+                                <th>Total transferencias recibidas</th>
+                                <th>Total transferencias enviadas</th>
+                                <th>Pago del periodo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                                <td>--</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+     
+    {{ next_button }}
+
+    <script>
+
+        function sendContribution() {
+            // TO-DO: Send value to backend to verify quantity sent instead of in JS
+            let contributionPoints = parseInt(document.getElementById('id_contribution_points').value);
+            let currentPoints = {{ player.current_points }};
+
+            if (contributionPoints < 0 || contributionPoints > currentPoints) {
+                alert("Ingresaste una cantidad inválida.");
+            } else {
+                let confirmSend = confirm("¿Estás seguro(a) que quieres contribuit con " + contributionPoints + " puntos en el proyecto común?");
+                if (confirmSend) {
+                    console.log("Puntos enviados:", contributionPoints);
+                } else {
+                    console.log("Acción cancelada");
+                }
+            }
+        }
+        
+    </script>
+
+{{ endblock }}

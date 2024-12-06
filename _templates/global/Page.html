@@ -5,3 +5,54 @@
 {{ endblock }}
 {{ block global_scripts  }}
 {{ endblock }}
+
+{{ block app_styles }}
+    <style>
+        /* General Styles */
+        .otree-body {
+            max-width: 85%;
+            margin: 0 auto;
+        }
+
+        .otree-chat__messages {
+            height: 150px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .otree-chat__input {
+            width: calc(100% - 65px);
+            padding: 5px;
+        }
+
+        .otree-chat__btn-send {
+            width: 60px;
+            padding: 5px;
+        }
+
+        .chat-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .main-content-row {
+            border-top: solid #808080;
+            padding-bottom: 20px;
+        }
+
+        /* Form Styling */
+        .spacing-between {
+            margin-bottom: 5px;
+        }
+
+        /* Balance Table Styling */
+        .table th, .table td {
+            text-align: center;
+        }
+
+        .table th {
+            padding: 10px;
+        }
+    </style>
+{{ endblock }}
