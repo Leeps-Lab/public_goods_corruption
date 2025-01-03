@@ -1,4 +1,4 @@
-# Etapa de construcción (instalación de dependencias)
+# Install of dependencies
 FROM ubuntu:22.04 AS builder
 
 RUN apt update && apt upgrade -y
@@ -12,17 +12,18 @@ RUN apt-get update && apt-get install -y python3-pip
 RUN python3 -m pip install -U otree
 
 
+# Set the working directory in the container
+WORKDIR /app
 
-# Instalar las dependencias del proyecto
-# Establecer el directorio de trabajo
-WORKDIR .
+# Install Python dependencies
+COPY requirements.txt .
+# RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el archivo requirements.txt
-COPY . .
-#RUN python3 -m pip install -r requirements.txt
+# Copy the current directory contents into the container
+COPY . /app
 
-# Exponer el puerto 8000 para acceder a oTree
+# Make port 8000 available to the world outside this container
 EXPOSE 8000
 
-# Comando para ejecutar oTree
-CMD ["otree", "prodserver"]
+# Run oTree when the container launches
+CMD ["otree", "prodserver", "8000"]

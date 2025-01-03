@@ -7,9 +7,10 @@ SESSION_CONFIGS = [
         display_name="new_public_goods",
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
-        exchange_point_betwen_players = True,
-        equitable_distribution_of_officials_to_citizens = False,
-        endowment_comun = False,
+        # Aditional configs
+        random_multiplier = False, # If multiplier is random (T3)
+        multiplier = 2, # Multiplier value when it is not random
+        interact_after_contribution = False, # Interact after contribution config
     ),
     dict(
         name='public_goods_simple',

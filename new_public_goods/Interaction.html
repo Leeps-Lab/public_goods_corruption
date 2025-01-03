@@ -5,7 +5,7 @@
     <div class="container" style="padding-bottom: 20px;">
         
         <!-- Header Row -->
-        <div class="row p-5">
+        <div class="row px-5 pb-5 pt-0">
             <div class="col-4 text-center">
                 <b>Segmento:</b> {{ segment }}
             </div>
@@ -21,16 +21,22 @@
         <div class="row main-content-row">
             
             <!-- Left Column: Role Info -->
-            <div class="col-3 d-flex flex-column align-items-center justify-content-center p-5 text-center">
+            <div class="col-3 d-flex flex-column align-items-center justify-content-center p-5 text-center" style="border-right: solid #808080;">
                 {{ if player.id_in_group == 4 }}
-                    <p>Tu rol es el de funcionario.</p>
+                    <p>Tu rol es el de <b>funcionario</b>.</p>
+                    <p>Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b>.</p>
                 {{ else }}
-                    <p>Tu rol es el de ciudadano {{ player.id_in_group }}.</p>
-                    <p>Tienes {{ player.current_points }} puntos para distribuir entre tu cuenta y el proyecto común.</p>
-                    <p>Puntos a contribuir:</p>
-                    <div class="d-flex">
-                        <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
-                        <button type="button" id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button>
+                    <p>Tu rol es el de <b>ciudadano {{ player.id_in_group }}</b>.</p>
+                    <div id="beforeContribution">
+                        <p id="points-info">Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b> para distribuir entre tu cuenta y el proyecto común.</p>
+                        <p>Puntos a contribuir:</p>
+                        <div class="d-flex">
+                            <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
+                            <button type="button" id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button>
+                        </div>
+                    </div>
+                    <!-- Display message after contribution -->
+                    <div id="afterContribution" style="display: none;">
                     </div>
                 {{ endif }}
             </div>
@@ -39,35 +45,39 @@
             <div class="col-9 right-column">
 
                     <!-- Chats and send/request buttons -->
-                    <div class="chat-container row" style="padding-bottom: 20px;">
+                    <div class="chat-container row p-5">
                         {{ for other in others }}
                             <div class="col">
+                                <!-- Chat -->
                                 <div class="row" style="margin-bottom: 30px;">
                                     <p class="text-center">Chat con {{ other.role }}</p>
                                     {{ chat nickname=player.role channel=other.channel }}
                                 </div>
+                                <!-- Buttons -->
                                 <div class="row">
                                     <p class="text-center">Interacción con {{ other.role }}</p>
-
+                                    <!-- Offer section -->
                                     <div class="d-flex align-items-center spacing-between" style="gap: 10px; justify-content: center;">
-                                        <button type="button" id="send_points_to_{{ other.id }}" class="btn btn-outline-primary" onclick="offerPoints()">Ofrecer puntos:</button>
-                                        <input type="text" id="id_offer{{ other.id }}" name="offer{{ other.id }}" class="form-control" style="width: 30%;">
+                                        <button type="button" id="id_offerButton_{{ other.id_in_group }}" class="btn btn-outline-primary" onclick="offerPoints({{ player.id_in_group }}, {{ other.id_in_group }})">Ofrecer puntos:</button>
+                                        <input type="number" id="id_offerInput_{{ other.id_in_group }}" class="form-control" style="width: 30%;">
                                     </div>
-
+                                    <!-- Request section -->
                                     <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
-                                        <button type="button" id="request_points_to_{{ other.id }}" class="btn btn-outline-success" onclick="requestPoints()">Solicitar puntos:</button>
-                                        <input type="text" id="id_request{{ other.id }}" name="request{{ other.id }}" class="form-control" style="width: 30%;">
+                                        <button type="button" id="id_requestButton_{{ other.id_in_group }}" class="btn btn-outline-success" onclick="requestPoints({{ player.id_in_group }}, {{ other.id_in_group }})">Solicitar puntos:</button>
+                                        <input type="text" id="id_requestInput_{{ other.id_in_group }}" class="form-control" style="width: 30%;">
                                     </div>
+                                </div>
+                                <!-- Action messages -->
+                                <div class="row" id="id_afterAction_{{ other.id_in_group }}" style="display: none; margin-top: 30px;">
                                 </div>
                             </div>
                         {{ endfor }}
                     </div>
 
-                <!-- Balance of Transactions -->
-                <div class="row">
+                <!-- Transactions and balance -->
+                <div class="row p-5">
                     <h5 class="text-center">Balance de transacciones</h5>
                     <table class="table">
-                        <!-- TO-DO: Loop DB to get this values -->
                         <thead>
                             <tr>
                                 <th></th>
@@ -79,16 +89,7 @@
                                 <th>Total</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                            </tr>
+                        <tbody id="transactionsBody">
                         </tbody>
                     </table>
                 </div>
@@ -135,24 +136,263 @@
     {{ next_button }}
 
     <script>
-
         function sendContribution() {
-            // TO-DO: Send value to backend to verify quantity sent instead of in JS
-            let contributionPoints = parseInt(document.getElementById('id_contribution_points').value);
-            let currentPoints = {{ player.current_points }};
+            let contributionPoints = parseFloat(document.getElementById('id_contribution_points').value);
+            
+            liveSend({'type': 'contributionPoints', 'value': contributionPoints});
+        }
 
-            if (contributionPoints < 0 || contributionPoints > currentPoints) {
-                alert("Ingresaste una cantidad inválida.");
+        // Offer points function
+        function offerPoints(playerId, otherId) {
+            let offerInputId = 'id_offerInput_' + otherId;
+            let offerValue = parseFloat(document.getElementById(offerInputId).value);
+
+            if (Number.isInteger(offerValue) && offerValue > 0) {
+                liveSend({
+                    'type': 'offerPoints',
+                    'value': offerValue,
+                    'playerId': playerId,
+                    'otherId': otherId
+                });
             } else {
-                let confirmSend = confirm("¿Estás seguro(a) que quieres contribuit con " + contributionPoints + " puntos en el proyecto común?");
-                if (confirmSend) {
-                    console.log("Puntos enviados:", contributionPoints);
-                } else {
-                    console.log("Acción cancelada");
-                }
+                alert("Por favor, ingresa una cantidad válida.");
             }
         }
+
+        // Request points function
+        function requestPoints(playerId, otherId) {
+            let requestInputId = 'id_requestInput_' + otherId;
+            let requestValue = parseFloat(document.getElementById(requestInputId).value);
+
+            if (Number.isInteger(requestValue) && requestValue > 0) {
+                liveSend({
+                    'type': 'requestPoints',
+                    'value': requestValue,
+                    'playerId': playerId,
+                    'otherId': otherId
+                });
+            } else {
+                alert("Por favor, ingresa una cantidad válida.");
+            }
+        }
+
+        function acceptAction(action, offerValue, playerId, otherId) {
+            liveSend({
+                'type': 'acceptAction',
+                'action': action,
+                'value': offerValue,
+                'playerId': playerId,
+                'otherId': otherId
+            });
+        }
+
+        function declineAction(action, offerValue, playerId, otherId) {
+            liveSend({
+                'type': 'declineAction',
+                'action': action,
+                'value': offerValue,
+                'playerId': playerId,
+                'otherId': otherId
+            });
+        }
+
+        function cancelAction(otherId) {
+            liveSend({
+                'type': 'cancelAction',
+                'otherId': otherId
+            });
+        }
         
+        function liveRecv(data) {
+            const showContribution = (points) => {
+                const beforeContribution = document.getElementById("beforeContribution");
+                const afterContribution = document.getElementById("afterContribution");
+                beforeContribution.style.display = "none";
+                afterContribution.style.display = "block";
+                afterContribution.innerHTML = `<p>Has contribuido con ${points} puntos al proyecto común.</p>`;
+            };
+
+            if (data.contributionPointsValid) {
+                let confirmSend = confirm(`¿Estás seguro(a) que quieres contribuir con ${data.contributionPoints} puntos en el proyecto común?`);
+                
+                if (confirmSend) {
+                    showContribution(data.contributionPoints);
+                }
+                return;
+            }
+
+            if (data.update) {
+                console.log("Before checking updateTransactions:");
+                console.log("data.contributionPointsReload:", data.contributionPointsReload);
+                console.log("data.updateTransactions:", data.updateTransactions);
+
+                if (data.contributionPointsReload) {
+                    console.log("update contribution")
+                    showContribution(data.contributionPoints);
+                }
+                // TODO: si no contribuye, no se actualiza transactions
+                if (data.updateTransactions) {
+                    if (data.reload === false) {
+                        console.log("able buttons transactions")
+                        let offerButton = document.getElementById('id_offerButton_' + data.otherId);
+                        let offerInput = document.getElementById('id_offerInput_' + data.otherId);
+                        let requestButton = document.getElementById('id_requestButton_' + data.otherId);
+                        let requestInput = document.getElementById('id_requestInput_' + data.otherId);
+                        let afterAction = document.getElementById('id_afterAction_' + data.otherId);
+
+                        offerButton.disabled = false;
+                        offerInput.disabled = false;
+                        requestButton.disabled = false;
+                        requestInput.disabled = false;
+                        afterAction.style.display = "none";
+                    }
+
+                    const transactions = data.transactions;
+                    const tableBody = document.getElementById('transactionsBody');
+
+                    console.log(transactions)
+
+                    tableBody.innerHTML = '';
+
+                    // Map the transactions to rows and append them
+                    transactions.forEach((transaction, index) => {
+                        const row = `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${transaction.initiator_id}</td>
+                                <td>${transaction.action}</td>
+                                <td>${transaction.receiver_id}</td>
+                                <td>${transaction.points}</td>
+                                <td>${transaction.action_accepted}</td>
+                                <td>${transaction.total}</td>
+                            </tr>
+                        `;
+                        tableBody.insertAdjacentHTML('beforeend', row);
+                    });
+
+                    // Update the span with the last transaction's total
+                    if (transactions.length > 0) {
+                        const lastTransaction = transactions[transactions.length - 1]; // Get the last transaction
+                        const pointsValueSpan = document.getElementById('points-value'); // Select the span
+                        pointsValueSpan.textContent = lastTransaction.total; // Update the span with the total value
+                    }
+                }
+            }
+
+            if (data.contributionPointsValid === false) {
+                // TO-DO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
+                alert("Ingresaste una cantidad inválida.");
+            }
+
+            if (data.offerPoints) {
+                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
+                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
+                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
+                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
+                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
+
+                offerButton.disabled = true;
+                offerInput.disabled = true;
+                requestButton.disabled = true;
+                requestInput.disabled = true;
+
+                if (data.initiator) {
+                    offerInput.value = "";
+                    requestInput.value = "";
+
+                    // Show action message
+                    afterAction.style.display = "block";
+                    afterAction.innerHTML = `
+                        <p class="text-center" style="font-weight: bold;">Ofreciste ${data.offerValue} puntos. Esperando respuesta.</p>
+                        <div class="col-12 d-flex justify-content-center">
+                            <button type="button" class="btn btn-secondary" onclick="cancelAction(${data.otherId})" style="width: auto;">Cancelar</button>
+                        </div>
+                    `;
+                }
+
+                if (data.receiver) {
+                    afterAction.style.display = "block";
+                    afterAction.innerHTML = `
+                        <p class="text-center" style="font-weight: bold;">Te ofrecieron ${data.offerValue} puntos. ¿Aceptas?</p>
+                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="acceptAction('offer', ${data.offerValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="declineAction('offer', ${data.offerValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Rechazar</button>
+                        </div>
+                    `;
+                }
+            }
+
+            if (data.offerPoints === false) {
+                alert("Ingresaste una cantidad inválida.");
+            }
+
+            if (data.requestPoints) {
+                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
+                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
+                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
+                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
+                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
+
+                offerButton.disabled = true;
+                offerInput.disabled = true;
+                requestButton.disabled = true;
+                requestInput.disabled = true;
+
+                if (data.initiator) {
+                    offerInput.value = "";
+                    requestInput.value = "";
+
+                    // Show action message
+                    afterAction.style.display = "block";
+                    afterAction.innerHTML = `
+                        <p class="text-center" style="font-weight: bold;">Solicitaste ${data.requestValue} puntos. Esperando respuesta.</p>
+                        <div class="col-12 d-flex justify-content-center">
+                            <button type="button" class="btn btn-secondary" onclick="cancelAction(${data.otherId})" style="width: auto;">Cancelar</button>
+                        </div>
+                    `;
+                }
+
+                if (data.receiver) {
+                    afterAction.style.display = "block";
+                    afterAction.innerHTML = `
+                        <p class="text-center" style="font-weight: bold;">Te solicitaron ${data.requestValue} puntos. ¿Aceptas?</p>
+                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="acceptAction('request', ${data.requestValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="declineAction('request', ${data.requestValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Rechazar</button>
+                        </div>
+                    `;
+                }
+            }
+
+            if (data.requestPoints === false) {
+                if (data.initiator === true) {
+                    alert("No puedes solicitar más puntos de los que hay en tu grupo.");
+                }
+                else {
+                    alert("No puedes aceptar el monto solicitado dado que excede el total de puntos que tienes.");
+                }
+            }
+
+            if (data.cancelAction) {
+                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
+                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
+                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
+                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
+                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
+
+                offerButton.disabled = false;
+                offerInput.disabled = false;
+                requestButton.disabled = false;
+                requestInput.disabled = false;
+                afterAction.style.display = "none";
+                // TO-DO: delete also the value in the input of the initiator
+            }
+        }
+
+        // Execute the live method each time the page is reloaded
+        document.addEventListener("DOMContentLoaded", function (event) {
+            liveSend({'type': 'reloadPage'});
+        });
     </script>
 
 {{ endblock }}
