@@ -8,9 +8,9 @@ SESSION_CONFIGS = [
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
         # Aditional configs
-        random_multiplier = False, # If multiplier is random (T3)
-        multiplier = 2, # Multiplier value when it is not random
-        interact_after_contribution = False, # Interact after contribution config
+        random_multiplier=False, # If multiplier is random (T3)
+        multiplier=2, # Multiplier value when it is not random
+        sequential_decision=False, # False for simultaneous decisions (same time for interaction and contribution)
     ),
     dict(
         name='public_goods_simple',

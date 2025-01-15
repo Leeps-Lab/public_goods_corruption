@@ -20,14 +20,14 @@ private_interaction = datos[0]['private_interaction']
 equal_asigment = datos[0]['equal_asigment']
 contribucion = 0
 
-# Imprimir los valores
-print(f'Segments: {segments}')
-print(f'Periods per Segment: {periods_per_segment}')
-print(f'Left Endowment: {left_endowment}')
-print(f'Right Endowment: {right_endowment}')
-print(f'Multiplication Factor: {multiplication_factor}')
-print(f'Private Interaction: {private_interaction}')
-print(f'Equal Asigment: {equal_asigment}')
+# # Imprimir los valores
+# print(f'Segments: {segments}')
+# print(f'Periods per Segment: {periods_per_segment}')
+# print(f'Left Endowment: {left_endowment}')
+# print(f'Right Endowment: {right_endowment}')
+# print(f'Multiplication Factor: {multiplication_factor}')
+# print(f'Private Interaction: {private_interaction}')
+# print(f'Equal Asigment: {equal_asigment}')
 
 
 
@@ -131,7 +131,7 @@ class InitPage(Page):
 
 
 class Bargain(Page):
-    timeout_seconds = 180
+    # timeout_seconds = 180
 
     
     endowment_izquierda = C.LEFT_ENDOWMENT;

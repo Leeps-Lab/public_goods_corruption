@@ -2,9 +2,12 @@ from otree.api import *
 import random
 import pandas as pd
 
+# TODO: Ver botones de ofrecer y solicitar 
+# TODO: Crear 2 postgres (data transaccional e historial)
+
 # Declare transactions db
 # TODO: agregar columna con código de la sesión, participant id (string), label del jugador
-column_names = ['round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'action_accepted', 'initiator_total', 'receiver_total']
+column_names = ['transaction_id', 'round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'success', 'initiator_total', 'receiver_total', 'status', 'time']
 transactions = pd.DataFrame(columns=column_names)
 
 
@@ -24,7 +27,7 @@ class Subsession(BaseSubsession):
 
 
 class Group(BaseGroup):
-    multiplier = models.FloatField()
+    multiplier = models.FloatField(initial=0)
     total_points = models.IntegerField(initial=0)
 
 
@@ -34,25 +37,14 @@ class Player(BasePlayer):
 
 
 # FUNCTIONS
-def creating_session(subsession):
-    # Asign participants to groups
-    subsession.group_randomly(fixed_id_in_group=True)
-    
+def creating_session(subsession):    
     # Initialize segment value to 1
     for player in subsession.get_players():
         player.participant.segment = 1
     
-    # Set multiplier value per groups
-    if subsession.session.config['random_multiplier']:
-        for group in subsession.get_groups():
-            group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
-    else:
-        for group in subsession.get_groups():
-            group.multiplier = subsession.session.config['multiplier']  # Use fixed multiplier
-
     # Set total points between all participants per group
-    for player in group.subsession.get_players():
-        group.total_points += player.current_points
+    for player in subsession.get_players():
+        player.group.total_points += player.current_points
 
 
 # PAGES
@@ -63,7 +55,13 @@ class Instructions(Page):
     
 
 class FirstWaitPage(WaitPage):
-    pass
+    @staticmethod
+    def after_all_players_arrive(group):
+        """ Set multiplier value per groups, per rounds """
+        if group.session.config['random_multiplier']:
+            group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
+        else:
+            group.multiplier = group.session.config['multiplier']  # Use fixed multiplier
 
 
 class Interaction(Page):
@@ -97,7 +95,7 @@ class Interaction(Page):
     def live_method(player, data):
         print(f"data: {data}")
         index = len(transactions) # calculates the next index based on the df size
-        static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'action_accepted'] # transaction columns for all the players
+        static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'success'] # transaction columns for all the players
 
         def handle_contribution(contribution_points):
             """Validate and process contribution points."""
@@ -126,7 +124,7 @@ class Interaction(Page):
                 'receiver_id': data['playerId'],
                 'action': data['action'],
                 'points': data['value'],
-                'action_accepted': action_accepted,
+                'success': action_accepted,
                 'initiator_total': player.group.get_player_by_id(data['otherId']).current_points,
                 'receiver_total': player.current_points,
             }
@@ -148,7 +146,7 @@ class Interaction(Page):
             )
 
             # Replace 'action_accepted' values
-            relevant_rows['action_accepted'] = relevant_rows['action_accepted'].replace({'yes': 'Sí', 'no': 'No'})
+            relevant_rows['success'] = relevant_rows['success'].replace({'yes': 'Sí', 'no': 'No'})
 
             # Replace 'initiator_id' and 'receiver_id' with corresponding roles
             relevant_rows['initiator_id'] = relevant_rows['initiator_id'].apply(lambda x: group.get_player_by_id(x).role)
@@ -170,6 +168,11 @@ class Interaction(Page):
         def update_transactions_per_player():
             # Return filtered and formatted transactions for initiator and receiver
             return process_relevant_rows(player.id_in_group, player.group)
+        
+        # if player.session.config['sequential_decision']:
+        #     return {0: dict(sequential_decision=True)}
+        # elif not player.session.config['sequential_decision']:
+        #     return {0: dict(sequential_decision=False)}
             
         data_type = data.get('type')
 
