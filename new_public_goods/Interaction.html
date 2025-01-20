@@ -136,9 +136,10 @@
     {{ next_button }}
 
     <script>
+        let sequentialDecisionFlag = js_vars.secuential_decision; // Sequential decision state
+
         function sendContribution() {
             let contributionPoints = parseFloat(document.getElementById('id_contribution_points').value);
-            
             liveSend({'type': 'contributionPoints', 'value': contributionPoints});
         }
 
@@ -202,7 +203,62 @@
                 'otherId': otherId
             });
         }
+
+        if (sequentialDecisionFlag) {
+            handleSequentialDecision();
+        }
         
+        // Functions for sequential decision
+        function handleSequentialDecision() {
+            disableLeftEnableRight();
+
+            // After 2 minutes, enable left column and disable right column
+            timer = setTimeout(() => {enableLeftDisableRight();}, 120000); // 2 minutes in milliseconds
+        }
+
+        function disableLeftEnableRight() {
+            document.querySelectorAll(".col-3 input, .col-3 button").forEach(el => el.disabled = true); // Disable inputs and buttons in the left column
+            document.querySelectorAll(".right-column input, .right-column button").forEach(el => el.disabled = false); // Enable inputs and buttons in the right column
+        }
+
+        function enableLeftDisableRight() {
+            document.querySelectorAll(".col-3 input, .col-3 button").forEach(el => el.disabled = false); // Enable inputs and buttons in the left column
+            document.querySelectorAll(".right-column input, .right-column button").forEach(el => el.disabled = true); // Disable inputs and buttons in the right column
+        }
+
+        // Parse the remaining time from the timer element
+        function getRemainingTime() {
+            const timerElement = document.querySelector('.otree-timer__time-left');
+            if (timerElement) {
+                const textContent = timerElement.textContent.trim(); // Trim whitespace
+                if (textContent) {
+                    const timeParts = textContent.split(':');
+                    if (timeParts.length === 2) { // Ensure the content has exactly two parts
+                        const minutes = parseInt(timeParts[0], 10);
+                        const seconds = parseInt(timeParts[1], 10);
+                        if (!isNaN(minutes) && !isNaN(seconds)) {
+                            const totalSeconds = minutes * 60 + seconds;
+                            return totalSeconds; // Return total seconds
+                        }
+                    }
+                }
+                return null;
+            }
+            return null; // Return null if the timer element is not found
+        }
+
+        // Wait for the timer content to be updated
+        function waitForTimerContent(callback) {
+            const interval = setInterval(() => {
+                const remainingTime = getRemainingTime();
+                if (remainingTime !== null) {
+                    clearInterval(interval); // Stop checking once we have valid time
+                    callback(remainingTime);
+                }
+            }, 100); // Check every 100ms
+        }
+
+        // Receives information from backend
         function liveRecv(data) {
             const showContribution = (points) => {
                 const beforeContribution = document.getElementById("beforeContribution");
@@ -230,7 +286,7 @@
                     console.log("update contribution")
                     showContribution(data.contributionPoints);
                 }
-                // TODO: si no contribuye, no se actualiza transactions
+
                 if (data.updateTransactions) {
                     if (data.reload === false) {
                         console.log("able buttons transactions")
@@ -263,7 +319,7 @@
                                 <td>${transaction.action}</td>
                                 <td>${transaction.receiver_id}</td>
                                 <td>${transaction.points}</td>
-                                <td>${transaction.action_accepted}</td>
+                                <td>${transaction.success}</td>
                                 <td>${transaction.total}</td>
                             </tr>
                         `;
@@ -280,7 +336,7 @@
             }
 
             if (data.contributionPointsValid === false) {
-                // TO-DO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
+                // TODO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
                 alert("Ingresaste una cantidad inválida.");
             }
 
@@ -392,6 +448,23 @@
         // Execute the live method each time the page is reloaded
         document.addEventListener("DOMContentLoaded", function (event) {
             liveSend({'type': 'reloadPage'});
+            
+            waitForTimerContent((remainingTime) => {
+                const oneMinuteThreshold = 60; // 1 minute in seconds
+                const timeToTrigger = remainingTime - oneMinuteThreshold;
+
+                if (timeToTrigger > 0) {
+                    console.log(`Setting timeout to trigger at 1 minute left (${timeToTrigger} seconds remaining).`);
+                    setTimeout(() => {
+                        enableLeftDisableRight();
+                        console.log("enableLeftDisableRight called with 1 minute remaining.");
+                    }, timeToTrigger * 1000); // Convert seconds to milliseconds
+                } else if (remainingTime <= oneMinuteThreshold) {
+                    // If less than 1 minute remains, trigger immediately
+                    enableLeftDisableRight();
+                    console.log("Immediate trigger: Less than 1 minute remaining.");
+                }
+            });
         });
     </script>
 
