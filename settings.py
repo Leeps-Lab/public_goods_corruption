@@ -10,7 +10,7 @@ SESSION_CONFIGS = [
         # Aditional configs
         random_multiplier=False, # If multiplier is random (T3)
         multiplier=2, # Multiplier value when it is not random
-        sequential_decision=False, # False for simultaneous decisions (same time for interaction and contribution)
+        sequential_decision=True, # False for simultaneous decisions (interaction and contribution at same time)
     ),
     dict(
         name='public_goods_simple',
@@ -59,10 +59,6 @@ SESSION_CONFIGS = [
     ),
 ]
 
-# if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs
-# in SESSION_CONFIGS, except those that explicitly override it.
-# the session config can be accessed from methods in your apps as self.session.config,
-# e.g. self.session.config['participation_fee']
 
 SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""

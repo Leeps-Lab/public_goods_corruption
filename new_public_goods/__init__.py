@@ -2,8 +2,9 @@ from otree.api import *
 import random
 import pandas as pd
 
-# TODO: Ver botones de ofrecer y solicitar 
 # TODO: Crear 2 postgres (data transaccional e historial)
+# TODO: chequear valor 'undefined' the columna succes
+# TODO: dejar conn abierto y añadir rows con INSERT no sobreescribiendo
 
 # Declare transactions db
 # TODO: agregar columna con código de la sesión, participant id (string), label del jugador
@@ -65,7 +66,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 180
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     # Display formfield 'contribution_points' only to citizens
@@ -90,6 +91,11 @@ class Interaction(Page):
             segment=player.participant.segment,
             others=others_info,
         )
+    
+    # Sendign the sequential decision session config to the frontend
+    @staticmethod
+    def js_vars(player):
+        return dict(secuential_decision=player.session.config['sequential_decision'],)
 
     @staticmethod
     def live_method(player, data):
@@ -115,7 +121,7 @@ class Interaction(Page):
                 return dict(contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
-        def log_transaction(action_accepted):
+        def log_transaction(success):
             """Log transaction and prepare filtered transactions."""
             transactions.loc[index] = {
                 'round': player.group.round_number,
@@ -124,7 +130,7 @@ class Interaction(Page):
                 'receiver_id': data['playerId'],
                 'action': data['action'],
                 'points': data['value'],
-                'success': action_accepted,
+                'success': success,
                 'initiator_total': player.group.get_player_by_id(data['otherId']).current_points,
                 'receiver_total': player.current_points,
             }
@@ -145,7 +151,7 @@ class Interaction(Page):
                 ), axis=1
             )
 
-            # Replace 'action_accepted' values
+            # Replace 'success' values
             relevant_rows['success'] = relevant_rows['success'].replace({'yes': 'Sí', 'no': 'No'})
 
             # Replace 'initiator_id' and 'receiver_id' with corresponding roles
@@ -169,11 +175,6 @@ class Interaction(Page):
             # Return filtered and formatted transactions for initiator and receiver
             return process_relevant_rows(player.id_in_group, player.group)
         
-        # if player.session.config['sequential_decision']:
-        #     return {0: dict(sequential_decision=True)}
-        # elif not player.session.config['sequential_decision']:
-        #     return {0: dict(sequential_decision=False)}
-            
         data_type = data.get('type')
 
         # When contributing to the common project
