@@ -1,61 +1,28 @@
 from os import environ
 
-
+# TODO: pensar en 2 alternativas de mostrar tratamientos sequenciales
+# Alt 1: Crear diferentes session configs por cada T
+# Alt. 2: Crear cada session config por cada order de T
 SESSION_CONFIGS = [
     dict(
         name='new_public_goods',
-        display_name="new_public_goods",
+        display_name="public_goods_simultaneous",
+        app_sequence=['new_public_goods'],
+        num_demo_participants=4,
+        # Aditional configs
+        random_multiplier=False, # If multiplier is random (T3)
+        multiplier=2, # Multiplier value when it is not random
+        sequential_decision=False, # False for simultaneous decisions (interaction and contribution at same time)
+    ),
+    dict(
+        name='new_public_goods',
+        display_name="public_goods_sequencial",
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
         # Aditional configs
         random_multiplier=False, # If multiplier is random (T3)
         multiplier=2, # Multiplier value when it is not random
         sequential_decision=True, # False for simultaneous decisions (interaction and contribution at same time)
-    ),
-    dict(
-        name='public_goods_simple',
-        display_name="public_goods_simple",
-        app_sequence=['public_goods_simple'],
-        num_demo_participants=4,
-        exchange_point_betwen_players = True,
-        equitable_distribution_of_officials_to_citizens = False,
-        endowment_comun = False,
-    ),
-    dict(
-        name='public_goods_simple_T1',
-        display_name="public goods simple T1",
-        app_sequence=['public_goods_simple'],
-        num_demo_participants=4,
-        exchange_point_betwen_players = True,
-        equitable_distribution_of_officials_to_citizens = True,
-        endowment_comun = False,
-    ),
-    dict(
-        name='public_goods_simple_BL1',
-        display_name="public goods simple BL1",
-        app_sequence=['public_goods_simple'],
-        num_demo_participants=4,
-        exchange_point_betwen_players = False,
-        equitable_distribution_of_officials_to_citizens = False,
-        endowment_comun = False,
-    ),
-    dict(
-        name='public_goods_simple_BL2',
-        display_name="public goods simple BL2",
-        app_sequence=['public_goods_simple'],
-        num_demo_participants=4,
-        exchange_point_betwen_players = False,
-        equitable_distribution_of_officials_to_citizens = True,
-        endowment_comun = False,
-    ),
-    dict(
-        name='public_goods_simple_T2',
-        display_name="public goods simple T2",
-        app_sequence=['public_goods_simple'],
-        num_demo_participants=4,
-        exchange_point_betwen_players = True,
-        equitable_distribution_of_officials_to_citizens = False,
-        endowment_comun = True,
     ),
 ]
 

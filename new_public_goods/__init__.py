@@ -1,15 +1,17 @@
 from otree.api import *
 import random
+import sqlite3
 import pandas as pd
 
-# TODO: Crear 2 postgres (data transaccional e historial)
-# TODO: chequear valor 'undefined' the columna succes
+# TODO: último commit con versión release (v0.5.1) !!!
+
 # TODO: dejar conn abierto y añadir rows con INSERT no sobreescribiendo
 
 # Declare transactions db
 # TODO: agregar columna con código de la sesión, participant id (string), label del jugador
 column_names = ['transaction_id', 'round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'success', 'initiator_total', 'receiver_total', 'status', 'time']
 transactions = pd.DataFrame(columns=column_names)
+
 
 
 class C(BaseConstants):
@@ -69,10 +71,9 @@ class Interaction(Page):
     timeout_seconds = 60 * 3
     form_model = 'player'
 
-    # Display formfield 'contribution_points' only to citizens
     @staticmethod
     def get_form_fields(player):
-        if player.role != 'Funcionario':
+        if player.role != 'Funcionario': # Display formfield 'contribution_points' only to citizens
             return ['contribution_points']
 
     @staticmethod
@@ -121,6 +122,7 @@ class Interaction(Page):
                 return dict(contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
+        # TODO: crear función para hacer inserción que tome como input un dicc
         def log_transaction(success):
             """Log transaction and prepare filtered transactions."""
             transactions.loc[index] = {

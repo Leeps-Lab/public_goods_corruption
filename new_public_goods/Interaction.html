@@ -109,15 +109,17 @@
                             <tr>
                                 <th>Segmento</th>
                                 <th>Ronda</th>
+                                <th>Dotación</th>
                                 <th>Contribución</th>
                                 <th>Asignación de servicios públicos</th>
                                 <th>Total transferencias recibidas</th>
                                 <th>Total transferencias enviadas</th>
-                                <th>Pago del periodo</th>
+                                <th>Pago</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
+                                <td>--</td>
                                 <td>--</td>
                                 <td>--</td>
                                 <td>--</td>
@@ -212,9 +214,6 @@
         // Functions for sequential decision
         function handleSequentialDecision() {
             disableLeftEnableRight();
-
-            // After 2 minutes, enable left column and disable right column
-            timer = setTimeout(() => {enableLeftDisableRight();}, 120000); // 2 minutes in milliseconds
         }
 
         function disableLeftEnableRight() {
@@ -461,8 +460,7 @@
                         console.log("enableLeftDisableRight called with 1 minute remaining.");
                     }, timeToTrigger * 1000); // Convert seconds to milliseconds
                 } else if (remainingTime <= oneMinuteThreshold) {
-                    // If less than 1 minute remains, trigger immediately
-                    enableLeftDisableRight();
+                    enableLeftDisableRight(); // If less than 1 minute remains, trigger immediately
                     console.log("Immediate trigger: Less than 1 minute remaining.");
                 }
             });
