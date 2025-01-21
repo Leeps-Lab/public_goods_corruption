@@ -8,7 +8,7 @@ import pandas as pd
 
 # Declare transactions db
 # TODO: agregar columna con código de la sesión, participant id (string), label del jugador
-column_names = ['round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'action_accepted', 'initiator_total', 'receiver_total']
+column_names = ['round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'success', 'initiator_total', 'receiver_total']
 transactions = pd.DataFrame(columns=column_names)
 
 
@@ -106,7 +106,7 @@ class Interaction(Page):
     def live_method(player, data):
         print(f"data: {data}")
         index = len(transactions) # calculates the next index based on the df size
-        static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'action_accepted'] # transaction columns for all the players
+        static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'success'] # transaction columns for all the players
 
         def handle_contribution(contribution_points):
             """Validate and process contribution points."""
