@@ -1,11 +1,8 @@
 from otree.api import *
+from sql_utils import create_tables, insert_participant, insert_transaction, insert_status, insert_history
+import time
 import random
-import sqlite3
 import pandas as pd
-
-# TODO: último commit con versión release (v0.5.1) !!!
-
-# TODO: dejar conn abierto y añadir rows con INSERT no sobreescribiendo
 
 # Declare transactions db
 # TODO: agregar columna con código de la sesión, participant id (string), label del jugador
@@ -13,11 +10,10 @@ column_names = ['transaction_id', 'round', 'group', 'initiator_id', 'receiver_id
 transactions = pd.DataFrame(columns=column_names)
 
 
-
 class C(BaseConstants):
     NAME_IN_URL = 'interacción'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 3 
+    NUM_ROUNDS = 3
     ENDOWMENT = 500
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -40,14 +36,27 @@ class Player(BasePlayer):
 
 
 # FUNCTIONS
-def creating_session(subsession):    
-    # Initialize segment value to 1
+def creating_session(subsession):
     for player in subsession.get_players():
-        player.participant.segment = 1
+        player.participant.segment = 1 # Initialize segment value to 1
+        player.group.total_points += player.current_points # Set total points between all participants per group
+        
+    if subsession.session.vars.get('initialized', False): # ?: Mejor forma de hacerlo? creating session se repite por c/ronda
+        return 
     
-    # Set total points between all participants per group
+    subsession.session.vars['initialized'] = True
+    create_tables() 
+    
     for player in subsession.get_players():
-        player.group.total_points += player.current_points
+        participant_data = {
+            'participant_code': player.participant.code,
+            'session_code': player.session.code,
+            'participant_id': player.participant.id_in_session,
+            'player_id_in_group': player.id_in_group,
+            'player_role': player.role,
+            'group_id': player.group.id_in_subsession,
+        }
+        insert_participant(participant_data)
 
 
 # PAGES
@@ -60,7 +69,7 @@ class Instructions(Page):
 class FirstWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
-        """ Set multiplier value per groups, per rounds """
+        """ Set multiplier value per groups and per rounds """
         if group.session.config['random_multiplier']:
             group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
         else:
@@ -68,7 +77,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    timeout_seconds = 60 * 3
+    # timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -101,7 +110,6 @@ class Interaction(Page):
     @staticmethod
     def live_method(player, data):
         print(f"data: {data}")
-        index = len(transactions) # calculates the next index based on the df size
         static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'success'] # transaction columns for all the players
 
         def handle_contribution(contribution_points):
@@ -122,21 +130,58 @@ class Interaction(Page):
                 return dict(contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
-        # TODO: crear función para hacer inserción que tome como input un dicc
-        def log_transaction(success):
-            """Log transaction and prepare filtered transactions."""
-            transactions.loc[index] = {
+
+        def new_transaction(success):
+            """Log transaction in transactions.db and status in status.db"""
+            transaction_data = {
+                'segment': player.participant.segment,
                 'round': player.group.round_number,
-                'group': player.group.id_in_subsession,
                 'initiator_id': data['otherId'],
                 'receiver_id': data['playerId'],
                 'action': data['action'],
                 'points': data['value'],
-                'success': success,
                 'initiator_total': player.group.get_player_by_id(data['otherId']).current_points,
                 'receiver_total': player.current_points,
             }
-            print(transactions)
+            print(transaction_data)
+            insert_transaction(transaction_data) # Save the transaction
+
+            transaction_id = 1 # TODO: usar el id que se creó en new_transaction
+            status_data = {
+                'transaction_id': transaction_id,
+                'status': success,
+                'timestamp': time.time(),
+            }
+            print(status_data)
+            insert_status(status_data)
+
+
+        def update_transaction(success):
+            """Log transaction in transactions.db and status in status.db"""
+            transaction_data = {
+                'segment': player.participant.segment,
+                'round': player.group.round_number,
+                'initiator_id': data['otherId'],
+                'receiver_id': data['playerId'],
+                'action': data['action'],
+                'points': data['value'],
+                'initiator_total': player.group.get_player_by_id(data['otherId']).current_points,
+                'receiver_total': player.current_points,
+            }
+            print(transaction_data)
+            insert_transaction(transaction_data) # Save the transaction
+
+            transaction_id = 1 # TODO: Search id of this transaction in status.db
+            status_data = {
+                'transaction_id': transaction_id,
+                'status': success,
+                'timestamp': time.time(),
+            }
+            print(status_data)
+            insert_status(status_data)
+
+
+
 
         def process_relevant_rows(player_id, group):
             """Filter, process, and update relevant rows for a specific player within the same group."""

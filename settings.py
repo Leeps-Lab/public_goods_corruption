@@ -5,7 +5,7 @@ from os import environ
 # Alt. 2: Crear cada session config por cada order de T
 SESSION_CONFIGS = [
     dict(
-        name='new_public_goods',
+        name='public_goods_simultaneous',
         display_name="public_goods_simultaneous",
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
@@ -15,7 +15,7 @@ SESSION_CONFIGS = [
         sequential_decision=False, # False for simultaneous decisions (interaction and contribution at same time)
     ),
     dict(
-        name='new_public_goods',
+        name='public_goods_sequencial',
         display_name="public_goods_sequencial",
         app_sequence=['new_public_goods'],
         num_demo_participants=4,

@@ -15,3 +15,4 @@ merge.ps1
 .vscode
 .env
 *.yml
+*.db

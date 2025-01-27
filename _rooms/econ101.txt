@@ -1,3 +1,4 @@
 Alice
 Bob
 Charlie
+Daniel
