@@ -1,19 +1,19 @@
 from otree.api import *
+from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, get_last_transaction_status
+import math
+import time
 import random
 import pandas as pd
 
-# TODO: Crear 2 postgres (data transaccional e historial)
-# TODO: chequear valor 'undefined' the columna succes
-# TODO: dejar conn abierto y añadir rows con INSERT no sobreescribiendo
+# TODO: división del chat por cada ronda
+# TODO: Que el chat del funcionario salga primero (siempre izq)
 
-# Declare transactions db
-# TODO: agregar columna con código de la sesión, participant id (string), label del jugador
-column_names = ['round', 'group', 'initiator_id', 'receiver_id', 'action', 'points', 'success', 'initiator_total', 'receiver_total']
-transactions = pd.DataFrame(columns=column_names)
+# TODO: merge a release de los cambios de base de SQL
 
+create_tables() # Create additional tables in game_data.db
 
 class C(BaseConstants):
-    NAME_IN_URL = 'interacción'
+    NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
     NUM_ROUNDS = 3 
     ENDOWMENT = 500
@@ -22,42 +22,24 @@ class C(BaseConstants):
     CITIZEN3_ROLE = 'Ciudadano 3'
     OFFICER_ROLE = 'Funcionario'
 
-
 class Subsession(BaseSubsession):
     pass
-
 
 class Group(BaseGroup):
     multiplier = models.FloatField()
     total_points = models.IntegerField(initial=0)
 
-
 class Player(BasePlayer):
     current_points = models.IntegerField(initial=C.ENDOWMENT)
-    contribution_points = models.IntegerField(blank=True)
+    contribution_points = models.IntegerField() # TODO: hacer que sea obligatorio?
 
 
 # FUNCTIONS
 def creating_session(subsession):
-    # Asign participants to groups
-    subsession.group_randomly(fixed_id_in_group=True)
-    
-    # Initialize segment value to 1
     for player in subsession.get_players():
-        player.participant.segment = 1
+        player.participant.segment = 1 # Initialize segment value to 1
+        player.group.total_points += player.current_points # Set total points between all participants per group
     
-    # Set multiplier value per groups
-    if subsession.session.config['random_multiplier']:
-        for group in subsession.get_groups():
-            group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
-    else:
-        for group in subsession.get_groups():
-            group.multiplier = subsession.session.config['multiplier']  # Use fixed multiplier
-
-    # Set total points between all participants per group
-    for player in group.subsession.get_players():
-        group.total_points += player.current_points
-
 
 # PAGES
 class Instructions(Page):
@@ -77,7 +59,7 @@ class Interaction(Page):
     # Display formfield 'contribution_points' only to citizens
     @staticmethod
     def get_form_fields(player):
-        if player.role != 'Funcionario':
+        if player.role != C.OFFICER_ROLE: # Display formfield 'contribution_points' only to citizens
             return ['contribution_points']
 
     @staticmethod
@@ -97,21 +79,20 @@ class Interaction(Page):
             others=others_info,
         )
     
-    # Sendign the sequential decision session config to the frontend
     @staticmethod
-    def js_vars(player):
+    def js_vars(player): # Sendign the sequential_decision session config to the frontend
         return dict(secuential_decision=player.session.config['sequential_decision'],)
 
     @staticmethod
     def live_method(player, data):
         print(f"data: {data}")
-        index = len(transactions) # calculates the next index based on the df size
-        static_columns = ['initiator_id', 'receiver_id', 'action', 'points', 'success'] # transaction columns for all the players
 
         def handle_contribution(contribution_points):
-            """Validate and process contribution points."""
-            if player.role != 'Funcionario':
-                if not isinstance(contribution_points, int) or contribution_points != contribution_points:  # NaN check
+            """
+            Validate and process contribution points
+            """
+            if player.role != C.OFFICER_ROLE:
+                if not isinstance(contribution_points, int) or math.isnan(contribution_points): # Check if is float or NaN
                     return dict(contributionPointsValid=False)
                 if 0 <= contribution_points <= player.current_points:
                     player.current_points -= contribution_points
@@ -120,66 +101,67 @@ class Interaction(Page):
                 return dict(contributionPointsValid=False)
             
         def reload_contribution():
-            """Handle reloading page when already contributed."""
+            """
+            Handle reloading page when already contributed
+            """
             contribution_points = player.field_maybe_none('contribution_points')
-            if player.role != 'Funcionario' and contribution_points:
+            if player.role != C.OFFICER_ROLE and contribution_points:
                 return dict(contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
-        def log_transaction(success):
-            """Log transaction and prepare filtered transactions."""
-            transactions.loc[index] = {
+        def new_transaction():
+            """
+            Log the initial transaction in the transactions table and its status in the status table.
+            Activates when the initiator clicks "offer" or "request".
+            """
+            transaction_data = {
+                'session_code': player.session.code,
+                'segment': player.participant.segment,
                 'round': player.group.round_number,
-                'group': player.group.id_in_subsession,
-                'initiator_id': data['otherId'],
-                'receiver_id': data['playerId'],
+                'initiator_code': player.group.get_player_by_id(data['initiatorId']).participant.code,
+                'receiver_code': player.group.get_player_by_id(data['receiverId']).participant.code,
+                'initiator_id': data['initiatorId'],
+                'receiver_id': data['receiverId'],
                 'action': data['action'],
                 'points': data['value'],
-                'success': success,
-                'initiator_total': player.group.get_player_by_id(data['otherId']).current_points,
-                'receiver_total': player.current_points,
+                'initiator_initial_endowment': player.current_points,
+                'receiver_initial_endowment': player.group.get_player_by_id(data['receiverId']).current_points,
             }
-            print(transactions)
+            print(f'transaction data: {transaction_data}')
 
-        def process_relevant_rows(player_id, group):
-            """Filter, process, and update relevant rows for a specific player within the same group."""
-            relevant_rows = transactions[
-                (
-                    transactions[['initiator_id', 'receiver_id']].isin([player_id]).any(axis=1)
-                ) & (transactions['group'] == group.id_in_subsession)  # Filter by group
-            ].copy()
+            transaction_id = insert_row(data=transaction_data, table='transactions') # Save the transaction and get the transaction ID
 
-            # Filter relevant rows and dynamically append the appropriate 'total' value
-            relevant_rows['total'] = relevant_rows.apply(
-                lambda row: row['initiator_total'] if row['initiator_id'] == player_id else (
-                    row['receiver_total'] if row['receiver_id'] == player_id else None
-                ), axis=1
-            )
+            status_data = {
+                'transaction_id': transaction_id,
+                'status': 'Iniciado',
+                'timestamp': time.time(),
+            }
+            print(f'status data:{status_data}')
+            insert_row(data=status_data, table='status')
 
-            # Replace 'success' values
-            relevant_rows['success'] = relevant_rows['success'].replace({'yes': 'Sí', 'no': 'No'})
+            return transaction_id
 
-            # Replace 'initiator_id' and 'receiver_id' with corresponding roles
-            relevant_rows['initiator_id'] = relevant_rows['initiator_id'].apply(lambda x: group.get_player_by_id(x).role)
-            relevant_rows['receiver_id'] = relevant_rows['receiver_id'].apply(lambda x: group.get_player_by_id(x).role)
+        def closing_transaction(status, transaction_id):
+            """
+            Log the clausure of a transaction in the status table and update total in transactions table.
+            Activates when the receiver clicks "yes" or "no", or the initiator cancels the transaction.
+            """
+            balance_data = {
+                'transaction_id': transaction_id,
+                'initiator_balance': player.group.get_player_by_id(data['initiatorId']).current_points,
+                'receiver_balance': player.group.get_player_by_id(data['receiverId']).current_points,
+            }
+            print(balance_data)
+            add_balance(data=balance_data)
 
-            # Replace 'offer' and 'request' in the 'action' column
-            relevant_rows['action'] = relevant_rows['action'].replace({'offer': 'Ofrece', 'request': 'Solicita'})
+            status_data = {
+                'transaction_id': transaction_id,
+                'status': status,
+                'timestamp': time.time(),
+            }
+            print(status_data)
+            insert_row(data=status_data, table='status')
 
-            return relevant_rows[static_columns + ['total']].to_dict(orient='records')
-        
-
-        def table_transactions_per_player():
-            # Return filtered and formatted transactions for initiator and receiver
-            return dict(
-                initiator_transactions=process_relevant_rows(data['otherId'], player.group),
-                receiver_transactions=process_relevant_rows(data['playerId'], player.group),
-            )
-        
-        def update_transactions_per_player():
-            # Return filtered and formatted transactions for initiator and receiver
-            return process_relevant_rows(player.id_in_group, player.group)
-        
         data_type = data.get('type')
 
         # When contributing to the common project
@@ -187,71 +169,186 @@ class Interaction(Page):
             return {player.id_in_group: handle_contribution(data['value'])}
         
         # When offering/requesting points to another player (as a initiator)
-        elif data_type == 'offerPoints' or data_type == 'requestPoints':
-            if 'offerPoints' in data['type']:
+        elif data_type == 'initiatingTransaction':
+            transaction_id = new_transaction()
+            if 'Ofrece' in data['action']:
                 offer_points = data.get('value')
                 if offer_points <= player.current_points:
                     return {
-                        player.id_in_group: dict(offerPoints=True, initiator=True, receiver=False, offerValue=data.get('value'), myId=data.get('playerId'), otherId=data.get('otherId')),
-                        data.get('otherId'): dict(offerPoints=True, initiator=False, receiver=True, offerValue=data.get('value'), myId=data.get('otherId'), otherId=data.get('playerId')),
+                        player.id_in_group: dict(offerPoints=True, initiator=True, receiver=False, offerValue=data.get('value'), myId=data.get('initiatorId'), otherId=data.get('receiverId'), transactionId=transaction_id),
+                        data.get('receiverId'): dict(offerPoints=True, initiator=False, receiver=True, offerValue=data.get('value'), myId=data.get('receiverId'), otherId=data.get('initiatorId'), transactionId=transaction_id),
                     }
                 else:
                     return {player.id_in_group: dict(offerPoints=False)} 
-            elif 'requestPoints' in data['type']:
+            elif 'Solicita' in data['action']:
                 if data.get('value') <= player.group.total_points:
                     return {
-                            player.id_in_group: dict(requestPoints=True, initiator=True, receiver=False, requestValue=data.get('value'), myId=data.get('playerId'), otherId=data.get('otherId')),
-                            data.get('otherId'): dict(requestPoints=True, initiator=False, receiver=True, requestValue=data.get('value'), myId=data.get('otherId'), otherId=data.get('playerId')),
+                            player.id_in_group: dict(requestPoints=True, initiator=True, receiver=False, requestValue=data.get('value'), myId=data.get('initiatorId'), otherId=data.get('receiverId'), transactionId=transaction_id),
+                            data.get('receiverId'): dict(requestPoints=True, initiator=False, receiver=True, requestValue=data.get('value'), myId=data.get('receiverId'), otherId=data.get('initiatorId'), transactionId=transaction_id),
                         }
-                # TODO: alert msg for when requesting more than there is in total
                 else:
                     return {player.id_in_group: dict(requestPoints=False, initiator=True)} 
         
-        # When canceling the offer action (as a initiator)
-        elif data_type == 'cancelAction':
-            return {player.id_in_group: dict(cancelAction=True, otherId=data.get('otherId')),
-                    data.get('otherId'): dict(cancelAction=True, otherId=player.id_in_group)}    
+        # When accepting/canceling points to another player (as a receiver) or canceling transaction (as initiator)
+        elif data_type == 'closingTransaction':
+            if data['status'] == 'Cancelado':
+                closing_transaction(data['status'], data['transactionId'])
+                return {player.id_in_group: dict(cancelAction=True, otherId=data['receiverId']),
+                        data['receiverId']: dict(cancelAction=True, otherId=player.id_in_group)}    
 
-        # When declining offer/request from another player (as a receiver)
-        elif data_type == 'declineAction':
-            log_transaction('no')
-            transactions_data = table_transactions_per_player()
-            return {
-                player.id_in_group: dict(updateTransactions=True, transactions=transactions_data['receiver_transactions'], otherId=data['otherId'], reload=False, update=True),
-                data['otherId']: dict(updateTransactions=True, transactions=transactions_data['initiator_transactions'], otherId=data['playerId'], reload=False, update=True),
-            }
-
-        # When accepting offer/request from another player (as a receiver)
-        elif data_type == 'acceptAction':
-            other_player = player.group.get_player_by_id(data['otherId'])
-            value = data['value']
-            if data.get('action') == 'offer':
-                other_player.current_points -= value
-                player.current_points += value
-            else:
-                if value <= player.current_points:
-                    other_player.current_points += value
-                    player.current_points -= value
-                else:
-                    return {player.id_in_group: dict(requestPoints=False, initiator=False)} 
-
+            elif data['status'] == 'Rechazado':
+                closing_transaction(data['status'], data['transactionId'])
+                print(f"initiator: {data['transactionId']}")
+                print(f"receiver: {data['receiverId']}")
+                initiator = player.group.get_player_by_id(data['initiatorId'])
+                receiver = player.group.get_player_by_id(data['receiverId'])
+                filter_transactions_i = filter_transactions({
+                    'participant_code': initiator.participant.code,
+                    'round': initiator.round_number,
+                    'segment': initiator.participant.segment,
+                    'session_code': initiator.session.code,
+                })
+                filter_transactions_r = filter_transactions({
+                    'participant_code': receiver.participant.code,
+                    'round': receiver.round_number,
+                    'segment': receiver.participant.segment,
+                    'session_code': receiver.session.code,
+                })
+                print(f"filter transactions initiator: {filter_transactions_i}")
+                print(f"filter transactions receiver: {filter_transactions_r}")
+                return {
+                    player.id_in_group: dict(update=True, updateTransactions=True, transactions=filter_transactions_r, otherId=data['initiatorId'], reload=False),
+                    data['initiatorId']: dict(update=True, updateTransactions=True, transactions=filter_transactions_i, otherId=data['receiverId'], reload=False),
+                }
             
-            log_transaction('yes')
-            transactions_data = table_transactions_per_player()
-            return {
-                player.id_in_group: dict(updateTransactions=True, transactions=transactions_data['receiver_transactions'], otherId=data['otherId'], reload=False, update=True),
-                data['otherId']: dict(updateTransactions=True, transactions=transactions_data['initiator_transactions'], otherId=data['playerId'], reload=False, update=True)
-            }
+            elif data['status'] == 'Aceptado':
+                other_player = player.group.get_player_by_id(data['initiatorId'])
+                points = get_points(data['transactionId'])
+                action = get_action(data['transactionId'])
+                if action == 'Ofrece':
+                    other_player.current_points -= points
+                    player.current_points += points
+                else:
+                    if points <= player.current_points:
+                        other_player.current_points += points
+                        player.current_points -= points
+                    else:
+                        return {player.id_in_group: dict(requestPoints=False, initiator=False)} 
+                
+                closing_transaction(data['status'], data['transactionId'])
+                initiator = player.group.get_player_by_id(data['initiatorId'])
+                receiver = player.group.get_player_by_id(data['receiverId'])
+                filter_transactions_i = filter_transactions({
+                    'participant_code': initiator.participant.code,
+                    'round': initiator.round_number,
+                    'segment': initiator.participant.segment,
+                    'session_code': initiator.session.code,
+                })
+                filter_transactions_r = filter_transactions({
+                    'participant_code': receiver.participant.code,
+                    'round': receiver.round_number,
+                    'segment': receiver.participant.segment,
+                    'session_code': receiver.session.code,
+                })
+                return {
+                    player.id_in_group: dict(updateTransactions=True, transactions=filter_transactions_r, otherId=data['initiatorId'], reload=False, update=True),
+                    data['initiatorId']: dict(updateTransactions=True, transactions=filter_transactions_i, otherId=data['receiverId'], reload=False, update=True)
+                }
         
         # When player reloads their page
         elif data_type == 'reloadPage':
+            # Get the last transaction of the player in the current session, round, and segment
+            last_transaction = get_last_transaction_status(
+                participant_code=player.participant.code,
+                round_number=player.round_number,
+                segment=player.participant.segment,
+                session_code=player.session.code
+            ) 
+
+            # If the last transaction is still in process, send offer/request buttons again and filtered transactions
+            if last_transaction:
+                transaction_id = last_transaction['transactionId']
+                initiator_id = last_transaction['initiatorId']
+                receiver_id = last_transaction['receiverId']
+                action = last_transaction['action']
+                value = last_transaction['value']
+
+                # Fetch the filtered transactions
+                transactions_data = filter_transactions({
+                    'participant_code': player.participant.code,
+                    'round': player.round_number,
+                    'segment': player.participant.segment,
+                    'session_code': player.session.code,
+                })
+
+                # Debugging
+                print("Transactions while reloading (with active transaction):", transactions_data)
+
+                # Construct common response data
+                response_data = {
+                    'updateTransactions': True,
+                    'transactions': transactions_data,  # Sending filtered transactions
+                    'update': True,
+                    'transactionId': transaction_id
+                }
+
+                if action == 'Ofrece':
+                    return {
+                        player.id_in_group: dict(
+                            offerPoints=True,
+                            initiator=player.id_in_group == initiator_id,
+                            receiver=player.id_in_group == receiver_id,
+                            offerValue=value,
+                            myId=player.id_in_group,
+                            otherId=receiver_id if player.id_in_group == initiator_id else initiator_id,
+                            **response_data  # Merging transaction data
+                        ),
+                        receiver_id: dict(
+                            offerPoints=True,
+                            initiator=False,
+                            receiver=True,
+                            offerValue=value,
+                            myId=receiver_id,
+                            otherId=initiator_id,
+                            **response_data  # Merging transaction data
+                        )
+                    }
+                elif action == 'Solicita':
+                    return {
+                        player.id_in_group: dict(
+                            requestPoints=True,
+                            initiator=player.id_in_group == initiator_id,
+                            receiver=player.id_in_group == receiver_id,
+                            requestValue=value,
+                            myId=player.id_in_group,
+                            otherId=receiver_id if player.id_in_group == initiator_id else initiator_id,
+                            **response_data  # Merging transaction data
+                        ),
+                        receiver_id: dict(
+                            requestPoints=True,
+                            initiator=False,
+                            receiver=True,
+                            requestValue=value,
+                            myId=receiver_id,
+                            otherId=initiator_id,
+                            **response_data  # Merging transaction data
+                        )
+                    }
+
             reload = reload_contribution()
-            transactions_data = update_transactions_per_player()
-            print(transactions)
-            if not transactions.empty:
+            transactions_data = filter_transactions({
+                'participant_code': player.participant.code,
+                'round': player.round_number,
+                'segment': player.participant.segment,
+                'session_code': player.session.code,
+            })
+            print(transactions_data)
+
+            if transactions_data: # If it is not empty
                 reload.update({'updateTransactions':True, 'transactions':transactions_data, 'update': True})
                 print(reload)
                 return {player.id_in_group: reload}
+            
             return {player.id_in_group: reload}
         
 
