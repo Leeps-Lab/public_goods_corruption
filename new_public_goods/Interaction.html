@@ -35,6 +35,7 @@
                             <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
                             <button type="button" id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button>
                         </div>
+                        {{ formfield_errors "contribution_points" }}
                     </div>
                     <!-- Display message after contribution -->
                     <div id="afterContribution" style="display: none;">
@@ -59,13 +60,33 @@
                                     <p class="text-center">Interacción con {{ other.role }}</p>
                                     <!-- Offer section -->
                                     <div class="d-flex align-items-center spacing-between" style="gap: 10px; justify-content: center;">
-                                        <button type="button" id="id_offerButton_{{ other.id_in_group }}" class="btn btn-outline-primary" onclick="offerPoints({{ player.id_in_group }}, {{ other.id_in_group }})">Ofrecer puntos:</button>
-                                        <input type="number" id="id_offerInput_{{ other.id_in_group }}" class="form-control" style="width: 30%;">
+                                        <button 
+                                            type="button" 
+                                            id="id_offerButton_{{ other.id_in_group }}" 
+                                            class="btn btn-outline-primary" 
+                                            onclick="initiatingTransaction('Ofrece', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_offerInput')">
+                                            Ofrecer puntos:
+                                        </button>
+                                        <input 
+                                            type="number" 
+                                            id="id_offerInput_{{ other.id_in_group }}" 
+                                            class="form-control" 
+                                            style="width: 30%;">
                                     </div>
                                     <!-- Request section -->
                                     <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
-                                        <button type="button" id="id_requestButton_{{ other.id_in_group }}" class="btn btn-outline-success" onclick="requestPoints({{ player.id_in_group }}, {{ other.id_in_group }})">Solicitar puntos:</button>
-                                        <input type="text" id="id_requestInput_{{ other.id_in_group }}" class="form-control" style="width: 30%;">
+                                        <button 
+                                            type="button"
+                                            id="id_requestButton_{{ other.id_in_group }}"
+                                            class="btn btn-outline-success"
+                                            onclick="initiatingTransaction('Solicita', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_requestInput')">
+                                            Solicitar puntos:
+                                        </button>
+                                        <input 
+                                            type="text"
+                                            id="id_requestInput_{{ other.id_in_group }}"
+                                            class="form-control"
+                                            style="width: 30%;">
                                     </div>
                                 </div>
                                 <!-- Action messages -->
@@ -87,7 +108,7 @@
                                 <th>A</th>
                                 <th>Puntos</th>
                                 <th>¿Se aceptó?</th>
-                                <th>Total</th>
+                                <th>Balance</th>
                             </tr>
                         </thead>
                         <tbody id="transactionsBody">
@@ -140,82 +161,68 @@
 
     <script>
         let sequentialDecisionFlag = js_vars.secuential_decision; // Sequential decision state
+        const ID_PREFIXES = {
+            offerButton: 'id_offerButton_',
+            offerInput: 'id_offerInput_',
+            requestButton: 'id_requestButton_',
+            requestInput: 'id_requestInput_',
+            afterAction: 'id_afterAction_'
+        };
 
         function sendContribution() {
             let contributionPoints = parseFloat(document.getElementById('id_contribution_points').value);
             liveSend({'type': 'contributionPoints', 'value': contributionPoints});
         }
 
-        // Offer points function
-        function offerPoints(playerId, otherId) {
-            let offerInputId = 'id_offerInput_' + otherId;
-            let offerValue = parseFloat(document.getElementById(offerInputId).value);
+        function initiatingTransaction(action, playerId, otherId, inputPrefix) {
+            /**
+             * Handles initiating a new transaction (offer or request points).
+             * @param {string} action - The action to perform ('Ofrece' or 'Solicita').
+             * @param {number} playerId - The ID of the player initiating the transaction.
+             * @param {number} otherId - The ID of the player receiving the transaction.
+             * @param {string} inputPrefix - The prefix for the input ID.
+             */
+            const inputId = `${inputPrefix}_${otherId}`;
+            const inputElement = document.getElementById(inputId);
+            const inputValue = parseFloat(inputElement.value);
 
-            if (Number.isInteger(offerValue) && offerValue > 0) {
+            if (Number.isInteger(inputValue) && inputValue > 0) { // Validate the input value - TODO: do it in frontend or backend??
                 liveSend({
-                    'type': 'offerPoints',
-                    'value': offerValue,
-                    'playerId': playerId,
-                    'otherId': otherId
+                    'type': 'initiatingTransaction',
+                    'action': action,
+                    'value': inputValue,
+                    'initiatorId': playerId,
+                    'receiverId': otherId
                 });
             } else {
                 alert("Por favor, ingresa una cantidad válida.");
             }
         }
 
-        // Request points function
-        function requestPoints(playerId, otherId) {
-            let requestInputId = 'id_requestInput_' + otherId;
-            let requestValue = parseFloat(document.getElementById(requestInputId).value);
+        function closingTransaction(status, myId, otherId, transactionId) {
+            /**
+             * Handles post-transaction actions such as accept, decline, or cancel.
+             * @param {string} status - The status update of the transaction ('Aceptado', 'Rechazado', 'Cancelado').
+             * @param {number} myId - The ID of the current player.
+             * @param {number} otherId - The ID of the other player involved in the transaction.
+             * @param {number} transactionId - The transaction ID.
+             */
+            console.log(`Status: ${status}, My ID: ${myId}, Other ID: ${otherId}, Transaction ID: ${transactionId}`);
 
-            if (Number.isInteger(requestValue) && requestValue > 0) {
-                liveSend({
-                    'type': 'requestPoints',
-                    'value': requestValue,
-                    'playerId': playerId,
-                    'otherId': otherId
-                });
-            } else {
-                alert("Por favor, ingresa una cantidad válida.");
-            }
-        }
-
-        function acceptAction(action, offerValue, playerId, otherId) {
             liveSend({
-                'type': 'acceptAction',
-                'action': action,
-                'value': offerValue,
-                'playerId': playerId,
-                'otherId': otherId
-            });
-        }
-
-        function declineAction(action, offerValue, playerId, otherId) {
-            liveSend({
-                'type': 'declineAction',
-                'action': action,
-                'value': offerValue,
-                'playerId': playerId,
-                'otherId': otherId
-            });
-        }
-
-        function cancelAction(otherId) {
-            liveSend({
-                'type': 'cancelAction',
-                'otherId': otherId
+                'type': 'closingTransaction',
+                'status': status,
+                'initiatorId': (status === 'Cancelado') ? myId : otherId,
+                'receiverId': (status === 'Cancelado') ? otherId : myId,
+                'transactionId': transactionId
             });
         }
 
         if (sequentialDecisionFlag) {
-            handleSequentialDecision();
+            disableLeftEnableRight();
         }
         
         // Functions for sequential decision
-        function handleSequentialDecision() {
-            disableLeftEnableRight();
-        }
-
         function disableLeftEnableRight() {
             document.querySelectorAll(".col-3 input, .col-3 button").forEach(el => el.disabled = true); // Disable inputs and buttons in the left column
             document.querySelectorAll(".right-column input, .right-column button").forEach(el => el.disabled = false); // Enable inputs and buttons in the right column
@@ -277,6 +284,130 @@
                 return;
             }
 
+            if (data.contributionPointsValid === false) {
+                // TODO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
+                alert("Ingresaste una cantidad inválida.");
+            }
+            
+
+            // Helper function to get related DOM elements by `otherId`
+            function getElements(otherId) {
+                return {
+                    offerButton: document.getElementById(ID_PREFIXES.offerButton + otherId),
+                    offerInput: document.getElementById(ID_PREFIXES.offerInput + otherId),
+                    requestButton: document.getElementById(ID_PREFIXES.requestButton + otherId),
+                    requestInput: document.getElementById(ID_PREFIXES.requestInput + otherId),
+                    afterAction: document.getElementById(ID_PREFIXES.afterAction + otherId),
+                };
+            }
+
+            // Helper function to disable/enable inputs and buttons
+            function toggleInputs(elements, disabled) {
+                elements.offerButton.disabled = disabled;
+                elements.offerInput.disabled = disabled;
+                elements.requestButton.disabled = disabled;
+                elements.requestInput.disabled = disabled;
+            }
+
+            // Helper function to update `afterAction` content
+            function updateAfterAction(elements, display, content = '') {
+                elements.afterAction.style.display = display ? 'block' : 'none';
+                elements.afterAction.innerHTML = content;
+            }
+
+            // Handle offer points
+            if (data.offerPoints) {
+                const elements = getElements(data.otherId);
+                toggleInputs(elements, true);
+
+                if (data.initiator) {
+                    elements.offerInput.value = "";
+                    elements.requestInput.value = "";
+                    updateAfterAction(
+                        elements,
+                        true,
+                        `
+                        <p class="text-center" style="font-weight: bold;">Ofreciste ${data.offerValue} puntos. Esperando respuesta.</p>
+                        <div class="col-12 d-flex justify-content-center">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Cancelar</button>
+                        </div>
+                        `
+                    );
+                }
+
+                if (data.receiver) {
+                    updateAfterAction(
+                        elements,
+                        true,
+                        `
+                        <p class="text-center" style="font-weight: bold;">Te ofrecieron ${data.offerValue} puntos. ¿Aceptas?</p>
+                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Rechazar</button>
+                        </div>
+                        `
+                    );
+                }
+            }
+
+            // Handle invalid offer points
+            if (data.offerPoints === false) {
+                alert("Ingresaste una cantidad inválida.");
+                return;
+            }
+
+            // Handle request points
+            if (data.requestPoints) {
+                const elements = getElements(data.otherId);
+                toggleInputs(elements, true);
+
+                if (data.initiator) {
+                    elements.offerInput.value = "";
+                    elements.requestInput.value = "";
+                    updateAfterAction(
+                        elements,
+                        true,
+                        `
+                        <p class="text-center" style="font-weight: bold;">Solicitaste ${data.requestValue} puntos. Esperando respuesta.</p>
+                        <div class="col-12 d-flex justify-content-center">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Cancelar</button>
+                        </div>
+                        `
+                    );
+                }
+
+                if (data.receiver) {
+                    console.log("receiver");
+                    updateAfterAction(
+                        elements,
+                        true,
+                        `
+                        <p class="text-center" style="font-weight: bold;">Te solicitaron ${data.requestValue} puntos. ¿Aceptas?</p>
+                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Rechazar</button>
+                        </div>
+                        `
+                    );
+                }
+            }
+
+            // Handle invalid request points
+            if (data.requestPoints === false) {
+                const message = data.initiator
+                    ? "No puedes solicitar más puntos de los que hay en tu grupo."
+                    : "No puedes aceptar el monto solicitado dado que excede el total de puntos que tienes.";
+                alert(message);
+                return;
+            }
+
+            // Handle cancel action
+            if (data.cancelAction) {
+                const elements = getElements(data.otherId);
+                toggleInputs(elements, false);
+                updateAfterAction(elements, false);
+            }
+
             if (data.update) {
                 console.log("Before checking updateTransactions:");
                 console.log("data.contributionPointsReload:", data.contributionPointsReload);
@@ -312,136 +443,26 @@
 
                     // Map the transactions to rows and append them
                     transactions.forEach((transaction, index) => {
-                        const row = `
-                            <tr>
-                                <td>${index + 1}</td>
-                                <td>${transaction.initiator_id}</td>
-                                <td>${transaction.action}</td>
-                                <td>${transaction.receiver_id}</td>
-                                <td>${transaction.points}</td>
-                                <td>${transaction.success}</td>
-                                <td>${transaction.total}</td>
-                            </tr>
+                        const row = document.createElement("tr");
+                        row.innerHTML = `
+                            <td>${index + 1}</td>
+                            <td>${transaction["Jugador"]}</td>
+                            <td>${transaction["Acción"]}</td>
+                            <td>${transaction["A"]}</td>
+                            <td>${transaction["Puntos"]}</td>
+                            <td>${transaction["¿Se aceptó?"]}</td>
+                            <td>${transaction["Balance"]}</td>
                         `;
-                        tableBody.insertAdjacentHTML('beforeend', row);
+                        tableBody.appendChild(row);
                     });
 
                     // Update the span with the last transaction's total
                     if (transactions.length > 0) {
                         const lastTransaction = transactions[transactions.length - 1]; // Get the last transaction
                         const pointsValueSpan = document.getElementById('points-value'); // Select the span
-                        pointsValueSpan.textContent = lastTransaction.total; // Update the span with the total value
+                        pointsValueSpan.textContent = lastTransaction["Balance"]; // Update the span with the balance
                     }
                 }
-            }
-
-            if (data.contributionPointsValid === false) {
-                // TODO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
-                alert("Ingresaste una cantidad inválida.");
-            }
-
-            if (data.offerPoints) {
-                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
-                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
-                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
-                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
-                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
-
-                offerButton.disabled = true;
-                offerInput.disabled = true;
-                requestButton.disabled = true;
-                requestInput.disabled = true;
-
-                if (data.initiator) {
-                    offerInput.value = "";
-                    requestInput.value = "";
-
-                    // Show action message
-                    afterAction.style.display = "block";
-                    afterAction.innerHTML = `
-                        <p class="text-center" style="font-weight: bold;">Ofreciste ${data.offerValue} puntos. Esperando respuesta.</p>
-                        <div class="col-12 d-flex justify-content-center">
-                            <button type="button" class="btn btn-secondary" onclick="cancelAction(${data.otherId})" style="width: auto;">Cancelar</button>
-                        </div>
-                    `;
-                }
-
-                if (data.receiver) {
-                    afterAction.style.display = "block";
-                    afterAction.innerHTML = `
-                        <p class="text-center" style="font-weight: bold;">Te ofrecieron ${data.offerValue} puntos. ¿Aceptas?</p>
-                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
-                            <button type="button" class="btn btn-secondary" onclick="acceptAction('offer', ${data.offerValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Aceptar</button>
-                            <button type="button" class="btn btn-secondary" onclick="declineAction('offer', ${data.offerValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Rechazar</button>
-                        </div>
-                    `;
-                }
-            }
-
-            if (data.offerPoints === false) {
-                alert("Ingresaste una cantidad inválida.");
-            }
-
-            if (data.requestPoints) {
-                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
-                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
-                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
-                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
-                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
-
-                offerButton.disabled = true;
-                offerInput.disabled = true;
-                requestButton.disabled = true;
-                requestInput.disabled = true;
-
-                if (data.initiator) {
-                    offerInput.value = "";
-                    requestInput.value = "";
-
-                    // Show action message
-                    afterAction.style.display = "block";
-                    afterAction.innerHTML = `
-                        <p class="text-center" style="font-weight: bold;">Solicitaste ${data.requestValue} puntos. Esperando respuesta.</p>
-                        <div class="col-12 d-flex justify-content-center">
-                            <button type="button" class="btn btn-secondary" onclick="cancelAction(${data.otherId})" style="width: auto;">Cancelar</button>
-                        </div>
-                    `;
-                }
-
-                if (data.receiver) {
-                    afterAction.style.display = "block";
-                    afterAction.innerHTML = `
-                        <p class="text-center" style="font-weight: bold;">Te solicitaron ${data.requestValue} puntos. ¿Aceptas?</p>
-                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
-                            <button type="button" class="btn btn-secondary" onclick="acceptAction('request', ${data.requestValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Aceptar</button>
-                            <button type="button" class="btn btn-secondary" onclick="declineAction('request', ${data.requestValue}, ${data.myId}, ${data.otherId})" style="width: auto;">Rechazar</button>
-                        </div>
-                    `;
-                }
-            }
-
-            if (data.requestPoints === false) {
-                if (data.initiator === true) {
-                    alert("No puedes solicitar más puntos de los que hay en tu grupo.");
-                }
-                else {
-                    alert("No puedes aceptar el monto solicitado dado que excede el total de puntos que tienes.");
-                }
-            }
-
-            if (data.cancelAction) {
-                let offerButton = document.getElementById('id_offerButton_' + data.otherId);
-                let offerInput = document.getElementById('id_offerInput_' + data.otherId);
-                let requestButton = document.getElementById('id_requestButton_' + data.otherId);
-                let requestInput = document.getElementById('id_requestInput_' + data.otherId);
-                let afterAction = document.getElementById('id_afterAction_' + data.otherId);
-
-                offerButton.disabled = false;
-                offerInput.disabled = false;
-                requestButton.disabled = false;
-                requestInput.disabled = false;
-                afterAction.style.display = "none";
-                // TO-DO: delete also the value in the input of the initiator
             }
         }
 
@@ -450,7 +471,7 @@
             liveSend({'type': 'reloadPage'});
             
             waitForTimerContent((remainingTime) => {
-                const oneMinuteThreshold = 60; // 1 minute in seconds
+                const oneMinuteThreshold = 60;
                 const timeToTrigger = remainingTime - oneMinuteThreshold;
 
                 if (timeToTrigger > 0) {

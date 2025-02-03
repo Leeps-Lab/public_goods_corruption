@@ -1,8 +1,12 @@
 from os import environ
+from dotenv import load_dotenv # type: ignore
+
+load_dotenv()
 
 # TODO: pensar en 2 alternativas de mostrar tratamientos sequenciales
-# Alt 1: Crear diferentes session configs por cada T
+# Alt. 1: Crear diferentes session configs por cada T
 # Alt. 2: Crear cada session config por cada order de T
+# TODO: (antes del history) ver qué Treatments ya se pueden poner en el SC y qué Treatments no (ver cuánto tomaría hacerlo) - asumiendo que los tratamientos van separados
 SESSION_CONFIGS = [
     dict(
         name='public_goods_simultaneous',
