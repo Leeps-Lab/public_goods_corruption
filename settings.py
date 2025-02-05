@@ -10,23 +10,25 @@ load_dotenv()
 SESSION_CONFIGS = [
     dict(
         name='public_goods_simultaneous',
-        display_name="public_goods_simultaneous",
+        display_name='public_goods_simultaneous',
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
         # Aditional configs
         random_multiplier=False, # If multiplier is random (T3)
         multiplier=2, # Multiplier value when it is not random
         sequential_decision=False, # False for simultaneous decisions (interaction and contribution at same time)
+        endowment_unequally=False # False for equally distribution of endowment, True for P.O. to decide
     ),
     dict(
         name='public_goods_sequencial',
-        display_name="public_goods_sequencial",
+        display_name='public_goods_sequencial',
         app_sequence=['new_public_goods'],
         num_demo_participants=4,
         # Aditional configs
         random_multiplier=False, # If multiplier is random (T3)
         multiplier=2, # Multiplier value when it is not random
-        sequential_decision=True, # False for simultaneous decisions (interaction and contribution at same time)
+        sequential_decision=True, # True for sequential decisions (interaction first, then contribution)
+        endowment_unequally=False # False for equally distribution of endowment, True for P.O. to decide
     ),
 ]
 
@@ -35,7 +37,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS = ['segment']
+PARTICIPANT_FIELDS = ['segment', 'initial_points']
 SESSION_FIELDS = []
 
 # ISO-639 code

@@ -1,16 +1,13 @@
 from otree.api import *
-from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, get_last_transaction_status
+from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player
 import math
 import time
 import random
-import pandas as pd
 
 # TODO: división del chat por cada ronda
 # TODO: Que el chat del funcionario salga primero (siempre izq)
 
-# TODO: merge a release de los cambios de base de SQL
-
-create_tables() # Create additional tables in game_data.db
+create_tables() # Creates additional tables
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
@@ -27,7 +24,9 @@ class Subsession(BaseSubsession):
 
 class Group(BaseGroup):
     multiplier = models.FloatField(initial=0)
-    total_points = models.IntegerField(initial=0)
+    total_initial_points = models.IntegerField(initial=0)
+    total_contribution = models.IntegerField()
+    individual_share = models.FloatField() # TODO: Allow decimals? or round to int
 
 class Player(BasePlayer):
     current_points = models.IntegerField(initial=C.ENDOWMENT)
@@ -38,7 +37,50 @@ class Player(BasePlayer):
 def creating_session(subsession):
     for player in subsession.get_players():
         player.participant.segment = 1 # Initialize segment value to 1
-        player.group.total_points += player.current_points # Set total points between all participants per group
+        player.group.total_initial_points += player.current_points # Set total points between all participants per group
+        if subsession.session.config['endowment_unequally'] == False:
+            player.participant.initial_points = C.ENDOWMENT
+
+def public_good_raw_gain(group):
+    players = [p for p in group.get_players() if p.id_in_group != 4]  # Exclude player with id 4 (Funcionario)
+    group.total_contribution = sum(p.contribution_points for p in players)
+    group.individual_share = (group.total_contribution * group.multiplier / (C.PLAYERS_PER_GROUP - 1)) # TODO: confirmar si se divide solo entre los ciudadanos
+
+def set_payoffs(player):
+    total_transfers = total_transfers_per_player({
+        'session_code': player.session.code,
+        'segment': player.participant.segment,
+        'round': player.round_number,
+        'participant_code': player.participant.code,
+    }) 
+    if player.id_in_group != 4: # TODO: confirmar
+        player.payoff = player.participant.initial_points - player.contribution_points - total_transfers.get('transfers_given', 0) + player.group.individual_share + total_transfers.get('transfers_received', 0)
+    else:
+        player.payoff = player.participant.initial_points - total_transfers.get('transfers_given', 0) + total_transfers.get('transfers_received', 0)
+
+def insert_history(group):
+    for player in group.get_players():
+        set_payoffs(player)
+        total_transfers = total_transfers_per_player({
+            'session_code': player.session.code,
+            'segment': player.participant.segment,
+            'round': player.round_number,
+            'participant_code': player.participant.code,
+        }) 
+        history_data = {
+            'session_code': player.session.code,
+            'segment': player.participant.segment,
+            'round': player.round_number,
+            'participant_code': player.participant.code,
+            'endowment': player.participant.initial_points,
+            'contribution': player.field_maybe_none('contribution_points'),
+            'public_good_raw_gain': player.group.individual_share,
+            'total_transfers_received': total_transfers.get('transfers_received', 0),
+            'total_transfers_given': total_transfers.get('transfers_given', 0),
+            'payment': float(player.payoff)
+        }
+        print(f"history data: {history_data}")
+        insert_row(data=history_data, table='history')
     
 
 # PAGES
@@ -79,14 +121,24 @@ class Interaction(Page):
             for other in others
         ]
 
+        if player.round_number > 1:
+            history = filter_history({
+                'session_code': player.session.code,
+                'segment': player.participant.segment,
+                'participant_code': player.participant.code,
+            })
+        else:
+            history = []
+
         return dict(
             segment=player.participant.segment,
             others=others_info,
+            history=history,
         )
-    
+
     @staticmethod
     def js_vars(player): # Sendign the sequential_decision session config to the frontend
-        return dict(secuential_decision=player.session.config['sequential_decision'],)
+        return dict(secuential_decision=player.session.config['sequential_decision'])
 
     @staticmethod
     def live_method(player, data):
@@ -140,7 +192,6 @@ class Interaction(Page):
             status_data = {
                 'transaction_id': transaction_id,
                 'status': 'Iniciado',
-                'timestamp': time.time(),
             }
             print(f'status data:{status_data}')
             insert_row(data=status_data, table='status')
@@ -163,7 +214,6 @@ class Interaction(Page):
             status_data = {
                 'transaction_id': transaction_id,
                 'status': status,
-                'timestamp': time.time(),
             }
             print(status_data)
             insert_row(data=status_data, table='status')
@@ -187,7 +237,7 @@ class Interaction(Page):
                 else:
                     return {player.id_in_group: dict(offerPoints=False)} 
             elif 'Solicita' in data['action']:
-                if data.get('value') <= player.group.total_points:
+                if data.get('value') <= player.group.total_initial_points:
                     return {
                             player.id_in_group: dict(requestPoints=True, initiator=True, receiver=False, requestValue=data.get('value'), myId=data.get('initiatorId'), otherId=data.get('receiverId'), transactionId=transaction_id),
                             data.get('receiverId'): dict(requestPoints=True, initiator=False, receiver=True, requestValue=data.get('value'), myId=data.get('receiverId'), otherId=data.get('initiatorId'), transactionId=transaction_id),
@@ -365,4 +415,12 @@ class Interaction(Page):
             player.participant.segment += 1
 
 
-page_sequence = [Instructions, FirstWaitPage, Interaction]
+class LastWaitPage(WaitPage):
+    @staticmethod
+    def after_all_players_arrive(group):
+        public_good_raw_gain(group)
+        insert_history(group)
+
+
+# Change if session.config['endowment_unequally'] == True
+page_sequence = [Instructions, FirstWaitPage, Interaction, LastWaitPage]

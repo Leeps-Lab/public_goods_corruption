@@ -33,7 +33,7 @@
                         <p>Puntos a contribuir:</p>
                         <div class="d-flex">
                             <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
-                            <button type="button" id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button>
+                            <button id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button> <!-- TODO: confirmar si la contribución termina esa ronda -->
                         </div>
                         {{ formfield_errors "contribution_points" }}
                     </div>
@@ -124,34 +124,34 @@
         <div>
             <h5 class="text-center">Historia</h5>
             <div class="row">
-                <div class="container">
-                    <table class="table" id="historial_tabla">
-                        <thead>
-                            <tr>
-                                <th>Segmento</th>
-                                <th>Ronda</th>
-                                <th>Dotación</th>
-                                <th>Contribución</th>
-                                <th>Asignación de servicios públicos</th>
-                                <th>Total transferencias recibidas</th>
-                                <th>Total transferencias enviadas</th>
-                                <th>Pago</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                                <td>--</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Segmento</th>
+                            <th>Ronda</th>
+                            <th>Dotación</th>
+                            <th>Contribución</th>
+                            <th>Asignación de servicios públicos</th>
+                            <th>Total transferencias recibidas</th>
+                            <th>Total transferencias enviadas</th>
+                            <th>Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ for row in history }}
+                        <tr>
+                            <td>{{ row.Segment }}</td>
+                            <td>{{ row.Round }}</td>
+                            <td>{{ row.Endowment }}</td>
+                            <td>{{ row.Contribution }}</td>
+                            <td>{{ row.PublicGoodRawGain }}</td>
+                            <td>{{ row.TotalTransfersReceived }}</td>
+                            <td>{{ row.TotalTransfersGiven }}</td>
+                            <td>{{ row.Payment }}</td>
+                        </tr>
+                        {{ endfor }}
+                    </tbody>
+                </table>
             </div>
         </div>
         
@@ -470,21 +470,23 @@
         document.addEventListener("DOMContentLoaded", function (event) {
             liveSend({'type': 'reloadPage'});
             
-            waitForTimerContent((remainingTime) => {
-                const oneMinuteThreshold = 60;
-                const timeToTrigger = remainingTime - oneMinuteThreshold;
+            if (js_vars.secuential_decision) {
+                waitForTimerContent((remainingTime) => {
+                    const oneMinuteThreshold = 60;
+                    const timeToTrigger = remainingTime - oneMinuteThreshold;
 
-                if (timeToTrigger > 0) {
-                    console.log(`Setting timeout to trigger at 1 minute left (${timeToTrigger} seconds remaining).`);
-                    setTimeout(() => {
-                        enableLeftDisableRight();
-                        console.log("enableLeftDisableRight called with 1 minute remaining.");
-                    }, timeToTrigger * 1000); // Convert seconds to milliseconds
-                } else if (remainingTime <= oneMinuteThreshold) {
-                    enableLeftDisableRight(); // If less than 1 minute remains, trigger immediately
-                    console.log("Immediate trigger: Less than 1 minute remaining.");
-                }
-            });
+                    if (timeToTrigger > 0) {
+                        console.log(`Setting timeout to trigger at 1 minute left (${timeToTrigger} seconds remaining).`);
+                        setTimeout(() => {
+                            enableLeftDisableRight();
+                            console.log("enableLeftDisableRight called with 1 minute remaining.");
+                        }, timeToTrigger * 1000); // Convert seconds to milliseconds
+                    } else if (remainingTime <= oneMinuteThreshold) {
+                        enableLeftDisableRight(); // If less than 1 minute remains, trigger immediately
+                        console.log("Immediate trigger: Less than 1 minute remaining.");
+                    }
+                });
+            }
         });
     </script>
 
