@@ -72,7 +72,7 @@ def create_tables(db_path=DB_PATH):
             participant_code TEXT NOT NULL,
             endowment INTEGER NOT NULL,
             contribution INTEGER,
-            public_good_raw_gain INTEGER NOT NULL,
+            public_good_raw_gain INTEGER,
             total_transfers_received INTEGER NOT NULL,
             total_transfers_given INTEGER NOT NULL,
             payment INTEGER NOT NULL
@@ -366,8 +366,13 @@ def get_last_transaction_status(participant_code, round_number, segment, session
 def total_transfers_per_player(data, db_path=DB_PATH):
     """
     Retrieves the total number of transfers received and given for a player 
-    in a specific segment, round, and session, but only for completed transactions (status = 'Aceptado').
+    in a specific segment, round, and session, ensuring that:
     
+    - If `receiver_code` and `action = 'Ofrece'`, it counts as `transfers_received`.
+    - If `receiver_code` and `action = 'Solicita'`, it counts as `transfers_given`.
+    - If `initiator_code` and `action = 'Ofrece'`, it counts as `transfers_given`.
+    - If `initiator_code` and `action = 'Solicita'`, it counts as `transfers_received`.
+
     :param data: Dictionary containing 'segment', 'round', 'participant_code', 'session_code'.
     :return: Dictionary with total_transfers_received and total_transfers_given.
     """
@@ -378,19 +383,35 @@ def total_transfers_per_player(data, db_path=DB_PATH):
     try:
         query = """
         SELECT 
-            COALESCE(SUM(CASE WHEN t.receiver_code = %s THEN t.points ELSE 0 END), 0) AS transfers_received,
-            COALESCE(SUM(CASE WHEN t.initiator_code = %s THEN t.points ELSE 0 END), 0) AS transfers_given
+            COALESCE(SUM(
+                CASE 
+                    WHEN t.receiver_code = %s AND t.action = 'Ofrece' THEN t.points  -- Receiver gains from 'Ofrece'
+                    WHEN t.initiator_code = %s AND t.action = 'Solicita' THEN t.points  -- Initiator gains from 'Solicita'
+                    ELSE 0 
+                END
+            ), 0) AS transfers_received,
+
+            COALESCE(SUM(
+                CASE 
+                    WHEN t.initiator_code = %s AND t.action = 'Ofrece' THEN t.points  -- Initiator loses from 'Ofrece'
+                    WHEN t.receiver_code = %s AND t.action = 'Solicita' THEN t.points  -- Receiver loses from 'Solicita'
+                    ELSE 0 
+                END
+            ), 0) AS transfers_given
+
         FROM game_data.transactions t
         JOIN game_data.status s ON t.transaction_id = s.transaction_id
         WHERE t.segment = %s
         AND t.round = %s
         AND t.session_code = %s
-        AND s.status = 'Aceptado';  -- Only include transactions that were accepted
+        AND s.status = 'Aceptado';  -- Only include completed transactions
         """
 
         cur.execute(query, (
-            data['participant_code'],  # Receiver
-            data['participant_code'],  # Initiator
+            data['participant_code'],  # Receiver: Ofrece (Received)
+            data['participant_code'],  # Initiator: Solicita (Received)
+            data['participant_code'],  # Initiator: Ofrece (Given)
+            data['participant_code'],  # Receiver: Solicita (Given)
             data['segment'],
             data['round'],
             data.get('session_code', '')  # Ensure session_code is included

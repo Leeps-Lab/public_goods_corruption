@@ -74,7 +74,7 @@ def insert_history(group):
             'participant_code': player.participant.code,
             'endowment': player.participant.initial_points,
             'contribution': player.field_maybe_none('contribution_points'),
-            'public_good_raw_gain': player.group.individual_share,
+            'public_good_raw_gain': player.group.individual_share if player.id_in_group != 4 else None,
             'total_transfers_received': total_transfers.get('transfers_received', 0),
             'total_transfers_given': total_transfers.get('transfers_given', 0),
             'payment': float(player.payoff)
