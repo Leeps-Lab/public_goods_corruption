@@ -280,7 +280,7 @@ def filter_history(data, db_path=DB_PATH):
                 "Round": row[1],
                 "Participant": row[2],
                 "Endowment": row[3],
-                "Contribution": row[4],
+                "Contribution": row[4] if row[4] is not None else 0, # Handle None case
                 "PublicGoodRawGain": row[5],
                 "TotalTransfersReceived": row[6],
                 "TotalTransfersGiven": row[7],

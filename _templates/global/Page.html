@@ -8,7 +8,19 @@
 
 {{ block app_styles }}
     <style>
-        /* General Styles */
+
+        /* Top line style */
+        .main-content-row {
+            border-top: solid #808080;
+            padding-bottom: 20px;
+        }
+
+        /* Form Styling */
+        .spacing-between {
+            margin-bottom: 5px;
+        }
+
+        /* Chat Styles */
         .otree-body {
             max-width: 85%;
             margin: 0 auto;
@@ -21,28 +33,29 @@
         }
 
         .otree-chat__input {
-            width: calc(100% - 65px);
+            width: calc(100% - 60px);
             padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
         }
 
         .otree-chat__btn-send {
-            width: 60px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            width: 55px;
             padding: 5px;
+            border-radius: 5px;
+        }
+
+        .otree-chat__btn-send:hover {
+            background: #5a6268;
         }
 
         .chat-container {
             display: flex;
             justify-content: space-between;
             gap: 15px;
-        }
-        .main-content-row {
-            border-top: solid #808080;
-            padding-bottom: 20px;
-        }
-
-        /* Form Styling */
-        .spacing-between {
-            margin-bottom: 5px;
         }
 
     </style>

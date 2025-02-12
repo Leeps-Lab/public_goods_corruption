@@ -21,7 +21,14 @@
         <div class="row main-content-row">
             
             <!-- Left Column: Role Info -->
-            <div class="col-3 d-flex flex-column align-items-center justify-content-center p-5 text-center" style="border-right: solid #808080;">
+            <div class="
+            {% if not private_interaction %}
+                col-12
+            {% else %}
+                col-3
+            {% endif %}
+            d-flex flex-column align-items-center justify-content-center p-5 text-center"
+            style="{% if private_interaction %}border-right: solid #808080;{% endif %}">
                 {{ if player.id_in_group == 4 }}
                     <p>Tu rol es el de <b>funcionario</b>.</p>
                     <p>El multiplicador es <b>{{ group.multiplier }}</b></p>
@@ -29,13 +36,27 @@
                 {{ else }}
                     <p>Tu rol es el de <b>ciudadano {{ player.id_in_group }}</b>.</p>
                     <div id="beforeContribution">
-                        <p id="points-info">Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b> para distribuir entre tu cuenta y el proyecto común.</p>
-                        <p>Puntos a contribuir:</p>
+                        <p id="points-info">
+                            Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b> para distribuir entre tu cuenta y el proyecto común.
+                        </p>
+                        <p>
+                            Puntos a contribuir al proyecto común:
+                        </p>
                         <div class="d-flex">
-                            <input type="number" id="id_contribution_points" name="contribution_points" class="form-control" style="flex: 1;">
-                            <button id="send_to_b_button" class="btn btn-primary" onclick="sendContribution()">Enviar puntos</button> <!-- TODO: confirmar si la contribución termina esa ronda -->
+                            <input 
+                                type="number" 
+                                id="id_contribution_points" 
+                                name="contribution_points" 
+                                class="form-control" 
+                                style="flex: 1;">
+                            <button 
+                                type="button" 
+                                id="send_to_b_button" 
+                                class="btn btn-primary" 
+                                onclick="sendContribution()">
+                                Enviar puntos
+                            </button> <!-- TODO: confirmar si la contribución termina esa ronda / R: no, mantener la jugada -->
                         </div>
-                        {{ formfield_errors "contribution_points" }}
                     </div>
                     <!-- Display message after contribution -->
                     <div id="afterContribution" style="display: none;">
@@ -44,6 +65,7 @@
             </div>
 
             <!-- Right Column: Interaction Interface -->
+            {{ if private_interaction }}
             <div class="col-9 right-column">
 
                     <!-- Chats and send/request buttons -->
@@ -117,55 +139,18 @@
                 </div>
 
             </div>
-
+            {{ endif }}
         </div>
 
         <!-- History Section -->
-        <!-- TODO: Confirmar si no se le muestra al P.O. las cols de contribución y Asignación de servicios públicos -->
-        <div>
-            <h5 class="text-center">Historia</h5>
-            <div class="row">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Segmento</th>
-                            <th>Ronda</th>
-                            <th>Dotación</th>
-                            {{ if player.id_in_group != 4 }}
-                                <th>Contribución</th>
-                                <th>Asignación de servicios públicos</th>
-                            {{ endif }}
-                            <th>Total transferencias recibidas</th>
-                            <th>Total transferencias enviadas</th>
-                            <th>Pago</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{ for row in history }}
-                        <tr>
-                            <td>{{ row.Segment }}</td>
-                            <td>{{ row.Round }}</td>
-                            <td>{{ row.Endowment }}</td>
-                            {{ if player.id_in_group != 4 }}
-                                <td>{{ row.Contribution }}</td>
-                                <td>{{ row.PublicGoodRawGain }}</td>
-                            {{ endif }}
-                            <td>{{ row.TotalTransfersReceived }}</td>
-                            <td>{{ row.TotalTransfersGiven }}</td>
-                            <td>{{ row.Payment }}</td>
-                        </tr>
-                        {{ endfor }}
-                    </tbody>
-                </table>
-            </div>
-        </div>        
+        {{ include '../_templates/global/history.html' }}         
         
     </div>
      
     {{ next_button }}
 
     <script>
-        let sequentialDecisionFlag = js_vars.secuential_decision; // Sequential decision state
+        let sequentialDecisionFlag = js_vars.secuential_decision; // Sequential decision flag
         const ID_PREFIXES = {
             offerButton: 'id_offerButton_',
             offerInput: 'id_offerInput_',
@@ -191,7 +176,11 @@
             const inputElement = document.getElementById(inputId);
             const inputValue = parseFloat(inputElement.value);
 
-            if (Number.isInteger(inputValue) && inputValue > 0) { // Validate the input value - TODO: do it in frontend or backend??
+            if (!Number.isInteger(inputValue) || isNaN(inputValue)) {
+                alert("Por favor, ingresa una cantidad válida.");
+            } else if (inputValue < 0) {
+                alert("No puedes ingresar una cantidad negativa.");
+            } else {
                 liveSend({
                     'type': 'initiatingTransaction',
                     'action': action,
@@ -199,8 +188,6 @@
                     'initiatorId': playerId,
                     'receiverId': otherId
                 });
-            } else {
-                alert("Por favor, ingresa una cantidad válida.");
             }
         }
 
@@ -280,18 +267,15 @@
                 afterContribution.innerHTML = `<p>Has contribuido con ${points} puntos al proyecto común.</p>`;
             };
 
-            if (data.contributionPointsValid) {
+            if (data.contributionPointsValid === true) {
                 let confirmSend = confirm(`¿Estás seguro(a) que quieres contribuir con ${data.contributionPoints} puntos en el proyecto común?`);
                 
                 if (confirmSend) {
                     showContribution(data.contributionPoints);
                 }
                 return;
-            }
-
-            if (data.contributionPointsValid === false) {
-                // TODO: Different alerts if amout is more than total points or because it is a wrong value (e.g. negative or empty)
-                alert("Ingresaste una cantidad inválida.");
+            } else if (data.contributionPointsValid === false) {
+                alert(data.error);
             }
             
 
@@ -357,7 +341,7 @@
 
             // Handle invalid offer points
             if (data.offerPoints === false) {
-                alert("Ingresaste una cantidad inválida.");
+                alert(data.error);
                 return;
             }
 
@@ -474,7 +458,8 @@
         // Execute the live method each time the page is reloaded
         document.addEventListener("DOMContentLoaded", function (event) {
             liveSend({'type': 'reloadPage'});
-            
+
+            // If session configs the secuencial decision is True
             if (js_vars.secuential_decision) {
                 waitForTimerContent((remainingTime) => {
                     const oneMinuteThreshold = 60;

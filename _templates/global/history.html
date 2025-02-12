@@ -1,0 +1,41 @@
+<div>
+    <h5 class="text-center">Historia</h5>
+    <div class="row">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Segmento</th>
+                    <th>Ronda</th>
+                    <th>Dotación</th>
+                    {{ if player.id_in_group != 4 }}
+                        <th>Contribución</th>
+                        <th>Asignación de servicios públicos</th> <!-- TODO: revisar el nombre -->
+                    {{ endif }}
+                    {{ if private_interaction }}
+                        <th>Total transferencias recibidas</th>
+                        <th>Total transferencias enviadas</th>
+                    {{ endif }}
+                    <th>Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ for row in history }}
+                <tr>
+                    <td>{{ row.Segment }}</td>
+                    <td>{{ row.Round }}</td>
+                    <td>{{ row.Endowment }}</td>
+                    {{ if player.id_in_group != 4 }}
+                        <td>{{ row.Contribution }}</td>
+                        <td>{{ row.PublicGoodRawGain }}</td>
+                    {{ endif }}
+                    {{ if private_interaction }}
+                        <td>{{ row.TotalTransfersReceived }}</td>
+                        <td>{{ row.TotalTransfersGiven }}</td>
+                    {{ endif }}
+                    <td>{{ row.Payment }}</td>
+                </tr>
+                {{ endfor }}
+            </tbody>
+        </table>
+    </div>
+</div> 

@@ -1,0 +1,48 @@
+{{ extends "../_templates/global/Page.html" }}
+
+{{ block content }}
+
+    <div class="container" style="padding-bottom: 20px;">
+        
+        <!-- Header Row -->
+        <div class="row px-5 pb-5 pt-0">
+            <div class="col-4 text-center">
+                <b>Segmento:</b> {{ segment }}
+            </div>
+            <div class="col-4 text-center">
+                <b>Ronda:</b> {{ player.round_number }}
+            </div>
+            <div class="col-4 text-center">
+                <b>Rol:</b> {{ player.role }}
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row main-content-row">
+            
+            <!-- Left Column: Role Info -->
+            <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
+                <h5>Asigna la dotación de cada ciudadano para esta ronda:</h5><br>
+                <div class="row w-100">
+                    <div class="col-4 mb-3">
+                        {{ formfield 'endowment1' }}
+                    </div>
+                    <div class="col-4 mb-3">
+                        {{ formfield 'endowment2' }}
+                    </div>
+                    <div class="col-4 mb-3">
+                        {{ formfield 'endowment3' }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- History Section -->
+        {{ include '../_templates/global/history.html' }}     
+        
+    </div>
+     
+    {{ next_button }}
+
+{{ endblock }}
