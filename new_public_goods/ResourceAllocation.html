@@ -22,16 +22,17 @@
             
             <!-- Left Column: Role Info -->
             <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
-                <h5>Asigna la dotación de cada ciudadano para esta ronda:</h5><br>
+                <h5>Asigna los recursos a cada ciudadano para esta ronda:</h5><br>
+                <p>El total de recursos en esta ronda fue de <b>{{ player.group.total_allocation }}</b> puntos</p><br>
                 <div class="row w-100">
                     <div class="col-4 mb-3">
-                        {{ formfield 'endowment1' }}
+                        {{ formfield 'allocation1' }}
                     </div>
                     <div class="col-4 mb-3">
-                        {{ formfield 'endowment2' }}
+                        {{ formfield 'allocation2' }}
                     </div>
                     <div class="col-4 mb-3">
-                        {{ formfield 'endowment3' }}
+                        {{ formfield 'allocation3' }}
                     </div>
                 </div>
             </div>
@@ -42,7 +43,78 @@
         {{ include '../_templates/global/history.html' }}     
         
     </div>
-     
-    {{ next_button }}
+    <button id="next_button" type="button" class="btn btn-primary" onclick="verifyAllocation()">Siguiente</button>
+
+    <script>
+        const totalAllocation = js_vars.total_allocation;
+        let inputs, allocationContainer;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            inputs = document.querySelectorAll('input[name^="allocation"]');
+            allocationContainer = document.querySelector(".row.w-100");
+
+            inputs.forEach(input => {
+                input.addEventListener("input", () => validateInputs(false));
+            });
+        });
+
+        function showError(target, className, message) {
+            let existingError = target.querySelector(`.${className}`);
+            if (!existingError) {
+                const errorMsg = document.createElement("p");
+                errorMsg.className = `text-danger ${className} mt-2`;
+                errorMsg.innerText = message;
+                target.appendChild(errorMsg);
+            }
+        }
+
+        function removeError(target, className) {
+            let existingError = target.querySelector(`.${className}`);
+            if (existingError) existingError.remove();
+        }
+
+        function validateInputs(showErrors = false) {
+            let sum = 0;
+            let filledInputs = 0;
+            let individualErrorExists = false;
+            let hasTotalError = false;
+
+            inputs.forEach(input => {
+                const value = parseInt(input.value) || 0;
+                const controlsDiv = input.closest(".controls");
+
+                removeError(controlsDiv, "allocation-error");
+
+                if (value > totalAllocation) {
+                    if (showErrors) showError(controlsDiv, "allocation-error", "No puedes distribuir más de los recursos disponibles.");
+                    individualErrorExists = true;
+                }
+
+                if (input.value.trim() !== "") filledInputs++; 
+                sum += value;
+            });
+
+            removeError(allocationContainer, "total-allocation-error");
+            removeError(allocationContainer, "low-allocation-error");
+
+            if (!individualErrorExists) {
+                if (sum > totalAllocation) {
+                    if (showErrors) showError(allocationContainer, "total-allocation-error", "La suma de todas las asignaciones no puede superar los recursos disponibles.");
+                    hasTotalError = true;
+                } else if (sum < totalAllocation && filledInputs === 3) {
+                    if (showErrors) showError(allocationContainer, "low-allocation-error", "Debes distribuir todos los recursos disponibles.");
+                    hasTotalError = true;
+                }
+            }
+
+            return filledInputs === 3 && sum === totalAllocation && !hasTotalError;
+        }
+
+        function verifyAllocation() {
+            if (validateInputs(true)) {
+                document.getElementById('form').submit();
+            }
+        }
+    </script>
 
 {{ endblock }}

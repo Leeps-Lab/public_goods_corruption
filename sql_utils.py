@@ -3,10 +3,17 @@ from os import environ
 from dotenv import load_dotenv # type: ignore
 import psycopg2 # type: ignore
 from psycopg2 import sql # type: ignore
+import json
 
 load_dotenv()
 
 DB_PATH = environ.get('DATABASE_URL')
+
+with open("translation.json", "r", encoding="utf-8") as f: # Load the role translations from translation.json
+    translations = json.load(f)
+
+role_mapping = translations["role_terms"]
+
 
 def connect_to_db(db_path=DB_PATH):
     """
@@ -183,7 +190,8 @@ def add_balance(data, db_path=DB_PATH):
 
 def filter_transactions(data, db_path=DB_PATH):
     """
-    Filters transactions for a given participant, round, segment, and session.
+    Filters transactions for a given participant, round, segment, and session,
+    replacing initiator and receiver IDs with their corresponding role names.
     """
     conn, cur = connect_to_db(db_path)
     if not conn:
@@ -216,9 +224,9 @@ def filter_transactions(data, db_path=DB_PATH):
 
         transactions = [
             {
-                "Jugador": row[0],
+                "Jugador": role_mapping.get(str(row[0]), f"Jugador {row[0]}"),  # Replace initiator_id with role
                 "Acción": row[1],
-                "A": row[2],
+                "A": role_mapping.get(str(row[2]), f"Jugador {row[2]}"),  # Replace receiver_id with role
                 "Puntos": row[3],
                 "¿Se aceptó?": row[5],
                 "Balance": row[4],
@@ -353,7 +361,7 @@ def get_last_transaction_status(participant_code, round_number, segment, session
                     'value': points
                 }
 
-        return None  # No active transaction in this session/round/segment
+        return None # No active transaction in this session/round/segment
 
     except psycopg2.Error as e:
         print(f"Database error while fetching last transaction: {e}")

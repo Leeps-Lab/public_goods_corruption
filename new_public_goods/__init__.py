@@ -3,12 +3,12 @@ from sql_utils import create_tables, insert_row, add_balance, get_points, get_ac
 import math
 import random
 
+# Reu 14/02
+# Buscar 'confirmar'
+# Preguntar por T3, T5 y T7
 
 # TODO: describir problema + pseudocódigo de solución en GITHUB del issue del timeout
 
-# TODO: cambiar en transacciones, que se muestre el rol de los jugadores en lugar del id 
-# TODO: revisar lenguaje de exp de bienes públicos para nombre de columnas en tablas
-# TODO: el PO no elige endowment, al final de la interacción elige cómo repartir la asignación de servicios públicos (se distribuye todo)
 # TODO: T4: T2 con pantalla adicional -> cuando (ciudadano_i le ofrece al funcionario o funcionario solicita a ciudadano_i y acepta, EN NETO es positivo) y el funcionario le da más que el promedio, que se detecte con 20% (configurable), el castigo es quitarle el 50% de lo que ganan en total a ambos
 # Considerar:
 # - A nivel de transacción (funcionario podría perder todo el dinero)
@@ -16,6 +16,7 @@ import random
 # - dar más que 0.1 puntos se considera corrupción
 # - Funcionario puede escribir hasta 1 decimal
 # TODO: si ciudadanos no contribuyen o funcionario no decide repartición en T4, no se le paga esa ronda (pago = 0)
+# TODO: revisar lenguaje de exp de bienes públicos para nombre de columnas en tablas
 # TODO: excluir participantes que estén en celular o tablet
 # TODO: librería python en es para evitar lenguaje obsceno
 
@@ -25,48 +26,81 @@ class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
     NUM_ROUNDS = 3
-    CITIZEN_ENDOWMENT = 500 # TODO: que el pago inicial del funcionario sea configurable (default: 700)
+    CITIZEN_ENDOWMENT = 500
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
     CITIZEN3_ROLE = 'Ciudadano 3'
     OFFICER_ROLE = 'Funcionario'
 
 class Subsession(BaseSubsession):
-    pass
+    officer_endowment = models.IntegerField()
 
 class Group(BaseGroup):
     multiplier = models.FloatField(initial=0)
     total_initial_points = models.IntegerField(initial=0)
     total_contribution = models.IntegerField()
     total_allocation = models.FloatField() # = total_contribution * multiplier
-    default_allocation = models.FloatField() # total_allocation / 3 TODO: Allow decimals? or round to int -> R: redondear a 1 decimal
-    # TODO: confirmar cuál es el default (si el PO no decide ningún o alguna de las dotaciones)? -> R: se le da el promedio del restante
-    # TODO: hay una cantidad mínima/máxima que debe elegir (debe sumar todo 1,500?) -> R: siempre debe sumar el total
-    # -> R: agregar si hizo timeout, penalidad del 50% del pago flat del periodo (de los 700)
-    allocation1 = models.IntegerField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?')
-    allocation2 = models.IntegerField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?')
-    allocation3 = models.IntegerField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?')
+    default_allocation = models.FloatField() # total_allocation / 3
+    allocation1 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?')
+    allocation2 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?')
+    allocation3 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?')
 
 class Player(BasePlayer):
     current_points = models.IntegerField()
-    contribution_points = models.IntegerField(blank=True) # TODO: ok asumir que es 0 o que se quede como None si no pusieron valor? -> si asumimos que es 0, queremos tener una distinción entre quienes pusieron 0 o se quedó como None? -> R: agregar si hizo timeout, penalidad del 50% del pago público
+    contribution_points = models.IntegerField(blank=True)
     actual_allocation = models.FloatField()
+    timeout_penalty = models.BooleanField() # True for apply penalty
+
 
 # FUNCTIONS
 def creating_session(subsession):
-    officer_endowment = subsession.session.configs['officer_endowment']
+    subsession.officer_endowment = subsession.session.config['officer_endowment']
     for player in subsession.get_players():
-        player.participant.segment = 1 # Initialize segment value to 1
-        if player.id_in_group != 4:
-            player.current_points = C.ENDOWMENT
-        else:
-            player.current_points = officer_endowment
-        player.group.total_initial_points += player.current_points # Set total points between all participants per group
-            
-def public_good_raw_gain(group):
+        player.participant.segment = 1  # Initialize segment value to 1
+        player.current_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else subsession.officer_endowment # Initialize current points
+        player.group.total_initial_points += player.current_points  # Update total points per group
+
+def public_good_default_raw_gain(group):
     players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude player with id 4 (P.O.)
     group.total_contribution = sum(p.field_maybe_none('contribution_points') or 0 for p in players)
-    group.default_allocation = (group.total_contribution * group.multiplier / (C.PLAYERS_PER_GROUP - 1))
+    group.total_allocation = group.total_contribution * group.multiplier
+    group.default_allocation = round(group.total_allocation / (C.PLAYERS_PER_GROUP - 1), 1) # Round to 1 decimal
+
+def store_actual_allocation(group):
+    # Confirmar: si completó los 3 con valores que no suman el total e hizo timeout?, alt1: actual_allocation que sea la repartición equitativa para los 3?, al2: cambiar al último?
+    # Confirmar: si completó los 3 valores que sí suman e hizo timeout no considerar ese timeout?, alt1: valot de timeout_penalty regresar a False, alt2: igual aplicar castigo?
+    allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
+    players = [p for p in group.get_players() if p.id_in_group != 4]  # Exclude the Public Officer
+    
+    # Count missing allocations
+    missing_indices = [i for i, value in enumerate(allocations) if value is None]
+    total_allocated = sum(value for value in allocations if value is not None)
+    total_remaining = group.total_allocation - total_allocated
+    
+    if len(missing_indices) == 3:
+        # If all 3 are missing, distribute equally
+        allocation_value = group.default_allocation
+        for other in players:
+            other.actual_allocation = allocation_value
+    elif len(missing_indices) == 2:
+        # If 2 are missing, divide remaining equally
+        allocation_value = round(total_remaining / 2, 1)
+        for i, other in enumerate(players):
+            if i in missing_indices:
+                other.actual_allocation = allocation_value
+            else:
+                other.actual_allocation = allocations[i]
+    elif len(missing_indices) == 1:
+        # If 1 is missing, assign remaining points
+        for i, other in enumerate(players):
+            if i == missing_indices[0]:
+                other.actual_allocation = total_remaining
+            else:
+                other.actual_allocation = allocations[i]
+    else:
+        # If none are missing, assign as is
+        for i, other in enumerate(players):
+            other.actual_allocation = allocations[i]
 
 def set_payoffs(player):
     total_transfers = total_transfers_per_player({
@@ -75,26 +109,20 @@ def set_payoffs(player):
         'round': player.round_number,
         'participant_code': player.participant.code,
     }) 
-    if player.id_in_group != 4:
-        if player.session.config['resource_allocation'] == True:
-            default_allocation = f'player.group.allocation{player.id_in_group}'
-        else:
-            default_allocation = player.group.default_allocation 
+    if player.id_in_group != 4: # If citizen
         player.payoff = (
             C.CITIZEN_ENDOWMENT
             - (player.field_maybe_none('contribution_points') or 0) 
             - total_transfers.get('transfers_given', 0) 
-            + default_allocation
             + total_transfers.get('transfers_received', 0)
+            + (player.actual_allocation * (1 - 0.5 * player.timeout_penalty)) # Apply 50% penalty of public share (confirmar si era 50% o 100%)
         )
-        # TODO: agregar penalidad del timeout
-    else:
+    else: # If Officer
         player.payoff = (
-            C.ENDOWMENT # TODO: change to session config PO endowment
+            (player.subsession.officer_endowment * (1 - 0.5 * player.timeout_penalty)) # Apply 50% penalty of endowment (confirmar si era 50% o 100%)
             - total_transfers.get('transfers_given', 0) 
             + total_transfers.get('transfers_received', 0)
         )
-        # TODO: agregar penalidad del timeout
 
 def insert_history(group):
     for player in group.get_players():
@@ -105,18 +133,15 @@ def insert_history(group):
             'round': player.round_number,
             'participant_code': player.participant.code,
         }) 
-        if player.id_in_group != 4:
-            endowment = C.CITIZEN_ENDOWMENT
-        else:
-            endowment = officer_endowment
+        # TODO: (confirmar) añadir col de penalidad por timeout (mostrar siempre) y punishment por ser descubierto (mostrar solo en T6)?
         history_data = {
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'round': player.round_number,
             'participant_code': player.participant.code,
-            'endowment': endowment,
+            'endowment': C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else player.subsession.officer_endowment,
             'contribution': player.field_maybe_none('contribution_points'),
-            'public_good_raw_gain': player.group.default_allocation if player.id_in_group != 4 else None, # TODO: change
+            'public_good_raw_gain': player.actual_allocation if player.id_in_group != 4 else None, # TODO: change
             'total_transfers_received': total_transfers.get('transfers_received', 0),
             'total_transfers_given': total_transfers.get('transfers_given', 0),
             'payment': float(player.payoff)
@@ -143,7 +168,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 60 * 3
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -211,7 +236,8 @@ class Interaction(Page):
             """
             contribution_points = player.field_maybe_none('contribution_points')
             if player.role != C.OFFICER_ROLE and contribution_points:
-                return dict(contributionPointsReload=True, contributionPoints=contribution_points)
+                print('hizo reload y había contribuido')
+                return dict(update=True, contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
         def new_transaction():
@@ -439,7 +465,6 @@ class Interaction(Page):
                         )
                     }
 
-            reload = reload_contribution()
             transactions_data = filter_transactions({
                 'participant_code': player.participant.code,
                 'round': player.round_number,
@@ -448,23 +473,34 @@ class Interaction(Page):
             })
             print(transactions_data)
 
+            reload = reload_contribution()
+            print(reload)
+
             if transactions_data: # If it is not empty
                 reload.update({'updateTransactions':True, 'transactions':transactions_data, 'update': True})
-                print(reload)
                 return {player.id_in_group: reload}
             
             return {player.id_in_group: reload}
         
-
-    # Ending the last round of the segment, update segment value
     @staticmethod
     def before_next_page(player, timeout_happened):
-        if player.round_number == C.NUM_ROUNDS:
+        if timeout_happened and player.id_in_group != 4: # Apply timeout penalty only to citizens
+            player.timeout_penalty = True 
+        else: 
+            player.timeout_penalty = False
+        
+        if player.round_number == C.NUM_ROUNDS: # Ending the last round of the segment, update segment value
             player.participant.segment += 1
 
 
+class MiddleWaitPage(WaitPage):
+    @staticmethod
+    def after_all_players_arrive(group):
+        public_good_default_raw_gain(group)
+
+
 class ResourceAllocation(Page):
-    # timeout_seconds = 60
+    timeout_seconds = 60
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -472,6 +508,10 @@ class ResourceAllocation(Page):
     def is_displayed(player):
         if player.session.config['resource_allocation'] == True:
             return player.id_in_group == 4
+
+    @staticmethod
+    def js_vars(player):
+        return dict(total_allocation=player.group.total_allocation)
 
     @staticmethod
     def vars_for_template(player):
@@ -489,18 +529,14 @@ class ResourceAllocation(Page):
     
     @staticmethod
     def before_next_page(player, timeout_happened):
-        others = player.get_others_in_group()
-        for i, other in enumerate(others, start=1):  # Ensure i starts at 1
-            allocation_value = getattr(player.group, f'allocation{i}')  # Fetch the correct allocation value
-            other.actual_allocation = allocation_value
-            print(f'Actual share: {other.actual_allocation}')
-
+        player.timeout_penalty = True if timeout_happened else False
+    
 
 class LastWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
-        public_good_raw_gain(group)
+        store_actual_allocation(group)
         insert_history(group)
 
 
-page_sequence = [Instructions, FirstWaitPage, Interaction, ResourceAllocation, LastWaitPage]
+page_sequence = [Instructions, FirstWaitPage, Interaction, MiddleWaitPage, ResourceAllocation, LastWaitPage]

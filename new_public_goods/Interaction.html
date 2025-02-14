@@ -44,19 +44,20 @@
                         </p>
                         <div class="d-flex">
                             <input 
-                                type="number" 
                                 id="id_contribution_points" 
+                                type="number" 
                                 name="contribution_points" 
                                 class="form-control" 
                                 style="flex: 1;">
                             <button 
-                                type="button" 
                                 id="send_to_b_button" 
+                                type="button" 
                                 class="btn btn-primary" 
                                 onclick="sendContribution()">
                                 Enviar puntos
-                            </button> <!-- TODO: confirmar si la contribución termina esa ronda / R: no, mantener la jugada -->
+                            </button>
                         </div>
+                        {{ formfield_errors 'contribution_points' }}
                     </div>
                     <!-- Display message after contribution -->
                     <div id="afterContribution" style="display: none;">
