@@ -2,6 +2,10 @@
 
 {{ block content }}
 
+    <div class="otree-form-errors alert alert-danger">      
+        Por favor corrija los errores.
+    </div>
+
     <div class="container" style="padding-bottom: 20px;">
         
         <!-- Header Row -->
@@ -46,75 +50,91 @@
     <button id="next_button" type="button" class="btn btn-primary" onclick="verifyAllocation()">Siguiente</button>
 
     <script>
-        const totalAllocation = js_vars.total_allocation;
-        let inputs, allocationContainer;
-
-        document.addEventListener("DOMContentLoaded", function () {
-            inputs = document.querySelectorAll('input[name^="allocation"]');
-            allocationContainer = document.querySelector(".row.w-100");
-
+        function verifyAllocation() {
+            const totalAllocation = js_vars.total_allocation;
+            const inputs = document.querySelectorAll('input[name^="allocation"]');
+            const errorContainer = document.querySelector(".otree-form-errors");
+            const allocationContainer = document.querySelector(".row.w-100");
+    
+            let sum = 0;
+            let allFilled = true;
+            let decimalError = false;
+            let individualErrorExists = false;
+    
+            // Ensure the error container is hidden initially
+            if (errorContainer) errorContainer.style.display = "none";
+    
             inputs.forEach(input => {
-                input.addEventListener("input", () => validateInputs(false));
+                let value = input.value.trim();
+                const controlsDiv = input.closest(".controls");
+    
+                // Remove previous errors
+                removeError(controlsDiv, "form-control-errors");
+    
+                // Normalize decimal separator: replace "," with "."
+                value = value.replace(",", ".");
+    
+                if (value === "") {
+                    allFilled = false;
+                    showError(controlsDiv, "form-control-errors", "Este campo es obligatorio.");
+                } 
+                // Check valid number format (integer or 1 decimal max)
+                else if (!/^\d+(\.\d{1})?$/.test(value)) {
+                    decimalError = true;
+                    showError(controlsDiv, "form-control-errors", "Solo se permiten números enteros o hasta 1 decimal.");
+                } 
+                else {
+                    const numValue = parseFloat(value);
+                    sum += numValue;
+    
+                    // Check if individual allocation exceeds total allocation
+                    if (numValue > totalAllocation) {
+                        individualErrorExists = true;
+                        showError(controlsDiv, "form-control-errors", "No puedes distribuir más de los recursos disponibles.");
+                    }
+                }
             });
-        });
-
+    
+            // Remove previous sum errors
+            removeError(allocationContainer, "total-allocation-error");
+            removeError(allocationContainer, "low-allocation-error");
+    
+            if (allFilled && !decimalError && !individualErrorExists) {
+                if (sum > totalAllocation) {
+                    showError(allocationContainer, "total-allocation-error", "La suma de todas las asignaciones no puede superar los recursos disponibles.");
+                } else if (sum < totalAllocation) {
+                    showError(allocationContainer, "low-allocation-error", "Debes distribuir todos los recursos disponibles.");
+                } else {
+                    // If everything is valid, submit the form
+                    document.getElementById("form").submit();
+                    return;
+                }
+            }
+    
+            // Show general error message if any issue exists
+            if (errorContainer) errorContainer.style.display = "block";
+        }
+    
         function showError(target, className, message) {
             let existingError = target.querySelector(`.${className}`);
             if (!existingError) {
-                const errorMsg = document.createElement("p");
-                errorMsg.className = `text-danger ${className} mt-2`;
+                const errorMsg = document.createElement("div");
+                errorMsg.className = `text-danger ${className}`;
                 errorMsg.innerText = message;
                 target.appendChild(errorMsg);
             }
         }
-
+    
         function removeError(target, className) {
             let existingError = target.querySelector(`.${className}`);
             if (existingError) existingError.remove();
         }
-
-        function validateInputs(showErrors = false) {
-            let sum = 0;
-            let filledInputs = 0;
-            let individualErrorExists = false;
-            let hasTotalError = false;
-
-            inputs.forEach(input => {
-                const value = parseInt(input.value) || 0;
-                const controlsDiv = input.closest(".controls");
-
-                removeError(controlsDiv, "allocation-error");
-
-                if (value > totalAllocation) {
-                    if (showErrors) showError(controlsDiv, "allocation-error", "No puedes distribuir más de los recursos disponibles.");
-                    individualErrorExists = true;
-                }
-
-                if (input.value.trim() !== "") filledInputs++; 
-                sum += value;
-            });
-
-            removeError(allocationContainer, "total-allocation-error");
-            removeError(allocationContainer, "low-allocation-error");
-
-            if (!individualErrorExists) {
-                if (sum > totalAllocation) {
-                    if (showErrors) showError(allocationContainer, "total-allocation-error", "La suma de todas las asignaciones no puede superar los recursos disponibles.");
-                    hasTotalError = true;
-                } else if (sum < totalAllocation && filledInputs === 3) {
-                    if (showErrors) showError(allocationContainer, "low-allocation-error", "Debes distribuir todos los recursos disponibles.");
-                    hasTotalError = true;
-                }
-            }
-
-            return filledInputs === 3 && sum === totalAllocation && !hasTotalError;
-        }
-
-        function verifyAllocation() {
-            if (validateInputs(true)) {
-                document.getElementById('form').submit();
-            }
-        }
-    </script>
+    
+        // Ensure error messages are hidden on page load
+        document.addEventListener("DOMContentLoaded", function () {
+            const errorContainer = document.querySelector(".otree-form-errors");
+            if (errorContainer) errorContainer.style.display = "none";
+        });
+    </script>     
 
 {{ endblock }}

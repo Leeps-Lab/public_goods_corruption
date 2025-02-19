@@ -46,6 +46,7 @@ def create_tables(db_path=DB_PATH):
             session_code TEXT NOT NULL,
             segment INTEGER NOT NULL,
             round INTEGER NOT NULL,
+            group_id INTEGER NOT NULL,
             initiator_code TEXT NOT NULL,
             receiver_code TEXT NOT NULL,
             initiator_id INTEGER NOT NULL,
@@ -79,13 +80,14 @@ def create_tables(db_path=DB_PATH):
             participant_code TEXT NOT NULL,
             endowment INTEGER NOT NULL,
             contribution INTEGER,
-            public_good_raw_gain INTEGER,
+            public_good_raw_gain FLOAT,
+            public_interaction_payoff INTEGER NOT NULL,
             total_transfers_received INTEGER NOT NULL,
             total_transfers_given INTEGER NOT NULL,
+            private_interaction_payoff INTEGER NOT NULL,
             payment INTEGER NOT NULL
         );
     ''')
-            # FOREIGN KEY (participant_code) REFERENCES public.otree_participant(code) This makes error
 
     conn.commit()
     conn.close()
@@ -266,6 +268,8 @@ def filter_history(data, db_path=DB_PATH):
             public_good_raw_gain, 
             total_transfers_received, 
             total_transfers_given, 
+            public_interaction_payoff, 
+            private_interaction_payoff, 
             payment
         FROM game_data.history
         WHERE session_code = %s
@@ -288,11 +292,13 @@ def filter_history(data, db_path=DB_PATH):
                 "Round": row[1],
                 "Participant": row[2],
                 "Endowment": row[3],
-                "Contribution": row[4] if row[4] is not None else 0, # Handle None case
+                "Contribution": row[4] if row[4] is not None else 0,  # Handle None case
                 "PublicGoodRawGain": row[5],
                 "TotalTransfersReceived": row[6],
                 "TotalTransfersGiven": row[7],
-                "Payment": row[8]
+                "PublicInteractionPayoff": row[8],
+                "PrivateInteractionPayoff": row[9],
+                "Payment": row[10]
             }
             for row in results
         ]
@@ -434,6 +440,118 @@ def total_transfers_per_player(data, db_path=DB_PATH):
     except psycopg2.Error as e:
         print(f"Database error in total_transfers_per_player: {e}")
         return {'transfers_received': 0, 'transfers_given': 0}
+
+    finally:
+        conn.close()
+
+
+def check_corruption(data, db_path=DB_PATH):
+    """
+    Determines if a player was corrupt and with whom, based on transactions in the game.
+
+    - If the player is a citizen (ID 1-3), only transactions between that citizen and the funcionario (ID 4) in the same group are considered.
+    - If the player is the funcionario (ID 4), transactions with all three citizens (IDs 1-3) in the same group are checked.
+
+    :param data: Dictionary containing 'segment', 'round', 'participant_id', 'session_code', 'group_id'.
+    :return: Dictionary with corruption details, including total transfers and involved players.
+    """
+    conn, cur = connect_to_db(db_path)
+    if not conn:
+        return {'error': 'Database connection failed'}
+
+    corruption_data = {}
+    
+    try:
+        participant_id = data['participant_id']
+        segment = data['segment']
+        round_num = data['round']
+        session_code = data.get('session_code', '')
+        group_id = data.get('group_id', '')  # Ensure transactions are filtered per group
+
+        if participant_id in [1, 2, 3]:  # Citizen
+            query = """
+            SELECT 
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.receiver_id = %s AND t.initiator_id = 4 THEN t.points  -- Received from funcionario
+                        ELSE 0 
+                    END
+                ), 0) AS transfers_received_from_funcionario,
+
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.initiator_id = %s AND t.receiver_id = 4 THEN t.points  -- Given to funcionario
+                        ELSE 0 
+                    END
+                ), 0) AS transfers_given_to_funcionario
+
+            FROM game_data.transactions t
+            JOIN game_data.status s ON t.id = s.transaction_id
+            WHERE t.segment = %s
+            AND t.round = %s
+            AND t.session_code = %s
+            AND t.group_id = %s  -- Filter by group
+            AND s.status = 'Aceptado';
+            """
+
+            cur.execute(query, (participant_id, participant_id, segment, round_num, session_code, group_id))
+            result = cur.fetchone()
+
+            corruption_data = {
+                'role': 'citizen',
+                'participant_id': participant_id,
+                'group_id': group_id,
+                'transfers_received_from_funcionario': result[0],
+                'transfers_given_to_funcionario': result[1]
+            }
+
+        elif participant_id == 4:  # Officer
+            query = """
+            SELECT 
+                t.initiator_id AS citizen_id,
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.receiver_id = 4 THEN t.points  -- Received from citizen
+                        ELSE 0 
+                    END
+                ), 0) AS transfers_received_from_citizen,
+
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.initiator_id = %s AND t.receiver_id IN (1, 2, 3) THEN t.points  -- Given to citizens
+                        ELSE 0 
+                    END
+                ), 0) AS transfers_given_to_citizen
+
+            FROM game_data.transactions t
+            JOIN game_data.status s ON t.id = s.transaction_id
+            WHERE t.segment = %s
+            AND t.round = %s
+            AND t.session_code = %s
+            AND t.group_id = %s  -- Filter by group
+            AND s.status = 'Aceptado'
+            AND t.receiver_id = 4  -- Ensure funcionario is the receiver
+            GROUP BY t.initiator_id;
+            """
+
+            cur.execute(query, (participant_id, segment, round_num, session_code, group_id))
+            results = cur.fetchall()
+
+            corruption_data = {
+                'role': 'funcionario',
+                'participant_id': participant_id,
+                'group_id': group_id,
+                'citizen_transactions': [
+                    {
+                        'citizen_id': row[0],
+                        'transfers_received_from_citizen': row[1],
+                        'transfers_given_to_citizen': row[2]
+                    }
+                    for row in results
+                ]
+            }
+
+        return corruption_data
 
     finally:
         conn.close()

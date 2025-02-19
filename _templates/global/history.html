@@ -4,18 +4,30 @@
         <table class="table">
             <thead>
                 <tr>
-                    <th>Segmento</th>
-                    <th>Ronda</th>
+                    <th rowspan="2">Segmento</th>
+                    <th rowspan="2">Ronda</th>
+                    {{ if player.id_in_group != 4 }}
+                        <th colspan="4" class="text-center">Interacción pública</th>
+                    {{ else }}
+                        <th colspan="1" class="text-center">Interacción pública</th>
+                    {{ endif }}
+                    {{ if private_interaction }}
+                        <th colspan="3" class="text-center">Interacción privada</th>
+                    {{ endif }}
+                    <th rowspan="2">Pago total</th>
+                </tr>
+                <tr>
                     <th>Dotación</th>
                     {{ if player.id_in_group != 4 }}
                         <th>Contribución</th>
-                        <th>Asignación de servicios públicos</th> <!-- TODO: revisar el nombre -->
+                        <th>Asignación de servicios públicos</th>
+                        <th>Pago de la interacción pública</th>
                     {{ endif }}
                     {{ if private_interaction }}
-                        <th>Total transferencias recibidas</th>
-                        <th>Total transferencias enviadas</th>
+                        <th>Total de transferencias recibidas</th>
+                        <th>Total de transferencias enviadas</th>
+                        <th>Pago de la interacción privada</th>
                     {{ endif }}
-                    <th>Pago</th>
                 </tr>
             </thead>
             <tbody>
@@ -27,10 +39,12 @@
                     {{ if player.id_in_group != 4 }}
                         <td>{{ row.Contribution }}</td>
                         <td>{{ row.PublicGoodRawGain }}</td>
+                        <td>{{ row.PublicInteractionPayoff }}</td>
                     {{ endif }}
                     {{ if private_interaction }}
                         <td>{{ row.TotalTransfersReceived }}</td>
                         <td>{{ row.TotalTransfersGiven }}</td>
+                        <td>{{ row.PrivateInteractionPayoff }}</td>
                     {{ endif }}
                     <td>{{ row.Payment }}</td>
                 </tr>
@@ -38,4 +52,4 @@
             </tbody>
         </table>
     </div>
-</div> 
+</div>

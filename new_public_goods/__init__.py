@@ -1,24 +1,21 @@
 from otree.api import *
-from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player
-import math
+from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player, check_corruption
+from random import choices
 import random
+import math
 
-# Reu 14/02
-# Buscar 'confirmar'
-# Preguntar por T3, T5 y T7
+# Para la reu:
+# Preguntar por T5 y T7
+# Todos los trats entre el funcionario y ciudadano
+# Solo T7 que tenga múltiples columnas
 
-# TODO: describir problema + pseudocódigo de solución en GITHUB del issue del timeout
 
-# TODO: T4: T2 con pantalla adicional -> cuando (ciudadano_i le ofrece al funcionario o funcionario solicita a ciudadano_i y acepta, EN NETO es positivo) y el funcionario le da más que el promedio, que se detecte con 20% (configurable), el castigo es quitarle el 50% de lo que ganan en total a ambos
+# TODO: T6: T2 con pantalla adicional -> cuando (ciudadano_i le ofrece al funcionario o funcionario solicita a ciudadano_i y acepta, EN NETO es positivo) y el funcionario le da más que el promedio, que se detecte con 20% (configurable), el castigo es quitarle el 50% de lo que ganan en total a ambos
 # Considerar:
 # - A nivel de transacción (funcionario podría perder todo el dinero)
 # - EN NETO es positivo: transferencias del ciudadano_i al funcionario
 # - dar más que 0.1 puntos se considera corrupción
 # - Funcionario puede escribir hasta 1 decimal
-# TODO: si ciudadanos no contribuyen o funcionario no decide repartición en T4, no se le paga esa ronda (pago = 0)
-# TODO: revisar lenguaje de exp de bienes públicos para nombre de columnas en tablas
-# TODO: excluir participantes que estén en celular o tablet
-# TODO: librería python en es para evitar lenguaje obsceno
 
 create_tables() # Creates additional tables
 
@@ -41,24 +38,29 @@ class Group(BaseGroup):
     total_contribution = models.IntegerField()
     total_allocation = models.FloatField() # = total_contribution * multiplier
     default_allocation = models.FloatField() # total_allocation / 3
-    allocation1 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?')
-    allocation2 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?')
-    allocation3 = models.FloatField(label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?')
+    allocation1 = models.FloatField(blank=True, label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?')
+    allocation2 = models.FloatField(blank=True, label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?')
+    allocation3 = models.FloatField(blank=True, label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?')
 
 class Player(BasePlayer):
     current_points = models.IntegerField()
     contribution_points = models.IntegerField(blank=True)
     actual_allocation = models.FloatField()
-    timeout_penalty = models.BooleanField() # True for apply penalty
+    timeout_penalty = models.BooleanField(initial=False) # True for apply penalty
+    corruption_audit = models.BooleanField() # True if get audit
+    corruption_punishment = models.BooleanField(blank=True) # True if did corrupt action
 
 
 # FUNCTIONS
 def creating_session(subsession):
     subsession.officer_endowment = subsession.session.config['officer_endowment']
+    audit_prob = subsession.session.config['audit_probability']
     for player in subsession.get_players():
         player.participant.segment = 1  # Initialize segment value to 1
         player.current_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else subsession.officer_endowment # Initialize current points
         player.group.total_initial_points += player.current_points  # Update total points per group
+        player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
+        print(f'True if player will be audit: {player.corruption_audit}')
 
 def public_good_default_raw_gain(group):
     players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude player with id 4 (P.O.)
@@ -67,14 +69,22 @@ def public_good_default_raw_gain(group):
     group.default_allocation = round(group.total_allocation / (C.PLAYERS_PER_GROUP - 1), 1) # Round to 1 decimal
 
 def store_actual_allocation(group):
-    # Confirmar: si completó los 3 con valores que no suman el total e hizo timeout?, alt1: actual_allocation que sea la repartición equitativa para los 3?, al2: cambiar al último?
-    # Confirmar: si completó los 3 valores que sí suman e hizo timeout no considerar ese timeout?, alt1: valot de timeout_penalty regresar a False, alt2: igual aplicar castigo?
     allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
     players = [p for p in group.get_players() if p.id_in_group != 4]  # Exclude the Public Officer
     
     # Count missing allocations
     missing_indices = [i for i, value in enumerate(allocations) if value is None]
     total_allocated = sum(value for value in allocations if value is not None)
+
+    # If all three values exist but do NOT sum to total_allocation
+    if len(missing_indices) == 0 and (abs(total_allocated - group.total_allocation) > 0.1):
+        print(f"Incorrect total allocation! Given: {total_allocated}, Expected: {group.total_allocation}")
+        print(f"Resetting all values to default_allocation: {group.default_allocation}")
+        for other in players:
+            other.actual_allocation = group.default_allocation
+        return  # Exit early after correcting values
+
+    # Handling Missing Values
     total_remaining = group.total_allocation - total_allocated
     
     if len(missing_indices) == 3:
@@ -102,6 +112,58 @@ def store_actual_allocation(group):
         for i, other in enumerate(players):
             other.actual_allocation = allocations[i]
 
+# TODO: Chequear por qué no funciona
+def corruption_punishment(player):
+    """
+    Determines if a player engaged in corrupt transactions and applies punishment if necessary.
+
+    - If a citizen received transfers from the funcionario or gave transfers to them, they are flagged.
+    - If the funcionario exchanged transfers with any citizen, they are flagged.
+    
+    :param player: An object or dictionary containing 'id', 'role', 'segment', 'round', 'session_code', 'group_id'.
+    :return: Dictionary with punishment decision.
+    """
+    player_data = {
+        'participant_id': player.id_in_group,
+        'segment': player.participant.segment,
+        'round': player.round_number,
+        'session_code': player.session.code,
+        'group_id': player.group_id
+    }
+
+    corruption_info = check_corruption(data=player_data)
+    print(f'corruption info: {corruption_info}')  # Debugging: Check retrieved corruption data
+
+    punishment = {'corrupt': False, 'details': {}}
+
+    if player.role == 'citizen':
+        if corruption_info['transfers_given_to_funcionario'] - corruption_info['transfers_received_from_funcionario'] > 0:
+            punishment['corrupt'] = True
+            punishment['details'] = {
+                'transfers_received_from_funcionario': corruption_info['transfers_received_from_funcionario'],
+                'transfers_given_to_funcionario': corruption_info['transfers_given_to_funcionario']
+            }
+
+    elif player.role == 'funcionario':
+        corrupt_citizens = [
+            {
+                'citizen_id': entry['citizen_id'],
+                'transfers_received_from_citizen': entry['transfers_received_from_citizen'],
+                'transfers_given_to_citizen': entry['transfers_given_to_citizen']
+            }
+            for entry in corruption_info['citizen_transactions']
+            if entry['transfers_received_from_citizen'] > 0 or entry['transfers_given_to_citizen'] > 0
+        ]
+
+        if corrupt_citizens:
+            punishment['corrupt'] = True
+            punishment['details']['corrupt_citizens'] = corrupt_citizens
+    
+    print(f'punishment result: {punishment}')
+
+    # return punishment
+
+
 def set_payoffs(player):
     total_transfers = total_transfers_per_player({
         'session_code': player.session.code,
@@ -109,31 +171,40 @@ def set_payoffs(player):
         'round': player.round_number,
         'participant_code': player.participant.code,
     }) 
-    if player.id_in_group != 4: # If citizen
-        player.payoff = (
+
+    private_interaction_payoff = (
+        total_transfers.get('transfers_received', 0)
+        - total_transfers.get('transfers_given', 0)
+    )
+
+    if player.id_in_group != 4:  # If player is citizen
+        public_interaction_payoff = (
             C.CITIZEN_ENDOWMENT
             - (player.field_maybe_none('contribution_points') or 0) 
-            - total_transfers.get('transfers_given', 0) 
-            + total_transfers.get('transfers_received', 0)
-            + (player.actual_allocation * (1 - 0.5 * player.timeout_penalty)) # Apply 50% penalty of public share (confirmar si era 50% o 100%)
+            + player.actual_allocation
+        ) * (1 - player.timeout_penalty)
+    else:  # If player is Officer
+        public_interaction_payoff = player.subsession.officer_endowment * (1 - player.timeout_penalty)
+
+    player.payoff = (
+        (public_interaction_payoff + private_interaction_payoff) 
+        * (1 - (player.field_maybe_none('corruption_punishment') or 0))
         )
-    else: # If Officer
-        player.payoff = (
-            (player.subsession.officer_endowment * (1 - 0.5 * player.timeout_penalty)) # Apply 50% penalty of endowment (confirmar si era 50% o 100%)
-            - total_transfers.get('transfers_given', 0) 
-            + total_transfers.get('transfers_received', 0)
-        )
+    return public_interaction_payoff, private_interaction_payoff
 
 def insert_history(group):
+    print('Se ejecutó insert_history')
     for player in group.get_players():
-        set_payoffs(player)
+        print(f"Actual allocation: {player.field_maybe_none('actual_allocation')}")
+        public_payoff, private_payoff = set_payoffs(player)  # Get payoffs without storing in player fields
+
         total_transfers = total_transfers_per_player({
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'round': player.round_number,
             'participant_code': player.participant.code,
         }) 
-        # TODO: (confirmar) añadir col de penalidad por timeout (mostrar siempre) y punishment por ser descubierto (mostrar solo en T6)?
+
         history_data = {
             'session_code': player.session.code,
             'segment': player.participant.segment,
@@ -141,9 +212,11 @@ def insert_history(group):
             'participant_code': player.participant.code,
             'endowment': C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else player.subsession.officer_endowment,
             'contribution': player.field_maybe_none('contribution_points'),
-            'public_good_raw_gain': player.actual_allocation if player.id_in_group != 4 else None, # TODO: change
+            'public_good_raw_gain': player.actual_allocation if player.id_in_group != 4 else None,
+            'public_interaction_payoff': public_payoff,
             'total_transfers_received': total_transfers.get('transfers_received', 0),
             'total_transfers_given': total_transfers.get('transfers_given', 0),
+            'private_interaction_payoff': private_payoff,
             'payment': float(player.payoff)
         }
         print(f"history data: {history_data}")
@@ -249,6 +322,7 @@ class Interaction(Page):
                 'session_code': player.session.code,
                 'segment': player.participant.segment,
                 'round': player.group.round_number,
+                'group_id': player.group_id,
                 'initiator_code': player.group.get_player_by_id(data['initiatorId']).participant.code,
                 'receiver_code': player.group.get_player_by_id(data['receiverId']).participant.code,
                 'initiator_id': data['initiatorId'],
@@ -486,21 +560,19 @@ class Interaction(Page):
     def before_next_page(player, timeout_happened):
         if timeout_happened and player.id_in_group != 4: # Apply timeout penalty only to citizens
             player.timeout_penalty = True 
-        else: 
-            player.timeout_penalty = False
         
         if player.round_number == C.NUM_ROUNDS: # Ending the last round of the segment, update segment value
             player.participant.segment += 1
 
 
-class MiddleWaitPage(WaitPage):
+class SecondWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
         public_good_default_raw_gain(group)
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60
+    timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -532,11 +604,37 @@ class ResourceAllocation(Page):
         player.timeout_penalty = True if timeout_happened else False
     
 
-class LastWaitPage(WaitPage):
+class ThirdWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
         store_actual_allocation(group)
         insert_history(group)
+        # for player in group.get_players():
+        #     if player.corruption_audit:
+        #         corruption_punishment(player)
 
 
-page_sequence = [Instructions, FirstWaitPage, Interaction, MiddleWaitPage, ResourceAllocation, LastWaitPage]
+class RandomAudit(Page):
+    timeout_seconds = 60
+    # Confirmar: solo mostrar a los que les tocó el audit y fueron corruptos, o mostrar a pesar de que no fueron corruptos (y decir que hubo audit pero no penalidad)?
+    @staticmethod
+    def is_displayed(player):
+        if player.session.config['random_audits'] == True:
+            return player.corruption_audit == True
+    
+    @staticmethod
+    def vars_for_template(player):
+        history = filter_history({
+            'session_code': player.session.code,
+            'segment': player.participant.segment,
+            'participant_code': player.participant.code,
+        }) if player.round_number > 1 else []
+
+        return dict(
+            segment=player.participant.segment,
+            history=history,
+            private_interaction=player.session.config['private_interaction'],
+        )
+
+
+page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, RandomAudit]
