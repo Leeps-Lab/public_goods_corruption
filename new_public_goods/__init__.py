@@ -79,7 +79,6 @@ def store_actual_allocation(group):
     # If all three values exist but do NOT sum to total_allocation
     if len(missing_indices) == 0 and (abs(total_allocated - group.total_allocation) > 0.1):
         print(f"Incorrect total allocation! Given: {total_allocated}, Expected: {group.total_allocation}")
-        print(f"Resetting all values to default_allocation: {group.default_allocation}")
         for other in players:
             other.actual_allocation = group.default_allocation
         return  # Exit early after correcting values
@@ -112,56 +111,68 @@ def store_actual_allocation(group):
         for i, other in enumerate(players):
             other.actual_allocation = allocations[i]
 
-# TODO: Chequear por qué no funciona
-def corruption_punishment(player):
+def apply_corruption_penalty(group):
     """
-    Determines if a player engaged in corrupt transactions and applies punishment if necessary.
-
-    - If a citizen received transfers from the funcionario or gave transfers to them, they are flagged.
-    - If the funcionario exchanged transfers with any citizen, they are flagged.
+    Determines if citizens engaged in corrupt transactions and applies punishment if necessary.
     
-    :param player: An object or dictionary containing 'id', 'role', 'segment', 'round', 'session_code', 'group_id'.
-    :return: Dictionary with punishment decision.
+    - Citizens (players 1, 2, 3) are flagged if they receive/give transfers to the funcionario.
+    - A citizen is marked corrupt if:
+        1. Net transfers to the funcionario are positive.
+        2. Their actual allocation exceeds the default allocation by more than 0.1.
+    - If a citizen is audited, store corruption status in `player.corruption_punishment`.
+    - If the funcionario is audited, check if at least one citizen is corrupt and store result.
+
+    :param group: An oTree group object.
+    :return: Dictionary with corruption assessment for each citizen.
     """
-    player_data = {
-        'participant_id': player.id_in_group,
-        'segment': player.participant.segment,
-        'round': player.round_number,
-        'session_code': player.session.code,
-        'group_id': player.group_id
+
+    # Choose an arbitrary player to extract group info
+    p1 = group.get_player_by_id(1)
+
+    group_data = {
+        'segment': p1.participant.segment,
+        'round': p1.round_number,
+        'session_code': p1.session.code,
+        'group_id': p1.group_id
     }
 
-    corruption_info = check_corruption(data=player_data)
-    print(f'corruption info: {corruption_info}')  # Debugging: Check retrieved corruption data
+    # Retrieve corruption transaction details
+    corruption_info = check_corruption(group_data)
+    print(f'corruption_info: {corruption_info}')  # Debugging info
 
-    punishment = {'corrupt': False, 'details': {}}
+    # Store corruption results separately
+    corruption_results = {}
+    any_citizen_corrupt = False  # Track if any citizen is corrupt
 
-    if player.role == 'citizen':
-        if corruption_info['transfers_given_to_funcionario'] - corruption_info['transfers_received_from_funcionario'] > 0:
-            punishment['corrupt'] = True
-            punishment['details'] = {
-                'transfers_received_from_funcionario': corruption_info['transfers_received_from_funcionario'],
-                'transfers_given_to_funcionario': corruption_info['transfers_given_to_funcionario']
-            }
+    for player in group.get_players():
+        if player.id_in_group != 4:  # Skip funcionario (player 4)
 
-    elif player.role == 'funcionario':
-        corrupt_citizens = [
-            {
-                'citizen_id': entry['citizen_id'],
-                'transfers_received_from_citizen': entry['transfers_received_from_citizen'],
-                'transfers_given_to_citizen': entry['transfers_given_to_citizen']
-            }
-            for entry in corruption_info['citizen_transactions']
-            if entry['transfers_received_from_citizen'] > 0 or entry['transfers_given_to_citizen'] > 0
-        ]
+            # Get corruption values for this player
+            citizen_data = corruption_info.get(player.id_in_group, {'transfers_from_citizen_to_officer': 0, 'transfers_from_officer_to_citizen': 0})
 
-        if corrupt_citizens:
-            punishment['corrupt'] = True
-            punishment['details']['corrupt_citizens'] = corrupt_citizens
-    
-    print(f'punishment result: {punishment}')
+            # Determine if the player is corrupt
+            citizen_bribery = (
+                citizen_data['transfers_from_citizen_to_officer'] 
+                - citizen_data['transfers_from_officer_to_citizen'] > 0
+            )
+            officer_retribution = (player.actual_allocation - player.group.default_allocation > 0.1)
+            corrupt = citizen_bribery and officer_retribution
 
-    # return punishment
+            # Store in a separate results dictionary
+            corruption_results[player.id_in_group] = {'corrupt': corrupt}
+
+            # Track if at least one citizen is corrupt
+            if corrupt:
+                any_citizen_corrupt = True
+
+            # If player is audited, store corruption status in player.corruption_punishment
+            if player.corruption_audit:
+                player.corruption_punishment = corrupt
+
+    # Assign corruption punishment for funcionario (player 4)
+    funcionario = group.get_player_by_id(4)
+    if funcionario.corruption_audit:
+        funcionario.corruption_punishment = any_citizen_corrupt
 
 
 def set_payoffs(player):
@@ -192,10 +203,9 @@ def set_payoffs(player):
         )
     return public_interaction_payoff, private_interaction_payoff
 
+
 def insert_history(group):
-    print('Se ejecutó insert_history')
     for player in group.get_players():
-        print(f"Actual allocation: {player.field_maybe_none('actual_allocation')}")
         public_payoff, private_payoff = set_payoffs(player)  # Get payoffs without storing in player fields
 
         total_transfers = total_transfers_per_player({
@@ -219,7 +229,6 @@ def insert_history(group):
             'private_interaction_payoff': private_payoff,
             'payment': float(player.payoff)
         }
-        print(f"history data: {history_data}")
         insert_row(data=history_data, table='history')
     
 
@@ -284,7 +293,6 @@ class Interaction(Page):
 
     @staticmethod
     def live_method(player, data):
-        print(f"data: {data}")
 
         def handle_contribution(contribution_points):
             """
@@ -309,7 +317,6 @@ class Interaction(Page):
             """
             contribution_points = player.field_maybe_none('contribution_points')
             if player.role != C.OFFICER_ROLE and contribution_points:
-                print('hizo reload y había contribuido')
                 return dict(update=True, contributionPointsReload=True, contributionPoints=contribution_points)
             return {}
         
@@ -332,7 +339,6 @@ class Interaction(Page):
                 'initiator_initial_endowment': player.current_points,
                 'receiver_initial_endowment': player.group.get_player_by_id(data['receiverId']).current_points,
             }
-            print(f'transaction data: {transaction_data}')
 
             transaction_id = insert_row(data=transaction_data, table='transactions') # Save the transaction and get the transaction ID
 
@@ -340,7 +346,6 @@ class Interaction(Page):
                 'transaction_id': transaction_id,
                 'status': 'Iniciado',
             }
-            print(f'status data:{status_data}')
             insert_row(data=status_data, table='status')
 
             return transaction_id
@@ -355,14 +360,12 @@ class Interaction(Page):
                 'initiator_balance': player.group.get_player_by_id(data['initiatorId']).current_points,
                 'receiver_balance': player.group.get_player_by_id(data['receiverId']).current_points,
             }
-            print(f'Balance data: {balance_data}')
             add_balance(data=balance_data)
 
             status_data = {
                 'transaction_id': transaction_id,
                 'status': status,
             }
-            print(status_data)
             insert_row(data=status_data, table='status')
 
         data_type = data.get('type')
@@ -402,8 +405,6 @@ class Interaction(Page):
 
             elif data['status'] == 'Rechazado':
                 closing_transaction(data['status'], data['transactionId'])
-                print(f"initiator: {data['transactionId']}")
-                print(f"receiver: {data['receiverId']}")
                 initiator = player.group.get_player_by_id(data['initiatorId'])
                 receiver = player.group.get_player_by_id(data['receiverId'])
                 filter_transactions_i = filter_transactions({
@@ -418,8 +419,7 @@ class Interaction(Page):
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
-                print(f"filter transactions initiator: {filter_transactions_i}")
-                print(f"filter transactions receiver: {filter_transactions_r}")
+
                 return {
                     player.id_in_group: dict(update=True, updateTransactions=True, transactions=filter_transactions_r, otherId=data['initiatorId'], reload=False),
                     data['initiatorId']: dict(update=True, updateTransactions=True, transactions=filter_transactions_i, otherId=data['receiverId'], reload=False),
@@ -485,9 +485,6 @@ class Interaction(Page):
                     'session_code': player.session.code,
                 })
 
-                # Debugging
-                print("Transactions while reloading (with active transaction):", transactions_data)
-
                 # Construct common response data
                 response_data = {
                     'updateTransactions': True,
@@ -545,10 +542,8 @@ class Interaction(Page):
                 'segment': player.participant.segment,
                 'session_code': player.session.code,
             })
-            print(transactions_data)
 
             reload = reload_contribution()
-            print(reload)
 
             if transactions_data: # If it is not empty
                 reload.update({'updateTransactions':True, 'transactions':transactions_data, 'update': True})
@@ -608,15 +603,13 @@ class ThirdWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
         store_actual_allocation(group)
+        apply_corruption_penalty(group)
         insert_history(group)
-        # for player in group.get_players():
-        #     if player.corruption_audit:
-        #         corruption_punishment(player)
 
 
 class RandomAudit(Page):
     timeout_seconds = 60
-    # Confirmar: solo mostrar a los que les tocó el audit y fueron corruptos, o mostrar a pesar de que no fueron corruptos (y decir que hubo audit pero no penalidad)?
+
     @staticmethod
     def is_displayed(player):
         if player.session.config['random_audits'] == True:

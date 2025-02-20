@@ -20,10 +20,19 @@
         <!-- Main Content -->
         <div class="row main-content-row">
             
-            <!-- Left Column: Role Info -->
+           <!-- Left Column: Role Info -->
             <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
                 <h5>Fuiste auditado</h5><br>
-                <p>Se te penalizaron <b>XX</b> puntos</p><br>
+
+                {% if player.corruption_punishment %}
+                    <p style="color: #D72638; font-weight: bold;"> 
+                        Se detectó una conducta corrupta. Se te aplicó una penalidad del 100% de tu pago de esta ronda.
+                    </p>
+                {% else %}
+                    <p style="color: #2E8B57; font-weight: bold;">
+                        No se detectó ninguna conducta corrupta.
+                    </p>
+                {% endif %}
             </div>
 
         </div>
