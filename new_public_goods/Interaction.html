@@ -119,13 +119,28 @@
                         {{ endfor }}
                     </div>
 
+                    <!-- Additional chats below -->
+                    {{ if officer_interactions_public and player.id_in_group != 4 }}
+                        <div class="chat-container row p-5">
+                            {{ for extra_chat in additional_channels }}
+                                <div class="col">
+                                    <!-- Additional Chat -->
+                                    <div class="row" style="margin-bottom: 30px;">
+                                        <p class="text-center">{{ extra_chat.role }}</p>
+                                        {{ chat nickname=player.role channel=extra_chat.channel }}
+                                    </div>
+                                </div>
+                            {{ endfor }}
+                        </div>
+                    {{ endif }}
+
                 <!-- Transactions and balance -->
                 <div class="row p-5">
                     <h5 class="text-center">Balance de transacciones</h5>
                     <table class="table">
                         <thead>
                             <tr>
-                                <th></th>
+                                <th>#</th>
                                 <th>Jugador</th>
                                 <th>Acción</th>
                                 <th>A</th>
@@ -475,6 +490,35 @@
                     } else if (remainingTime <= oneMinuteThreshold) {
                         enableLeftDisableRight(); // If less than 1 minute remains, trigger immediately
                         console.log("Immediate trigger: Less than 1 minute remaining.");
+                    }
+                });
+            }
+
+            if (js_vars.officer_interactions_public) {
+                // Collect additional chat IDs directly from the template
+                let additionalChatIds = [
+                    {% for extra_chat in additional_channels %}
+                        "{{ extra_chat.channel }}",
+                    {% endfor %}
+                ];
+
+                document.querySelectorAll(".otree-chat").forEach(chat => {
+                    let chatId = chat.id.split("-").pop(); // Extract last part of chat ID
+
+                    if (additionalChatIds.includes(chatId)) {
+                        console.log(`Hiding input and button for chat with ID: ${chatId}`);
+
+                        // Hide input field
+                        let inputField = chat.querySelector(".otree-chat__input");
+                        if (inputField) {
+                            inputField.style.display = "none"; // Completely hides the input
+                        }
+
+                        // Hide send button
+                        let sendButton = chat.querySelector(".otree-chat__btn-send");
+                        if (sendButton) {
+                            sendButton.style.display = "none"; // Completely hides the button
+                        }
                     }
                 });
             }

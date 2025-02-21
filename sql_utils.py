@@ -81,11 +81,11 @@ def create_tables(db_path=DB_PATH):
             endowment INTEGER NOT NULL,
             contribution INTEGER,
             public_good_raw_gain FLOAT,
-            public_interaction_payoff INTEGER NOT NULL,
+            public_interaction_payoff FLOAT NOT NULL,
             total_transfers_received INTEGER NOT NULL,
             total_transfers_given INTEGER NOT NULL,
             private_interaction_payoff INTEGER NOT NULL,
-            payment INTEGER NOT NULL
+            payment FLOAT NOT NULL
         );
     ''')
 

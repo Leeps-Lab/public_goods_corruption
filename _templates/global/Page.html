@@ -55,14 +55,23 @@
         }
 
         /* History table CSS */
-        .table {
-            border-collapse: collapse;  /* Ensures borders merge properly */
-            width: 100%;
+        .table thead th {
+            border-bottom: 1px solid #ddd !important;
+        }
+        
+        .table th.gray-bg, 
+        .table td.gray-bg {
+            background-color: #eeeeee !important; /* Light gray for Interacción pública and Pago total */
         }
 
-        .table thead tr,
-        .table tbody tr {
-            border-bottom: 1px solid #6c757d !important;  /* Ensures uniform horizontal lines */
+        .table tbody { /* Center numbers only */
+            text-align: center;
+        }
+
+        .table thead th {
+            text-align: center;
+            font-weight: bold;
+            padding: 12px 10px;
         }
 
     </style>

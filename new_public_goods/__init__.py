@@ -5,17 +5,15 @@ import random
 import math
 
 # Para la reu:
-# Preguntar por T5 y T7
+# Confirmar lo de los pagos negativos y nuevos casos sobre T5
+
 # Todos los trats entre el funcionario y ciudadano
 # Solo T7 que tenga múltiples columnas
 
+# Priorizar:
+# 2. T3
+# 3. T7
 
-# TODO: T6: T2 con pantalla adicional -> cuando (ciudadano_i le ofrece al funcionario o funcionario solicita a ciudadano_i y acepta, EN NETO es positivo) y el funcionario le da más que el promedio, que se detecte con 20% (configurable), el castigo es quitarle el 50% de lo que ganan en total a ambos
-# Considerar:
-# - A nivel de transacción (funcionario podría perder todo el dinero)
-# - EN NETO es positivo: transferencias del ciudadano_i al funcionario
-# - dar más que 0.1 puntos se considera corrupción
-# - Funcionario puede escribir hasta 1 decimal
 
 create_tables() # Creates additional tables
 
@@ -30,7 +28,7 @@ class C(BaseConstants):
     OFFICER_ROLE = 'Funcionario'
 
 class Subsession(BaseSubsession):
-    officer_endowment = models.IntegerField()
+    pass
 
 class Group(BaseGroup):
     multiplier = models.FloatField(initial=0)
@@ -43,6 +41,7 @@ class Group(BaseGroup):
     allocation3 = models.FloatField(blank=True, label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?')
 
 class Player(BasePlayer):
+    initial_points = models.IntegerField()
     current_points = models.IntegerField()
     contribution_points = models.IntegerField(blank=True)
     actual_allocation = models.FloatField()
@@ -53,12 +52,20 @@ class Player(BasePlayer):
 
 # FUNCTIONS
 def creating_session(subsession):
-    subsession.officer_endowment = subsession.session.config['officer_endowment']
-    audit_prob = subsession.session.config['audit_probability']
+    # Retrieve configuration values
+    session_config = subsession.session.config
+    officer_endowment = session_config['officer_endowment']
+    c1_endowment = session_config['c1_endowment']
+    heterogenous_citizens = session_config['heterogenous_citizens']
+    audit_prob = session_config['audit_probability']
+
     for player in subsession.get_players():
         player.participant.segment = 1  # Initialize segment value to 1
-        player.current_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else subsession.officer_endowment # Initialize current points
-        player.group.total_initial_points += player.current_points  # Update total points per group
+        player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment # Store initial points
+        if heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
+            player.initial_points = c1_endowment
+        player.current_points = player.initial_points # Initialize current points
+        player.group.total_initial_points += player.initial_points  # Update total points per group
         player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
         print(f'True if player will be audit: {player.corruption_audit}')
 
@@ -155,7 +162,7 @@ def apply_corruption_penalty(group):
                 citizen_data['transfers_from_citizen_to_officer'] 
                 - citizen_data['transfers_from_officer_to_citizen'] > 0
             )
-            officer_retribution = (player.actual_allocation - player.group.default_allocation > 0.1)
+            officer_retribution = (abs(player.actual_allocation - player.group.default_allocation) > 0.1)
             corrupt = citizen_bribery and officer_retribution
 
             # Store in a separate results dictionary
@@ -190,12 +197,12 @@ def set_payoffs(player):
 
     if player.id_in_group != 4:  # If player is citizen
         public_interaction_payoff = (
-            C.CITIZEN_ENDOWMENT
+            player.initial_points
             - (player.field_maybe_none('contribution_points') or 0) 
             + player.actual_allocation
         ) * (1 - player.timeout_penalty)
     else:  # If player is Officer
-        public_interaction_payoff = player.subsession.officer_endowment * (1 - player.timeout_penalty)
+        public_interaction_payoff = player.initial_points * (1 - player.timeout_penalty)
 
     player.payoff = (
         (public_interaction_payoff + private_interaction_payoff) 
@@ -206,8 +213,10 @@ def set_payoffs(player):
 
 def insert_history(group):
     for player in group.get_players():
-        public_payoff, private_payoff = set_payoffs(player)  # Get payoffs without storing in player fields
+        # Get public and private payoffs
+        public_payoff, private_payoff = set_payoffs(player)
 
+        # Retrieve total transfers per player
         total_transfers = total_transfers_per_player({
             'session_code': player.session.code,
             'segment': player.participant.segment,
@@ -215,12 +224,13 @@ def insert_history(group):
             'participant_code': player.participant.code,
         }) 
 
+        # Determine player's endowment
         history_data = {
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'round': player.round_number,
             'participant_code': player.participant.code,
-            'endowment': C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else player.subsession.officer_endowment,
+            'endowment': player.initial_points,
             'contribution': player.field_maybe_none('contribution_points'),
             'public_good_raw_gain': player.actual_allocation if player.id_in_group != 4 else None,
             'public_interaction_payoff': public_payoff,
@@ -261,18 +271,34 @@ class Interaction(Page):
     @staticmethod
     def vars_for_template(player):
         others = player.get_others_in_group()
-        funcionario = next((other for other in others if other.role == "Funcionario"), None) # Extract only 'Funcionario'
-        other_players = [other for other in others if other.role != "Funcionario"] # Extract remaining players
-        ordered_others = ([funcionario] if funcionario else []) + other_players # Generate list with 'Funcionario' first
+        funcionario = next((other for other in others if other.role == "Funcionario"), None) # Extract 'Funcionario'
+        other_players = [other for other in others if other.role != "Funcionario"] # Extract citizens
 
+        ordered_others = ([funcionario] if funcionario else []) + other_players # Place 'Funcionario' first
+
+        # Generate direct chat channels
         others_info = [
             {
                 "id_in_group": other.id_in_group,
                 "role": other.role,
-                "channel": f"{player.participant.segment}{player.round_number}{min(player.id_in_group, other.id_in_group)}{max(player.id_in_group, other.id_in_group)}"
+                "channel": f"{player.participant.segment}{player.round_number}{player.group_id}{min(player.id_in_group, other.id_in_group)}{max(player.id_in_group, other.id_in_group)}",
             }
             for other in ordered_others
         ]
+
+        # Generate additional citizen-officer chat channels (for citizens only)
+        additional_chats = []
+        if player.session.config.get('officer_interactions_public', False) and player.role != "Funcionario":
+            other_citizens = [cit for cit in other_players if cit.id_in_group != player.id_in_group]
+            additional_chats = [
+                {
+                    "id_in_group": f"{other_citizen.id_in_group}-officer",
+                    "role": f"Chat entre {other_citizen.role} y Funcionario",
+                    "channel": f"{player.participant.segment}{player.round_number}{player.group_id}{other_citizen.id_in_group}4",
+                }
+                for other_citizen in other_citizens
+            ]
+            print(f'other_citizens: {additional_chats}, I am player: {player.id_in_group}')
 
         history = filter_history({
             'session_code': player.session.code,
@@ -285,11 +311,16 @@ class Interaction(Page):
             others=others_info,
             history=history,
             private_interaction=player.session.config['private_interaction'],
+            officer_interactions_public=player.session.config['officer_interactions_public'],
+            additional_channels=additional_chats if player.session.config['officer_interactions_public'] else [],
         )
 
     @staticmethod
     def js_vars(player): # Sendign the sequential_decision session config to the frontend
-        return dict(secuential_decision=player.session.config['sequential_decision'])
+        return dict(
+            secuential_decision=player.session.config['sequential_decision'],
+            officer_interactions_public=player.session.config['officer_interactions_public'],
+        )
 
     @staticmethod
     def live_method(player, data):
