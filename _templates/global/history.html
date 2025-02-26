@@ -1,32 +1,38 @@
 <div>
-    <h4 class="text-center">Historia</h4>
+    <h4 class="text-center">Historia</h4><br>
     <div class="row">
         <table class="table">
             <thead>
                 <tr>
                     <th rowspan="2">Segmento</th>
-                    <th rowspan="2">Ronda</th>
+                    <th rowspan="2" class="public-end">Ronda</th>
+                    
+                    <!-- Interacción Pública -->
                     {{ if player.id_in_group != 4 }}
-                        <th colspan="4" class="text-center gray-bg">Interacción pública</th>
+                        <th colspan="4" class="text-center public-end">Interacción pública</th>
                     {{ else }}
-                        <th rowspan="2" class="gray-bg">Dotación</th>
+                        <th colspan="2" class="text-center public-end">Interacción pública</th>
                     {{ endif }}
+
+                    <!-- Interacción Privada -->
                     {{ if private_interaction }}
-                        <th colspan="3" class="text-center">Interacción privada</th>
+                        <th colspan="3" class="text-center public-end">Interacción privada</th>
                     {{ endif }}
-                    <th rowspan="2" class="gray-bg">Pago total</th>
+
+                    <th rowspan="2">Pago total</th>
                 </tr>
                 <tr>
+                    <th>Dotación</th>
                     {{ if player.id_in_group != 4 }}
-                        <th class="gray-bg">Dotación</th>
-                        <th class="gray-bg">Contribución</th>
-                        <th class="gray-bg">Asignación de servicios públicos</th>
-                        <th class="gray-bg">Pago de la interacción pública</th>
+                        <th>Contribución</th>
+                        <th>Asignación de servicios públicos</th>
                     {{ endif }}
+                    <th class="public-end">Pago de la interacción pública</th>  
+
                     {{ if private_interaction }}
                         <th>Total de transferencias recibidas</th>
                         <th>Total de transferencias enviadas</th>
-                        <th>Pago de la interacción privada</th>
+                        <th class="public-end">Pago de la interacción privada</th>
                     {{ endif }}
                 </tr>
             </thead>
@@ -34,19 +40,24 @@
                 {{ for row in history }}
                 <tr>
                     <td>{{ row.Segment }}</td>
-                    <td>{{ row.Round }}</td>
-                    <td class="gray-bg">{{ row.Endowment }}</td>
+                    <td class="public-end">{{ row.Round }}</td>
+
+                    <!-- Interacción Pública -->
+                    <td>{{ row.Endowment }}</td>
                     {{ if player.id_in_group != 4 }}
-                        <td class="gray-bg">{{ row.Contribution }}</td>
-                        <td class="gray-bg">{{ row.PublicGoodRawGain }}</td>
-                        <td class="gray-bg">{{ row.PublicInteractionPayoff }}</td>
+                        <td>{{ row.Contribution }}</td>
+                        <td>{{ row.PublicGoodRawGain }}</td>
                     {{ endif }}
+                    <td class="public-end">{{ row.PublicInteractionPayoff }}</td> 
+
+                    <!-- Interacción Privada -->
                     {{ if private_interaction }}
                         <td>{{ row.TotalTransfersReceived }}</td>
                         <td>{{ row.TotalTransfersGiven }}</td>
-                        <td>{{ row.PrivateInteractionPayoff }}</td>
+                        <td class="public-end">{{ row.PrivateInteractionPayoff }}</td>
                     {{ endif }}
-                    <td class="gray-bg"><b>{{ row.Payment }}</b></td>
+
+                    <td><b>{{ row.Payment }}</b></td>
                 </tr>
                 {{ endfor }}
             </tbody>

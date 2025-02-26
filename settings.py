@@ -74,7 +74,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default heterogenous detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
-        private_interaction=True, # True: chat and trasactions (BL)
+        private_interaction=False, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
         random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)

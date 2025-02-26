@@ -162,8 +162,12 @@
         {{ include '../_templates/global/history.html' }}         
         
     </div>
-     
-    {{ next_button }}
+    
+    {{ if player.id_in_group == 4}}
+        <br>{{ next_button }}
+    {{ else }}
+        <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">Siguiente</button>
+    {{ endif }}
 
     <script>
         let sequentialDecisionFlag = js_vars.secuential_decision; // Sequential decision flag
@@ -178,6 +182,18 @@
         function sendContribution() {
             let contributionPoints = parseFloat(document.getElementById('id_contribution_points').value);
             liveSend({'type': 'contributionPoints', 'value': contributionPoints});
+        }
+
+        function verifyContribution() {
+            const beforeContribution = document.getElementById("beforeContribution");
+            const afterContribution = document.getElementById("afterContribution");
+
+            // Check if contribution was already sent
+            if (beforeContribution.style.display === "none" && afterContribution.style.display === "block") {
+                document.getElementById("form").submit();
+            } else {
+                alert("Debes enviar tu contribución antes de continuar.");
+            }
         }
 
         function initiatingTransaction(action, playerId, otherId, inputPrefix) {

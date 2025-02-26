@@ -1,0 +1,30 @@
+<div id="calculator_popup" class="calculator-container">
+    <div class="calculator">
+        <div class="calc-display-container">
+            <input type="text" id="calc_display" class="form-control text-end" disabled>
+            <button type="button" class="btn btn-warning btn-sm clear-btn" onclick="clearCalc()">C</button>
+        </div>
+        <div class="calc-buttons">
+            <button type="button" onclick="calcInput('7')">7</button>
+            <button type="button" onclick="calcInput('8')">8</button>
+            <button type="button" onclick="calcInput('9')">9</button>
+            <button type="button" onclick="calcInput('/')">÷</button>
+
+            <button type="button" onclick="calcInput('4')">4</button>
+            <button type="button" onclick="calcInput('5')">5</button>
+            <button type="button" onclick="calcInput('6')">6</button>
+            <button type="button" onclick="calcInput('*')">×</button>
+
+            <button type="button" onclick="calcInput('1')">1</button>
+            <button type="button" onclick="calcInput('2')">2</button>
+            <button type="button" onclick="calcInput('3')">3</button>
+            <button type="button" onclick="calcInput('-')">−</button>
+
+            <button type="button" onclick="calcInput('0')">0</button>
+            <button type="button" onclick="calcInput('.')">.</button>
+            <button type="button" onclick="calculateResult()">=</button>
+            <button type="button" onclick="calcInput('+')">+</button>
+        </div>
+        <button class="btn btn-danger btn-sm w-100 mt-2" type="button" onclick="closeCalculator()">Cerrar</button>
+    </div>
+</div>

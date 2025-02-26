@@ -27,7 +27,16 @@
             <!-- Left Column: Role Info -->
             <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
                 <h5>Asigna los recursos a cada ciudadano para esta ronda:</h5><br>
-                <p>El total de recursos en esta ronda fue de <b>{{ player.group.total_allocation }}</b> puntos</p><br>
+                <div class="allocation-header">
+                    <div class="text-container">
+                        <p>El total de recursos en esta ronda fue de <b>{{ player.group.total_allocation }}</b> puntos</p>
+                    </div>                    
+                    <button id="calculator_button" type="button" class="btn btn-light calculator-btn">
+                        <img src="{{ static 'global/calculator-icon.png' }}" alt="Calculator" class="calculator-icon">
+                    </button>
+                    {{ include '../_templates/global/calculator.html' }}  
+                </div>                            
+                <p><small>(Se permite distribuir montos con hasta 1 decimal separado por ,)</small></p><br>
                 <div class="row w-100">
                     <div class="col-4 mb-3">
                         {{ formfield 'allocation1' }}
@@ -110,7 +119,6 @@
                     return;
                 }
             }
-    
             // Show general error message if any issue exists
             if (errorContainer) errorContainer.style.display = "block";
         }
@@ -129,7 +137,44 @@
             let existingError = target.querySelector(`.${className}`);
             if (existingError) existingError.remove();
         }
-    
+
+        // Calculator
+        function calcInput(value) {
+            document.getElementById("calc_display").value += value;
+        }
+
+        function calculateResult() {
+            try {
+                const result = eval(document.getElementById("calc_display").value);
+                if (Number.isFinite(result)) {
+                    // Convert to string with up to 10 decimal places without unnecessary trailing zeros
+                    document.getElementById("calc_display").value = parseFloat(result.toFixed(10)).toString();
+                } else {
+                    document.getElementById("calc_display").value = "Error";
+                }
+            } catch {
+                document.getElementById("calc_display").value = "Error";
+            }
+        }
+
+        function clearCalc() {
+            document.getElementById("calc_display").value = "";
+        }
+
+        function closeCalculator() {
+            document.getElementById("calculator_popup").style.display = "none";
+        }
+
+        document.getElementById("calculator_button").addEventListener("click", function () {
+            const calcPopup = document.getElementById("calculator_popup");
+            
+            if (calcPopup.style.display === "" || calcPopup.style.display === "none") {
+                calcPopup.style.display = "block";
+            } else {
+                calcPopup.style.display = "none";
+            }
+        });
+
         // Ensure error messages are hidden on page load
         document.addEventListener("DOMContentLoaded", function () {
             const errorContainer = document.querySelector(".otree-form-errors");

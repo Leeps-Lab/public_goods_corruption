@@ -1,4 +1,3 @@
-import sqlite3
 from os import environ
 from dotenv import load_dotenv # type: ignore
 import psycopg2 # type: ignore
