@@ -72,28 +72,19 @@
             text-align: center;
         }
 
-        /* Calculator *******************/
-        /* Calculator Button */
+        /* Allocation Header */
         .allocation-header {
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
             width: 100%;
             padding: 10px 0;
         }
 
-        .text-container {
-            text-align: center;
-            align-items: center; /* Ensures vertical alignment */
-            display: flex;
-        }
-
+        /* Calculator Button */
         .calculator-btn {
             position: absolute;
-            right: 250px; /* Moves it close to the text */
-            top: 50%; /* Centers it vertically */
-            transform: translateY(-50%); /* Ensures perfect vertical alignment */
+            transform: translateY(-70%);
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -101,6 +92,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-left: 40px; /* Moves the button slightly to the right */
         }
 
         .calculator-btn:hover {
@@ -119,15 +113,15 @@
             right: 20px;
             background: white;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-            padding: 15px; /* Ensure even padding */
+            padding: 15px;
             border-radius: 8px;
             display: none;
             z-index: 1001;
-            width: 240px; /* Matches the width of the button grid */
+            width: 240px;
             box-sizing: border-box;
         }
 
-        /* Centered Calculator Layout */
+        /* Calculator Layout */
         .calculator {
             display: flex;
             flex-direction: column;
@@ -135,7 +129,7 @@
             width: 100%;
         }
 
-        /* Input and Clear Button aligned */
+        /* Input and Button grid */
         .calc-display-container {
             display: flex;
             align-items: center;
@@ -184,14 +178,6 @@
 
         .calc-buttons button:hover {
             background: #e2e6ea;
-        }
-
-        /* Close Button */
-        .btn-danger {
-            width: 100%;
-            margin-top: 10px;
-            height: 50px;
-            font-size: 16px;
         }
 
     </style>

@@ -270,7 +270,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    timeout_seconds = 60 * 3
+    # timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -605,7 +605,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60 * 1.5
+    # timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -633,6 +633,28 @@ class ResourceAllocation(Page):
         )
     
     @staticmethod
+    def live_method(player, data):
+        print(f'Received data: {data}')  # Debugging output
+
+        # Ensure 'data' is valid
+        if not isinstance(data, dict) or 'value' not in data:
+            print("Error: 'value' key missing in received data")
+            return  # Prevent further execution
+
+        calculator_history_data = {
+            'session_code': player.session.code,
+            'segment': getattr(player.participant, 'segment', 'Unknown'),  # Prevent attribute error
+            'round': player.round_number,
+            'participant_code': player.participant.code,
+            'operation': data.get('value', ''),  # Ensure this exists
+        }
+
+        try:
+            insert_row(data=calculator_history_data, table='calculator_history')
+        except Exception as e:
+            print(f"Error inserting calc history: {e}")  # Log error
+    
+    @staticmethod
     def before_next_page(player, timeout_happened):
         player.timeout_penalty = True if timeout_happened else False
     
@@ -649,7 +671,7 @@ class ThirdWaitPage(WaitPage):
 
 
 class RandomAudit(Page):
-    timeout_seconds = 60
+    # timeout_seconds = 60
 
     @staticmethod
     def is_displayed(player):

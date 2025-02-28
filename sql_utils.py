@@ -88,6 +88,19 @@ def create_tables(db_path=DB_PATH):
         );
     ''')
 
+    # Create calculator history table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS game_data.calculator_history (
+            id SERIAL PRIMARY KEY,
+            session_code TEXT NOT NULL,
+            segment INTEGER NOT NULL,
+            round INTEGER NOT NULL,
+            participant_code TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -99,7 +112,7 @@ def insert_row(data, table, db_path=DB_PATH):
     Inserts a row into a specified table in the 'game_data' schema.
     """
     try:
-        allowed_tables = {'transactions', 'status', 'history'}
+        allowed_tables = {'transactions', 'status', 'history', 'calculator_history'}
         if table not in allowed_tables:
             raise ValueError(f"Invalid table name: {table}")
 
