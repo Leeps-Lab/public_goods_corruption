@@ -4,15 +4,8 @@ from random import choices
 import random
 import math
 
-
-# Comments de Kristian:
-# Todos los trats entre el funcionario y ciudadano
-# Solo T7 que tenga múltiples columnas
-
+# Sobre comentario de 3 endowments en T3
 # c1_endowment: poner 3 valores separados por ;
-
-# TODO: Cambiar los prints por logs
-# TODO: 28/02 coordinar y preguntar a Kristian sobre testear con bots
 
 create_tables() # Creates additional tables
 
@@ -245,7 +238,9 @@ def insert_history(group):
             'total_transfers_received': total_transfers.get('transfers_received', 0),
             'total_transfers_given': total_transfers.get('transfers_given', 0),
             'private_interaction_payoff': private_payoff,
-            'payment': float(player.payoff)
+            'payment': float(player.payoff),
+            'timeout_penalty': player.timeout_penalty,
+            'corruption_punishment': player.field_maybe_none('corruption_punishment') if player.field_maybe_none('corruption_punishment') is not None else False,
         }
         insert_row(data=history_data, table='history')
     
@@ -270,7 +265,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 60 * 3
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -322,6 +317,7 @@ class Interaction(Page):
             history=history,
             private_interaction=player.session.config['private_interaction'],
             officer_interactions_public=player.session.config['officer_interactions_public'],
+            chat_only_officer=player.session.config['chat_only_officer'],
             additional_channels=additional_chats if player.session.config['officer_interactions_public'] else [],
         )
 
@@ -330,6 +326,7 @@ class Interaction(Page):
         return dict(
             secuential_decision=player.session.config['sequential_decision'],
             officer_interactions_public=player.session.config['officer_interactions_public'],
+            player_role=player.role
         )
 
     @staticmethod
@@ -599,13 +596,32 @@ class Interaction(Page):
 
 
 class SecondWaitPage(WaitPage):
+    template_name = 'new_public_goods/MyWaitPage.html'
+    body_text = 'Esperando a que los demás participantes tomen sus decisiones...'
+
+    @staticmethod
+    def vars_for_template(player):
+        history = filter_history({
+            'session_code': player.session.code,
+            'segment': player.participant.segment,
+            'participant_code': player.participant.code,
+        })
+
+        return dict(
+            segment=player.participant.segment,
+            history=history,
+            private_interaction=player.session.config['private_interaction'],
+            random_audits=player.session.config['random_audits'],
+            corruption_audit=player.corruption_audit,
+        )
+    
     @staticmethod
     def after_all_players_arrive(group):
         public_good_default_raw_gain(group)
 
 
 class ResourceAllocation(Page):
-    # timeout_seconds = 60 * 1.5
+    timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -660,24 +676,9 @@ class ResourceAllocation(Page):
     
 
 class ThirdWaitPage(WaitPage):
-    @staticmethod
-    def after_all_players_arrive(group):
-        store_actual_allocation(group)
-        apply_corruption_penalty(group)
-        insert_history(group)
-        for player in group.get_players():
-            if player.round_number == C.NUM_ROUNDS: # Ending the last round of the segment, update segment value
-                player.participant.segment += 1
+    template_name = 'new_public_goods/MyWaitPage.html'
+    body_text = 'Esperando a que los demás participantes tomen sus decisiones...'
 
-
-class RandomAudit(Page):
-    # timeout_seconds = 60
-
-    @staticmethod
-    def is_displayed(player):
-        if player.session.config['random_audits'] == True:
-            return player.corruption_audit == True
-    
     @staticmethod
     def vars_for_template(player):
         history = filter_history({
@@ -690,7 +691,43 @@ class RandomAudit(Page):
             segment=player.participant.segment,
             history=history,
             private_interaction=player.session.config['private_interaction'],
+            random_audits=player.session.config['random_audits'],
+            corruption_audit=player.corruption_audit,
         )
+    
+    @staticmethod
+    def after_all_players_arrive(group):
+        store_actual_allocation(group)
+        apply_corruption_penalty(group)
+        insert_history(group)
 
 
-page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, RandomAudit]
+class Results(Page):
+    timeout_seconds = 20
+
+    @staticmethod
+    def vars_for_template(player):
+        history = filter_history({
+            'session_code': player.session.code,
+            'segment': player.participant.segment,
+            'participant_code': player.participant.code,
+        })
+
+        return dict(
+            segment=player.participant.segment,
+            history=history,
+            private_interaction=player.session.config['private_interaction'],
+            random_audits=player.session.config['random_audits'],
+            corruption_audit=player.corruption_audit,
+        )
+    
+    @staticmethod
+    def before_next_page(player, timeout_happened):
+        """
+        Ending the last round of the segment, update segment value
+        """
+        if player.round_number == C.NUM_ROUNDS:
+            player.participant.segment += 1
+
+
+page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, Results]

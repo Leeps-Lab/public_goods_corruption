@@ -59,64 +59,53 @@
 
             <!-- Right Column: Interaction Interface -->
             {{ if private_interaction }}
-            <div class="col-9 right-column">
-
+                <div class="col-9 right-column">
                     <!-- Chats and send/request buttons -->
-                    <div class="chat-container row p-5">
-                        {{ for other in others }}
-                            <div class="col">
-                                <!-- Chat -->
+                    {{ if chat_only_officer and player.id_in_group != 4}}
+                        <div class="chat-container row p-5">
+                            <!-- Show only the first chat from others (Officer) -->
+                            <div class="col" style="max-width: 261px;">
                                 <div class="row" style="margin-bottom: 30px;">
-                                    <p class="text-center">Chat con {{ other.role }}</p>
-                                    {{ chat nickname=player.role channel=other.channel }}
+                                    <p class="text-center">Chat con {{ others.0.role }}</p>
+                                    {{ chat nickname=player.role channel=others.0.channel }}
                                 </div>
-                                <!-- Buttons -->
+                                <!-- Buttons (Only for the officer chat) -->
                                 <div class="row">
-                                    <p class="text-center">Interacción con {{ other.role }}</p>
-                                    <!-- Offer section -->
+                                    <p class="text-center">Interacción con {{ others.0.role }}</p>
                                     <div class="d-flex align-items-center spacing-between" style="gap: 10px; justify-content: center;">
                                         <button 
                                             type="button" 
-                                            id="id_offerButton_{{ other.id_in_group }}" 
+                                            id="id_offerButton_{{ others.0.id_in_group }}" 
                                             class="btn btn-outline-primary" 
-                                            onclick="initiatingTransaction('Ofrece', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_offerInput')">
+                                            onclick="initiatingTransaction('Ofrece', {{ player.id_in_group }}, {{ others.0.id_in_group }}, 'id_offerInput')">
                                             Ofrecer puntos:
                                         </button>
                                         <input 
                                             type="number" 
-                                            id="id_offerInput_{{ other.id_in_group }}" 
+                                            id="id_offerInput_{{ others.0.id_in_group }}" 
                                             class="form-control" 
                                             style="width: 30%;">
                                     </div>
-                                    <!-- Request section -->
                                     <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
                                         <button 
                                             type="button"
-                                            id="id_requestButton_{{ other.id_in_group }}"
+                                            id="id_requestButton_{{ others.0.id_in_group }}"
                                             class="btn btn-outline-success"
-                                            onclick="initiatingTransaction('Solicita', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_requestInput')">
+                                            onclick="initiatingTransaction('Solicita', {{ player.id_in_group }}, {{ others.0.id_in_group }}, 'id_requestInput')">
                                             Solicitar puntos:
                                         </button>
                                         <input 
                                             type="text"
-                                            id="id_requestInput_{{ other.id_in_group }}"
-                                            class="form-control"
+                                            id="id_requestInput_{{ others.0.id_in_group }}"
+                                            class="form-control" 
                                             style="width: 30%;">
                                     </div>
                                 </div>
-                                <!-- Action messages -->
-                                <div class="row" id="id_afterAction_{{ other.id_in_group }}" style="display: none; margin-top: 30px;">
-                                </div>
                             </div>
-                        {{ endfor }}
-                    </div>
 
-                    <!-- Additional chats below -->
-                    {{ if officer_interactions_public and player.id_in_group != 4 }}
-                        <div class="chat-container row p-5">
+                            <!-- Additional chats in the same row -->
                             {{ for extra_chat in additional_channels }}
                                 <div class="col">
-                                    <!-- Additional Chat -->
                                     <div class="row" style="margin-bottom: 30px;">
                                         <p class="text-center">{{ extra_chat.role }}</p>
                                         {{ chat nickname=player.role channel=extra_chat.channel }}
@@ -124,33 +113,102 @@
                                 </div>
                             {{ endfor }}
                         </div>
-                    {{ endif }}
 
-                <!-- Transactions and balance -->
-                <div class="row p-5">
-                    <h5 class="text-center">Balance de transacciones</h5>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Jugador</th>
-                                <th>Acción</th>
-                                <th>A</th>
-                                <th>Puntos</th>
-                                <th>¿Se aceptó?</th>
-                                <th>Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transactionsBody">
-                        </tbody>
-                    </table>
+                    {{ else }} <!-- Participants chat wiht everyone -->
+                        
+                        <div class="chat-container row p-5">
+                            {{ for other in others }}
+                                <div class="col">
+                                    <!-- Chat -->
+                                    <div class="row" style="margin-bottom: 30px;">
+                                        <p class="text-center">Chat con {{ other.role }}</p>
+                                        {{ chat nickname=player.role channel=other.channel }}
+                                    </div>
+                                    <!-- Buttons -->
+                                    <div class="row">
+                                        <p class="text-center">Interacción con {{ other.role }}</p>
+                                        <!-- Offer section -->
+                                        <div class="d-flex align-items-center spacing-between" style="gap: 10px; justify-content: center;">
+                                            <button 
+                                                type="button" 
+                                                id="id_offerButton_{{ other.id_in_group }}" 
+                                                class="btn btn-outline-primary" 
+                                                onclick="initiatingTransaction('Ofrece', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_offerInput')">
+                                                Ofrecer puntos:
+                                            </button>
+                                            <input 
+                                                type="number" 
+                                                id="id_offerInput_{{ other.id_in_group }}" 
+                                                class="form-control" 
+                                                style="width: 30%;">
+                                        </div>
+                                        <!-- Request section -->
+                                        <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
+                                            <button 
+                                                type="button"
+                                                id="id_requestButton_{{ other.id_in_group }}"
+                                                class="btn btn-outline-success"
+                                                onclick="initiatingTransaction('Solicita', {{ player.id_in_group }}, {{ other.id_in_group }}, 'id_requestInput')">
+                                                Solicitar puntos:
+                                            </button>
+                                            <input 
+                                                type="text"
+                                                id="id_requestInput_{{ other.id_in_group }}"
+                                                class="form-control"
+                                                style="width: 30%;">
+                                        </div>
+                                    </div>
+                                    <!-- Action messages -->
+                                    <div class="row" id="id_afterAction_{{ other.id_in_group }}" style="display: none; margin-top: 30px;">
+                                    </div>
+                                </div>
+                            {{ endfor }}
+                        </div>
+
+                        <!-- Additional chats below -->
+                        {{ if officer_interactions_public and player.id_in_group != 4 }}
+                            <div class="chat-container row p-5">
+                                {{ for extra_chat in additional_channels }}
+                                    <div class="col">
+                                        <!-- Additional Chat -->
+                                        <div class="row" style="margin-bottom: 30px;">
+                                            <p class="text-center">{{ extra_chat.role }}</p>
+                                            {{ chat nickname=player.role channel=extra_chat.channel }}
+                                        </div>
+                                    </div>
+                                {{ endfor }}
+                            </div>
+                        {{ endif }}
+
+                    {{ endif}}
+
+
+                    <!-- Transactions and balance -->
+                    <div class="row p-5">
+                        <h5 class="text-center">Balance de transacciones</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Jugador</th>
+                                    <th>Acción</th>
+                                    <th>A</th>
+                                    <th>Puntos</th>
+                                    <th>¿Se aceptó?</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsBody">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-
-            </div>
             {{ endif }}
         </div>
 
         <!-- History Section -->
+        <h4 class="text-center">Historia</h4>
+        <br>
         {{ include '../_templates/global/history.html' }}         
         
     </div>
@@ -483,19 +541,52 @@
         document.addEventListener("DOMContentLoaded", function (event) {
             liveSend({'type': 'reloadPage'});
 
-            // If session configs the secuencial decision is True
+            // If session configs the sequential decision is True
             if (js_vars.secuential_decision) {
                 waitForTimerContent((remainingTime) => {
-                    const oneMinuteThreshold = 60;
-                    const timeToTrigger = remainingTime - oneMinuteThreshold;
+                    const fifteenSecondsThreshold = 75; // 1 min 15 sec
+                    const oneMinuteThreshold = 60; // 1 min
+                    const isCitizen = js_vars.player_role !== "Funcionario"; // Check if the player is not the officer
 
-                    if (timeToTrigger > 0) {
-                        console.log(`Setting timeout to trigger at 1 minute left (${timeToTrigger} seconds remaining).`);
+                    // Function to display Bootstrap alerts (Each participant only sees their own)
+                    function showAlert(message, alertType) {
+                        let alertDiv = document.createElement("div");
+                        alertDiv.className = `alert ${alertType} text-center`;
+                        alertDiv.role = "alert";
+                        alertDiv.textContent = message;
+
+                        document.body.prepend(alertDiv); // Adds alert at the top of the page
+
+                        // Remove the alert after 5 seconds
+                        setTimeout(() => {
+                            alertDiv.remove();
+                        }, 5000);
+                    }
+
+                    // Show warning message at 1:15 only for this participant
+                    if (remainingTime > fifteenSecondsThreshold) {
+                        const timeToStartCountdown = remainingTime - fifteenSecondsThreshold;
+                        setTimeout(() => {
+                            showAlert(`Tienes 15 segundos restantes para interactuar con los demás participantes.`, "alert-warning");
+                        }, timeToStartCountdown * 1000);
+                    }
+
+                    // Show info alert at 1:00 only for citizens (not for the officer)
+                    if (remainingTime > oneMinuteThreshold && isCitizen) {
+                        const timeToOneMinuteAlert = remainingTime - oneMinuteThreshold;
+                        setTimeout(() => {
+                            showAlert('Ahora decide cuánto contribuir al proyecto común.', "alert-info");
+                        }, timeToOneMinuteAlert * 1000);
+                    }
+
+                    // Existing logic for enabling/disabling elements at 1 minute
+                    if (remainingTime > oneMinuteThreshold) {
+                        const timeToTrigger = remainingTime - oneMinuteThreshold;
                         setTimeout(() => {
                             enableLeftDisableRight();
                             console.log("enableLeftDisableRight called with 1 minute remaining.");
-                        }, timeToTrigger * 1000); // Convert seconds to milliseconds
-                    } else if (remainingTime <= oneMinuteThreshold) {
+                        }, timeToTrigger * 1000);
+                    } else {
                         enableLeftDisableRight(); // If less than 1 minute remains, trigger immediately
                         console.log("Immediate trigger: Less than 1 minute remaining.");
                     }

@@ -1,0 +1,30 @@
+{{ block title }}
+    Instrucciones Generales
+{{ endblock }}
+
+{{ block content }}
+
+    <input type="hidden" name="is_mobile" id="is_mobile">   
+    
+    <p>
+        ¡Bienvenido/a!
+    </p>
+    
+    {{ next_button }}
+
+    <script>
+        function isMobile() {
+            const toMatch = [
+                /Android/i,
+                /iPhone/i,
+                /iPad/i,
+            ];
+    
+            return toMatch.some((item) => navigator.userAgent.match(item));
+        }
+    
+        forminputs.is_mobile.value = isMobile() ? 1 : 0;
+    
+    </script>
+    
+{{ endblock }}

@@ -84,7 +84,9 @@ def create_tables(db_path=DB_PATH):
             total_transfers_received INTEGER NOT NULL,
             total_transfers_given INTEGER NOT NULL,
             private_interaction_payoff INTEGER NOT NULL,
-            payment FLOAT NOT NULL
+            payment FLOAT NOT NULL,
+            timeout_penalty BOOLEAN NOT NULL,
+            corruption_punishment BOOLEAN NOT NULL
         );
     ''')
 
@@ -282,7 +284,9 @@ def filter_history(data, db_path=DB_PATH):
             total_transfers_given, 
             public_interaction_payoff, 
             private_interaction_payoff, 
-            payment
+            payment,
+            timeout_penalty,  -- New field
+            corruption_punishment  -- New field
         FROM game_data.history
         WHERE session_code = %s
         AND segment = %s
@@ -310,7 +314,9 @@ def filter_history(data, db_path=DB_PATH):
                 "TotalTransfersGiven": row[7],
                 "PublicInteractionPayoff": row[8],
                 "PrivateInteractionPayoff": row[9],
-                "Payment": row[10]
+                "Payment": row[10],
+                "Timeout": row[11],  # Store timeout_penalty value
+                "Audited": row[12]  # Store corruption_punishment value
             }
             for row in results
         ]

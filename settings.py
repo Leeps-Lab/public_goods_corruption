@@ -3,52 +3,13 @@ from dotenv import load_dotenv # type: ignore
 
 load_dotenv()
 
-# TODO: pensar en 2 alternativas de mostrar tratamientos sequenciales
-# Alt. 1: Crear diferentes session configs por cada T
-# Alt. 2: Crear cada session config por cada order de T
 
 # TODO: preguntas de sesión: testear contribución exógena?
 SESSION_CONFIGS = [
     dict(
-        name='public_goods_simultaneous',
-        display_name='T1_public_goods_simultaneous',
-        app_sequence=['new_public_goods'],
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        officer_endowment=700, # Default endowment for P.O.
-        c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        # Treatment configs
-        sequential_decision=False, # True: first interaction, then contribution | False: both at same time
-        private_interaction=True, # True: chat and trasactions (BL)
-        resource_allocation=False, # True: P.O. decides how to allocate the public resources (T2)
-        heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
-        random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)
-        random_audits=False, # True: there is a chance of random audits and punishments (T6)
-        officer_interactions_public=False # True: all private interactions with officer becomes public (T7)
-    ),
-    dict(
-        name='public_goods_sequencial',
-        display_name='T1_public_goods_sequencial',
-        app_sequence=['new_public_goods'],
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        officer_endowment=700, # Default endowment for P.O.
-        c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        # Aditional configs
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        private_interaction=True, # True: chat and trasactions (BL)
-        resource_allocation=False, # True: P.O. decides how to allocate the public resources (T2)
-        heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
-        random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)
-        random_audits=False, # True: there is a chance of random audits and punishments (T6)
-        officer_interactions_public=False # True: all private interactions with officer becomes public (T7)
-    ),
-    dict(
         name='BL1_public_goods',
         display_name='BL1_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -56,6 +17,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=False, # True: chat and trasactions (BL)
         resource_allocation=False, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
@@ -66,7 +28,7 @@ SESSION_CONFIGS = [
     dict(
         name='BL2_public_goods',
         display_name='BL2_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -74,6 +36,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default heterogenous detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=False, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
@@ -82,9 +45,47 @@ SESSION_CONFIGS = [
         officer_interactions_public=False # True: all private interactions with officer becomes public (T7)
     ),
     dict(
+        name='T1_public_goods_simultaneous',
+        display_name='T1_public_goods_simultaneous',
+        app_sequence=['introduction', 'new_public_goods'],
+        num_demo_participants=4,
+        multiplier=2, # Default multiplier value when it is not random
+        officer_endowment=700, # Default endowment for P.O.
+        c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
+        audit_probability=0.2, # Default detection probability of corruption action (T6)
+        # Treatment configs
+        sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
+        private_interaction=True, # True: chat and trasactions (BL)
+        resource_allocation=False, # True: P.O. decides how to allocate the public resources (T2)
+        heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
+        random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)
+        random_audits=False, # True: there is a chance of random audits and punishments (T6)
+        officer_interactions_public=False # True: all private interactions with officer becomes public (T7)
+    ),
+    dict(
+        name='T1_public_goods_sequencial',
+        display_name='T1_public_goods_sequencial',
+        app_sequence=['introduction', 'new_public_goods'],
+        num_demo_participants=4,
+        multiplier=2, # Default multiplier value when it is not random
+        officer_endowment=700, # Default endowment for P.O.
+        c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
+        audit_probability=0.2, # Default detection probability of corruption action (T6)
+        # Aditional configs
+        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
+        private_interaction=True, # True: chat and trasactions (BL)
+        resource_allocation=False, # True: P.O. decides how to allocate the public resources (T2)
+        heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
+        random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)
+        random_audits=False, # True: there is a chance of random audits and punishments (T6)
+        officer_interactions_public=False # True: all private interactions with officer becomes public (T7)
+    ),
+    dict(
         name='T2_public_goods',
         display_name='T2_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -92,6 +93,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=True, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
@@ -102,7 +104,7 @@ SESSION_CONFIGS = [
     dict(
         name='T3_public_goods',
         display_name='T3_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -110,6 +112,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=True, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=True, # True: Citizen one will have different endowment (T3)
@@ -120,7 +123,7 @@ SESSION_CONFIGS = [
     dict(
         name='T4_public_goods',
         display_name='T4_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -128,6 +131,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=True, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
@@ -138,7 +142,7 @@ SESSION_CONFIGS = [
     dict(
         name='T6_public_goods',
         display_name='T6_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -146,6 +150,7 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=True, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
@@ -156,7 +161,7 @@ SESSION_CONFIGS = [
     dict(
         name='T7_public_goods',
         display_name='T7_public_goods',
-        app_sequence=['new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
@@ -164,6 +169,26 @@ SESSION_CONFIGS = [
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
         sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=False, # True: chat only between citizens and officer | False: chat with everyone
+        private_interaction=True, # True: chat and trasactions (BL)
+        resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
+        heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)
+        random_multiplier=False, # True: multiplier is a random value between 1.5 or 2.5 (T4)
+        random_audits=False, # True: there is a chance of random audits and punishments (T6)
+        officer_interactions_public=True # True: all private interactions with officer becomes public (T7)
+    ),
+    dict(
+        name='T7_public_goods_chat_only_officer',
+        display_name='T7_public_goods_chat_only_officer',
+        app_sequence=['introduction', 'new_public_goods'],
+        num_demo_participants=4,
+        multiplier=2, # Default multiplier value when it is not random
+        officer_endowment=700, # Default endowment for P.O.
+        c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
+        audit_probability=0.2, # Default detection probability of corruption action (T6)
+        # Aditional configs
+        sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=True, # True: chat only between citizens and officer | False: chat with everyone
         private_interaction=True, # True: chat and trasactions (BL)
         resource_allocation=True, # True: P.O. decides how to allocate the public resources (T2)
         heterogenous_citizens=False, # True: Citizen one will have different endowment (T3)

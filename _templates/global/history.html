@@ -1,5 +1,4 @@
 <div>
-    <h4 class="text-center">Historia</h4><br>
     <div class="row">
         <table class="table">
             <thead>
@@ -48,7 +47,9 @@
                         <td>{{ row.Contribution }}</td>
                         <td>{{ row.PublicGoodRawGain }}</td>
                     {{ endif }}
-                    <td class="public-end">{{ row.PublicInteractionPayoff }}</td> 
+                    <td class="public-end {% if row.Timeout %}text-danger{% endif %}">
+                        {{ row.PublicInteractionPayoff }}
+                    </td> 
 
                     <!-- Interacción Privada -->
                     {{ if private_interaction }}
@@ -57,7 +58,7 @@
                         <td class="public-end">{{ row.PrivateInteractionPayoff }}</td>
                     {{ endif }}
 
-                    <td><b>{{ row.Payment }}</b></td>
+                    <td class="{% if row.Audited %}text-danger{% endif %}"><b>{{ row.Payment }}</b></td>
                 </tr>
                 {{ endfor }}
             </tbody>
