@@ -35,46 +35,9 @@
             justify-content: space-between;
             gap: 15px;
         }
-
-        #transactionsContainer {
-            max-height: 270px; /* Adjust as needed */
-            overflow-y: auto;
-            display: block;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table thead {
-            position: sticky;
-            top: 0;
-            background: white; /* Ensures the header stays visible */
-            z-index: 2;
-        }
-
-        @keyframes fadeOut {
-            0% {background-color: #a3e6a3;}
-            100% {background-color: transparent;}
-        }
-
-        .new-transaction {
-            animation: fadeOut 2s ease-out forwards;
-        }
-
-        /* History table CSS *******************/
-        .table thead th {
-            border-bottom: 1px solid #ddd !important;
-            text-align: center;
-            font-weight: bold;
-            padding: 12px 10px;
-        }
-        
-        /* Add a vertical line to separate public and private interactions */
-        .table th.public-end, 
-        .table td.public-end {
-            border-right: 1px solid #ddd !important; /* Adjust thickness as needed */
+        .main-content-row {
+            border-top: solid #808080;
+            padding-bottom: 20px;
         }
 
         /* Form Styling */
