@@ -113,8 +113,9 @@
                                 </div>
                             {{ endfor }}
                         </div>
-
-                    {{ else }} <!-- Participants chat wiht everyone -->
+                    
+                    <!-- Participants chat wiht everyone -->
+                    {{ else }}
                         
                         <div class="chat-container row p-5">
                             {{ for other in others }}
@@ -186,21 +187,22 @@
                     <!-- Transactions and balance -->
                     <div class="row p-5">
                         <h5 class="text-center">Balance de transacciones</h5>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Jugador</th>
-                                    <th>Acción</th>
-                                    <th>A</th>
-                                    <th>Puntos</th>
-                                    <th>¿Se aceptó?</th>
-                                    <th>Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transactionsBody">
-                            </tbody>
-                        </table>
+                        <div id="transactionsContainer">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Jugador</th>
+                                        <th>Acción</th>
+                                        <th>A</th>
+                                        <th>Puntos</th>
+                                        <th>¿Se aceptó?</th>
+                                        <th>Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionsBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             {{ endif }}
@@ -491,7 +493,7 @@
 
                 if (data.updateTransactions) {
                     if (data.reload === false) {
-                        console.log("able buttons transactions")
+                        console.log("able buttons transactions");
                         let offerButton = document.getElementById('id_offerButton_' + data.otherId);
                         let offerInput = document.getElementById('id_offerInput_' + data.otherId);
                         let requestButton = document.getElementById('id_requestButton_' + data.otherId);
@@ -507,8 +509,9 @@
 
                     const transactions = data.transactions;
                     const tableBody = document.getElementById('transactionsBody');
+                    const tableContainer = document.getElementById('transactionsContainer');
 
-                    console.log(transactions)
+                    console.log(transactions);
 
                     tableBody.innerHTML = '';
 
@@ -524,14 +527,28 @@
                             <td>${transaction["¿Se aceptó?"]}</td>
                             <td>${transaction["Balance"]}</td>
                         `;
+
                         tableBody.appendChild(row);
+
+                        // If this is the last transaction, apply the highlight effect
+                        if (index === transactions.length - 1) {
+                            row.classList.add("new-transaction");
+                            setTimeout(() => {
+                                row.classList.remove("new-transaction");
+                            }, 2000);
+                        }
                     });
+
+                    // Auto-scroll to the bottom smoothly
+                    tableContainer.scrollTop = tableContainer.scrollHeight;
 
                     // Update the span with the last transaction's total
                     if (transactions.length > 0) {
                         const lastTransaction = transactions[transactions.length - 1]; // Get the last transaction
                         const pointsValueSpan = document.getElementById('points-value'); // Select the span
-                        pointsValueSpan.textContent = lastTransaction["Balance"]; // Update the span with the balance
+                        if (pointsValueSpan) {
+                            pointsValueSpan.textContent = lastTransaction["Balance"]; // Update the span with the balance
+                        }
                     }
                 }
             }

@@ -7,13 +7,20 @@ import math
 # Sobre comentario de 3 endowments en T3
 # c1_endowment: poner 3 valores separados por ;
 
+# TODO reu 07/02:
+# P0: agregar página de payoffs, merge en release
+# P1: Instrucciones
+# P2: Chat from scratch
+# P3: pasar versión con el chat al release
+# P4: filtro del lenguaje implementado
+
 create_tables() # Creates additional tables
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
     NUM_ROUNDS = 3
-    CITIZEN_ENDOWMENT = 500
+    CITIZEN_ENDOWMENT = 500 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
     CITIZEN3_ROLE = 'Ciudadano 3'
@@ -27,32 +34,40 @@ class Group(BaseGroup):
     total_initial_points = models.IntegerField(initial=0)
     total_contribution = models.IntegerField()
     total_allocation = models.FloatField() # = total_contribution * multiplier
-    equitative_allocation = models.FloatField() # total_allocation / 3
-    allocation1 = models.FloatField(
+    equitative_allocation = models.FloatField() # = total_allocation / 3
+    # Forms for treatments where Officer decides the allocation:
+    allocation1 = models.FloatField( # Allocation for Citizen 1
         blank=True, 
         label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?'
     )
-    allocation2 = models.FloatField(
+    allocation2 = models.FloatField( # Allocation for Citizen 2
         blank=True, 
         label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?'
     )
-    allocation3 = models.FloatField(
+    allocation3 = models.FloatField( # Allocation for Citizen 3
         blank=True, 
         label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?'
     )
 
 class Player(BasePlayer):
-    initial_points = models.IntegerField()
+    initial_points = models.IntegerField() # Initial endowment per round
     current_points = models.IntegerField()
     contribution_points = models.IntegerField(blank=True)
-    actual_allocation = models.FloatField()
-    timeout_penalty = models.BooleanField(initial=False) # True when timeout occurs
-    corruption_audit = models.BooleanField() # True if player gets audit
-    corruption_punishment = models.BooleanField(blank=True) # True if player did corrupt action
+    actual_allocation = models.FloatField() # The actual allocation the citizen receives
+    timeout_penalty = models.BooleanField(initial=False) # True when timeout occurs | False if it didn't happen
+    corruption_audit = models.BooleanField() # True if player gets audit | False if player will not be audit
+    corruption_punishment = models.BooleanField(blank=True) # True if player did corrupt action | False if they didn't
 
 
 # FUNCTIONS
 def creating_session(subsession):
+    """
+    When session is created:
+    - The player's initial points is stored according to the treatment they are playing and their role
+    - The player's segment and current points are initialized
+    - The group's total points is stored according to the sum of all player's initial points
+    - Asing to the `corruption_audit` player variable a boolean value according to the `audit_probability` session config
+    """
     # Retrieve configuration values
     session_config = subsession.session.config
     officer_endowment = session_config['officer_endowment']
@@ -62,6 +77,7 @@ def creating_session(subsession):
 
     for player in subsession.get_players():
         player.participant.segment = 1  # Initialize segment value to 1
+        player.participant.session_payoff = 0 # Initialize session payoff to 0
         player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment # Store initial points
         if heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
             player.initial_points = c1_endowment
@@ -72,6 +88,11 @@ def creating_session(subsession):
 
 
 def public_good_default_raw_gain(group):
+    """
+    Get the equitative resources distribution for each citizen per group, then stores the value in the `equitative_allocation` group variable.
+    
+    The formula used is: `(total_contribution * multiplier) / 3`
+    """
     players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude player with id 4 (P.O.)
     group.total_contribution = sum(p.field_maybe_none('contribution_points') or 0 for p in players)
     group.total_allocation = group.total_contribution * group.multiplier
@@ -79,10 +100,17 @@ def public_good_default_raw_gain(group):
 
 
 def store_actual_allocation(group):
-    allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
-    players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude the Public Officer
+    """
+    Get the allocation the officer decided for each citizen and verifies if has a valid value (in case there was a timeout and the values the officer wrote weren't right). 
+    - If the total allocation don't sum the total public resources, the function asings the default allocation to all citizens
+    - If there is at least one missing, the function asigns the remaining public resources between the citizens that don't have an allocation
     
-    # Count missing allocations
+    This funtion should be executed only in treatments when the Public Officer decides how to distribute the public resources between the citizens.
+    """
+    allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
+    players = [p for p in group.get_players() if p.id_in_group != 4] # Get only the citizens
+    
+    # Count total allocation and missing allocations
     missing_indices = [i for i, value in enumerate(allocations) if value is None]
     total_allocated = sum(value for value in allocations if value is not None)
 
@@ -91,7 +119,7 @@ def store_actual_allocation(group):
         print(f"Incorrect total allocation! Given: {total_allocated}, Expected: {group.total_allocation}")
         for other in players:
             other.actual_allocation = group.equitative_allocation
-        return  # Exit early after correcting values
+        return # Exit early after correcting values
 
     # Handling Missing Values
     total_remaining = group.total_allocation - total_allocated
@@ -124,14 +152,16 @@ def store_actual_allocation(group):
 
 def apply_corruption_penalty(group):
     """
-    Determines if citizens engaged in corrupt transactions and applies punishment if necessary.
+    Determine if citizens engaged in corrupt transactions and applies punishment if necessary.
     
     - Citizens (players 1, 2, 3) are flagged if they receive/give transfers to the officer.
-    - A citizen is marked corrupt if:
-        1. Net transfers to the officer are positive.
-        2. Their actual allocation exceeds the equitative allocation by more than 0.1.
-    - If a citizen is audited, store corruption status in `player.corruption_punishment`.
+    - A citizen is considered corrupt if:
+        1. Net transfers to the officer are positive (they gave more than what they received).
+        2. Their actual allocation exceeds the equitative allocation by more than 0.1 points.
+    - If a citizen is also audited, store corruption status in `player.corruption_punishment`.
     - If the officer is audited, check if at least one citizen is corrupt and store result.
+
+    This funtion should be executed only in treatment 6, when there are random audits and punishment for corruption behavior.
     """
 
     # Choose an arbitrary player to extract group info
@@ -163,7 +193,7 @@ def apply_corruption_penalty(group):
                 citizen_data['transfers_from_citizen_to_officer'] 
                 - citizen_data['transfers_from_officer_to_citizen'] > 0
             )
-            officer_retribution = (abs(player.actual_allocation - player.group.equitative_allocation) > 0.1)
+            officer_retribution = ((player.actual_allocation - player.group.equitative_allocation) > 0.1)
             corrupt = citizen_bribery and officer_retribution
 
             # Store in a separate results dictionary
@@ -184,6 +214,15 @@ def apply_corruption_penalty(group):
 
 
 def set_payoffs(player):
+    """
+    Set the player's payoffs, which is the sum of the `public_interaction_payoff` and the `private_interaction_payoff`.
+    - `private_interaction_payoff`: Is the total transfers given minus the total transfers given
+    - `public_interaction_payoff`: For the citizens, is the initial endowment minus their contribution to the public project plus the actual allocation they received. If they made a timeout in the contribution page, they get 0 public payoff. For the public officer, is only initial endowment. If they made a timeout in the allocation page (if applicable), they get 0 public payoff.
+    - If they are also playing the audit treatment (T6), and get punished for corruption behavior, the receive 0 total payoff.
+
+    :return Public interaction payoff: The actual public payoff, with the timeout punishment applied.
+    :return Private interaction payoff: The actual private payoff, with the timeout punishment applied.
+    """
     total_transfers = total_transfers_per_player({
         'session_code': player.session.code,
         'segment': player.participant.segment,
@@ -209,10 +248,17 @@ def set_payoffs(player):
         (public_interaction_payoff + private_interaction_payoff) 
         * (1 - (player.field_maybe_none('corruption_punishment') or 0))
     )
+
+    # Get the total payoff at the end of the segment
+    player.participant.session_payoff += player.payoff
+
     return public_interaction_payoff, private_interaction_payoff
 
 
 def insert_history(group):
+    """
+    Inserts a new history row in the history table.
+    """
     for player in group.get_players():
         # Get public and private payoffs
         public_payoff, private_payoff = set_payoffs(player)
@@ -256,7 +302,7 @@ class FirstWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
         """ 
-        Set multiplier value per groups and per rounds 
+        Set multiplier value per groups and per rounds according to the `random_multiplier` session config. If its value is True, then randomly choose between 1.5 or 2.5, if it is False, then store the value of the `multiplier` session config.
         """
         if group.session.config['random_multiplier']:
             group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
@@ -270,7 +316,7 @@ class Interaction(Page):
 
     @staticmethod
     def get_form_fields(player):
-        if player.role != C.OFFICER_ROLE: # Display formfield 'contribution_points' only to citizens
+        if player.role != C.OFFICER_ROLE: # Display formfield `contribution_points` only to citizens
             return ['contribution_points']
 
     @staticmethod
@@ -334,7 +380,10 @@ class Interaction(Page):
 
         def handle_contribution(contribution_points):
             """
-            Validate and process contribution points
+            Validate and process contribution points.
+
+            :param contribution_points: The points the citizen contributed to the public project.
+            :return: Return a dictionary with two arguments when the points are valid: `contributionPointsValid`, a Boolean that indicates the points are valid, and `contributionPoints`, which stores the valid points the citizen decided to contribute to the public project.
             """
             if player.role != C.OFFICER_ROLE:
                 if not isinstance(contribution_points, int) or math.isnan(contribution_points):
@@ -351,7 +400,9 @@ class Interaction(Page):
 
         def reload_contribution():
             """
-            Handle reloading page when already contributed
+            Handle reloading the page if the player has already contributed
+
+            :return: Returns a dictionary with three arguments when the player has contributed: `update', which indicates that the player has reloaded the page, `contributionPointsReload', which indicates that the player has already contributed to the project, and `contributionPoints', which indicates the points the player has sent. If the player has no contribution, then the return value is an empty dictionary.
             """
             contribution_points = player.field_maybe_none('contribution_points')
             if player.role != C.OFFICER_ROLE and contribution_points:
@@ -360,8 +411,10 @@ class Interaction(Page):
         
         def new_transaction():
             """
-            Log the initial transaction in the transactions table and its status in the status table.
+            Log a new transaction in the transactions table and its status in the status table.
             Activates when the initiator clicks "offer" or "request".
+
+            :return Transaction ID: 
             """
             transaction_data = {
                 'session_code': player.session.code,
@@ -378,7 +431,8 @@ class Interaction(Page):
                 'receiver_initial_endowment': player.group.get_player_by_id(data['receiverId']).current_points,
             }
 
-            transaction_id = insert_row(data=transaction_data, table='transactions') # Save the transaction and get the transaction ID
+            # Save the transaction and get the transaction ID
+            transaction_id = insert_row(data=transaction_data, table='transactions')
 
             status_data = {
                 'transaction_id': transaction_id,
@@ -390,8 +444,11 @@ class Interaction(Page):
 
         def closing_transaction(status, transaction_id):
             """
-            Log the clausure of a transaction in the status table and update total in transactions table.
+            Log the clausure of a transaction in the status table and update the current points in transactions table.
             Activates when the receiver clicks "yes" or "no", or the initiator cancels the transaction.
+
+            :param status: The latest transaction's status (acepted, declined or canceled)
+            :param transaction_id: The ID of the transaction
             """
             balance_data = {
                 'transaction_id': transaction_id,

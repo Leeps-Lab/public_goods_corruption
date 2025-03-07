@@ -3,16 +3,17 @@ from dotenv import load_dotenv # type: ignore
 
 load_dotenv()
 
-
 # TODO: preguntas de sesión: testear contribución exógena?
 SESSION_CONFIGS = [
     dict(
         name='BL1_public_goods',
         display_name='BL1_public_goods',
-        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -28,10 +29,12 @@ SESSION_CONFIGS = [
     dict(
         name='BL2_public_goods',
         display_name='BL2_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default heterogenous detection probability of corruption action (T6)
         # Aditional configs
@@ -47,10 +50,12 @@ SESSION_CONFIGS = [
     dict(
         name='T1_public_goods_simultaneous',
         display_name='T1_public_goods_simultaneous',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Treatment configs
@@ -66,10 +71,12 @@ SESSION_CONFIGS = [
     dict(
         name='T1_public_goods_sequencial',
         display_name='T1_public_goods_sequencial',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -85,10 +92,12 @@ SESSION_CONFIGS = [
     dict(
         name='T2_public_goods',
         display_name='T2_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -104,10 +113,12 @@ SESSION_CONFIGS = [
     dict(
         name='T3_public_goods',
         display_name='T3_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -123,10 +134,12 @@ SESSION_CONFIGS = [
     dict(
         name='T4_public_goods',
         display_name='T4_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -142,10 +155,12 @@ SESSION_CONFIGS = [
     dict(
         name='T6_public_goods',
         display_name='T6_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -161,10 +176,12 @@ SESSION_CONFIGS = [
     dict(
         name='T7_public_goods',
         display_name='T7_public_goods',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -180,10 +197,12 @@ SESSION_CONFIGS = [
     dict(
         name='T7_public_goods_chat_only_officer',
         display_name='T7_public_goods_chat_only_officer',
-        app_sequence=['introduction', 'new_public_goods'],
+        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=700, # Default endowment for P.O.
+        participation_fee=7.50, # Default participation fee
+        exchange_rate=1000, # Default exchange rate bewteen experimental points and soles
         c1_endowment=600, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         # Aditional configs
@@ -196,6 +215,12 @@ SESSION_CONFIGS = [
         random_audits=False, # True: there is a chance of random audits and punishments (T6)
         officer_interactions_public=True # True: all private interactions with officer becomes public (T7)
     ),
+    dict(
+        name='final_questionnaire',
+        display_name='final_questionnaire',
+        app_sequence=['final_questionnaire'],
+        num_demo_participants=2
+    ),
 ]
 
 
@@ -203,7 +228,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS = ['segment']
+PARTICIPANT_FIELDS = ['segment', 'session_payoff']
 SESSION_FIELDS = []
 
 # ISO-639 code
@@ -211,7 +236,7 @@ SESSION_FIELDS = []
 LANGUAGE_CODE = 'es'
 
 # e.g. EUR, GBP, CNY, JPY
-REAL_WORLD_CURRENCY_CODE = 'USD'
+REAL_WORLD_CURRENCY_CODE = 'PEN'
 USE_POINTS = True
 
 ROOMS = [

@@ -54,6 +54,33 @@
             gap: 15px;
         }
 
+        #transactionsContainer {
+            max-height: 270px; /* Adjust as needed */
+            overflow-y: auto;
+            display: block;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table thead {
+            position: sticky;
+            top: 0;
+            background: white; /* Ensures the header stays visible */
+            z-index: 2;
+        }
+
+        @keyframes fadeOut {
+            0% {background-color: #a3e6a3;}
+            100% {background-color: transparent;}
+        }
+
+        .new-transaction {
+            animation: fadeOut 2s ease-out forwards;
+        }
+
         /* History table CSS *******************/
         .table thead th {
             border-bottom: 1px solid #ddd !important;

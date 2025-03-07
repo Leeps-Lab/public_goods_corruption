@@ -17,6 +17,8 @@ role_mapping = translations["role_terms"]
 def connect_to_db(db_path=DB_PATH):
     """
     Establishes a connection to the PostgreSQL database and sets the search path to 'game_data'.
+
+    :params db_path: The path to the PostgreSQL database (default: `DB_PATH`).
     """
     try:
         conn = psycopg2.connect(db_path)
@@ -206,8 +208,43 @@ def add_balance(data, db_path=DB_PATH):
 
 def filter_transactions(data, db_path=DB_PATH):
     """
-    Filters transactions for a given participant, round, segment, and session,
+    Filters and retrieves transactions for a given participant in an oTree experiment,
     replacing initiator and receiver IDs with their corresponding role names.
+    
+    This function queries a PostgreSQL database to extract transaction records
+    related to a specific participant, identified by `participant_code`, within
+    a given round, segment, and session. It returns a list of formatted transactions,
+    mapping player IDs to their respective roles.
+
+    :params:
+    -----------
+    data : dict
+        A dictionary containing the following keys:
+        - `participant_code` (str): The unique identifier of the participant.
+        - `round` (int): The round number of the experiment.
+        - `segment` (int): The segment of the experiment.
+        - `session_code` (str): The unique identifier of the session.
+    db_path : str, optional
+        The path to the PostgreSQL database (default: `DB_PATH`).
+
+    :return Transactions:
+    --------
+    A list of transaction dictionaries with the following keys:
+    - "Jugador" (str): The role name of the initiator.
+    - "Acción" (str): The action taken.
+    - "A" (str): The role name of the receiver.
+    - "Puntos" (int): The number of points transferred.
+    - "¿Se aceptó?" (str): The status of the transaction ('Aceptado' or 'Rechazado').
+    - "Balance" (int or None): The participant's balance after the transaction, if applicable.
+
+    Notes:
+    ------
+    - The function connects to a PostgreSQL database using `connect_to_db(db_path)`.
+    - It filters transactions where the participant is either the initiator or the receiver.
+    - Transactions are retrieved only if they belong to the specified round, segment,
+      and session, and if their status is either 'Aceptado' or 'Rechazado'.
+    - The function replaces player IDs with role names using `role_mapping`.
+    - Any database errors are caught and printed, and an empty list is returned in case of failure.
     """
     conn, cur = connect_to_db(db_path)
     if not conn:
@@ -264,7 +301,8 @@ def filter_history(data, db_path=DB_PATH):
     """
     Retrieves the full history of a participant within a given segment across all rounds.
 
-    :param data: Dictionary containing 'session_code', 'segment', 'participant_code'.
+    :param data: Dictionary containing `session_code`, `segment`, `participant_code`.
+    :param db_path: Path to the PostSQL database.
     :return: List of dictionaries containing the player's history for all rounds in the segment.
     """
     conn, cur = connect_to_db(db_path)
@@ -340,6 +378,7 @@ def get_last_transaction_status(participant_code, round_number, segment, session
     :param round_number: The current round number.
     :param segment: The current segment.
     :param session_code: The session code.
+    :param db_path: Path to the PostSQL database.
     :return: Dictionary with transaction details if 'Iniciado' and not closed, otherwise None.
     """
     conn, cur = connect_to_db(db_path)
@@ -406,6 +445,7 @@ def total_transfers_per_player(data, db_path=DB_PATH):
     - If `initiator_code` and `action = 'Solicita'`, it counts as `transfers_received`.
 
     :param data: Dictionary containing 'segment', 'round', 'participant_code', 'session_code'.
+    :param db_path: Path to the PostSQL database.
     :return: Dictionary with total_transfers_received and total_transfers_given.
     """
     conn, cur = connect_to_db(db_path)
@@ -469,6 +509,7 @@ def check_corruption(data, db_path=DB_PATH):
     filtering for accepted transactions ('Aceptado') and classifying them based on action type.
 
     :param data: Dictionary containing 'segment', 'round', 'session_code', 'group_id'.
+    :param db_path: Path to the PostSQL database.
     :return: Dictionary with corruption details for each citizen.
     """
     
