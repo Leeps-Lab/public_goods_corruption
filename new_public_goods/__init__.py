@@ -7,12 +7,6 @@ import math
 # Sobre comentario de 3 endowments en T3
 # c1_endowment: poner 3 valores separados por ;
 
-# TODO reu 07/02:
-# P0: agregar página de payoffs, merge en release
-# P1: Instrucciones
-# P2: Chat from scratch
-# P3: pasar versión con el chat al release
-# P4: filtro del lenguaje implementado
 
 create_tables() # Creates additional tables
 
