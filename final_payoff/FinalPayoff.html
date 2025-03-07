@@ -1,0 +1,25 @@
+{{ block title }}
+    Pago
+{{ endblock }}
+
+{{ block content }}
+    
+    <p>Obtuviste un total de {{ total_points }} puntos, que equivalen a {{ additional_fee }}.</p>
+    <br>
+    <h5>Tu pago final es:</h5>
+    <table class="payment-table">
+        <tr>
+            <td style="padding-right: 20px;">Pago fijo:</td>
+            <td style="text-align: right;"><b>{{ participation_fee }}</b></td>
+        </tr>
+        <tr>
+            <td style="padding-right: 20px;">Pago adicional:</td>
+            <td style="text-align: right;"><b>{{ additional_fee }}</b></td>
+        </tr>
+        <tr>
+            <td style="padding-right: 20px;"><b>Total:</b></td>
+            <td style="text-align: right;"><b>{{ total_payoff }}</b></td>
+        </tr>
+    </table>
+    
+{{ endblock }}

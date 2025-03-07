@@ -8,7 +8,19 @@
 
 {{ block app_styles }}
     <style>
-        /* General Styles */
+
+        /* Top line style */
+        .main-content-row {
+            border-top: solid #808080;
+            padding-bottom: 20px;
+        }
+
+        /* Form Styling */
+        .spacing-between {
+            margin-bottom: 5px;
+        }
+
+        /* Chat Styles */
         .otree-body {
             max-width: 85%;
             margin: 0 auto;
@@ -21,28 +33,178 @@
         }
 
         .otree-chat__input {
-            width: calc(100% - 65px);
+            width: calc(100% - 60px);
             padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
         }
 
         .otree-chat__btn-send {
-            width: 60px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            width: 55px;
             padding: 5px;
+            border-radius: 5px;
         }
 
         .chat-container {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             gap: 15px;
         }
-        .main-content-row {
-            border-top: solid #808080;
-            padding-bottom: 20px;
+
+        #transactionsContainer {
+            max-height: 270px; /* Adjust as needed */
+            overflow-y: auto;
+            display: block;
         }
 
-        /* Form Styling */
-        .spacing-between {
-            margin-bottom: 5px;
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table thead {
+            position: sticky;
+            top: 0;
+            background: white; /* Ensures the header stays visible */
+            z-index: 2;
+        }
+
+        @keyframes fadeOut {
+            0% {background-color: #a3e6a3;}
+            100% {background-color: transparent;}
+        }
+
+        .new-transaction {
+            animation: fadeOut 2s ease-out forwards;
+        }
+
+        /* History table CSS *******************/
+        .table thead th {
+            border-bottom: 1px solid #ddd !important;
+            text-align: center;
+            font-weight: bold;
+            padding: 12px 10px;
+        }
+        
+        /* Add a vertical line to separate public and private interactions */
+        .table th.public-end, 
+        .table td.public-end {
+            border-right: 1px solid #ddd !important; /* Adjust thickness as needed */
+        }
+
+        .table tbody { /* Center numbers only */
+            text-align: center;
+        }
+
+        /* Allocation Header */
+        .allocation-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 0;
+        }
+
+        /* Calculator Button */
+        .calculator-btn {
+            position: absolute;
+            transform: translateY(-70%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-left: 40px; /* Moves the button slightly to the right */
+        }
+
+        .calculator-btn:hover {
+            background-color: #e2e6ea;
+        }
+
+        .calculator-icon {
+            width: 25px; /* Adjust icon size */
+            height: 25px;
+        }
+
+        /* Calculator Popup */
+        .calculator-container {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            background: white;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1001;
+            width: 240px;
+            box-sizing: border-box;
+        }
+
+        /* Calculator Layout */
+        .calculator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* Input and Button grid */
+        .calc-display-container {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 5px;
+        }
+
+        .calc-display-container input {
+            flex: 1;
+            height: 50px; /* Matches button height */
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 18px;
+            text-align: right;
+            box-sizing: border-box;
+        }
+
+        /* Clear Button */
+        .clear-btn {
+            height: 50px; /* Matches input and other buttons */
+            width: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* Button Grid */
+        .calc-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* Ensures even distribution */
+            gap: 5px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        /* Calculator Buttons */
+        .calc-buttons button {
+            width: 100%;
+            height: 50px;
+            font-size: 18px;
+            border: 1px solid #ccc;
+            background: #f8f9fa;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .calc-buttons button:hover {
+            background: #e2e6ea;
         }
 
     </style>
