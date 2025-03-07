@@ -1,0 +1,67 @@
+<div>
+    <div class="row">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th rowspan="2">Segmento</th>
+                    <th rowspan="2" class="public-end">Ronda</th>
+                    
+                    <!-- Interacción Pública -->
+                    {{ if player.id_in_group != 4 }}
+                        <th colspan="4" class="text-center public-end">Interacción pública</th>
+                    {{ else }}
+                        <th colspan="2" class="text-center public-end">Interacción pública</th>
+                    {{ endif }}
+
+                    <!-- Interacción Privada -->
+                    {{ if private_interaction }}
+                        <th colspan="3" class="text-center public-end">Interacción privada</th>
+                    {{ endif }}
+
+                    <th rowspan="2">Pago total</th>
+                </tr>
+                <tr>
+                    <th>Dotación</th>
+                    {{ if player.id_in_group != 4 }}
+                        <th>Contribución</th>
+                        <th>Asignación de servicios públicos</th>
+                    {{ endif }}
+                    <th class="public-end">Pago de la interacción pública</th>  
+
+                    {{ if private_interaction }}
+                        <th>Total de transferencias recibidas</th>
+                        <th>Total de transferencias enviadas</th>
+                        <th class="public-end">Pago de la interacción privada</th>
+                    {{ endif }}
+                </tr>
+            </thead>
+            <tbody>
+                {{ for row in history }}
+                <tr>
+                    <td>{{ row.Segment }}</td>
+                    <td class="public-end">{{ row.Round }}</td>
+
+                    <!-- Interacción Pública -->
+                    <td>{{ row.Endowment }}</td>
+                    {{ if player.id_in_group != 4 }}
+                        <td>{{ row.Contribution }}</td>
+                        <td>{{ row.PublicGoodRawGain }}</td>
+                    {{ endif }}
+                    <td class="public-end {% if row.Timeout %}text-danger{% endif %}">
+                        {{ row.PublicInteractionPayoff }}
+                    </td> 
+
+                    <!-- Interacción Privada -->
+                    {{ if private_interaction }}
+                        <td>{{ row.TotalTransfersReceived }}</td>
+                        <td>{{ row.TotalTransfersGiven }}</td>
+                        <td class="public-end">{{ row.PrivateInteractionPayoff }}</td>
+                    {{ endif }}
+
+                    <td class="{% if row.Audited %}text-danger{% endif %}"><b>{{ row.Payment }}</b></td>
+                </tr>
+                {{ endfor }}
+            </tbody>
+        </table>
+    </div>
+</div>
