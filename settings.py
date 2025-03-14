@@ -221,6 +221,12 @@ SESSION_CONFIGS = [
         app_sequence=['final_questionnaire'],
         num_demo_participants=2
     ),
+    dict(
+        name='chat_from_scratch',
+        display_name='chat_from_scratch',
+        app_sequence=['chat_from_scratch'],
+        num_demo_participants=4
+    ),
 ]
 
 

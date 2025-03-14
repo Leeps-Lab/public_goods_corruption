@@ -3,3 +3,4 @@ psycopg2>=2.8.4
 sentry-sdk==0.7.9
 pandas
 python-dotenv
+openai>=1.2.3 

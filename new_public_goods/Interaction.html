@@ -67,7 +67,7 @@
                             <div class="col" style="max-width: 261px;">
                                 <div class="row" style="margin-bottom: 30px;">
                                     <p class="text-center">Chat con {{ others.0.role }}</p>
-                                    {{ chat nickname=player.role channel=others.0.channel }}
+                                    <!-- {{ chat nickname=player.role channel=others.0.channel }} -->
                                 </div>
                                 <!-- Buttons (Only for the officer chat) -->
                                 <div class="row">
@@ -111,7 +111,7 @@
                                 <div class="col">
                                     <div class="row" style="margin-bottom: 30px;">
                                         <p class="text-center">{{ extra_chat.role }}</p>
-                                        {{ chat nickname=player.role channel=extra_chat.channel }}
+                                        <!-- {{ chat nickname=player.role channel=extra_chat.channel }} -->
                                     </div>
                                 </div>
                             {{ endfor }}
@@ -119,14 +119,19 @@
                     
                     <!-- Participants chat wiht everyone -->
                     {{ else }}
-                        
                         <div class="chat-container row p-5">
+                            <div id="chat_messages">
+                            </div>
+                            <div>
+                                <input type="text" id="chat_input">
+                                <button type="button" onclick="sendMsg()">Send</button>
+                            </div>
                             {{ for other in others }}
                                 <div class="col">
                                     <!-- Chat -->
                                     <div class="row" style="margin-bottom: 30px;">
                                         <p class="text-center">Chat con {{ other.role }}</p>
-                                        {{ chat nickname=player.role channel=other.channel }}
+                                        <!-- {{ chat nickname=player.role channel=other.channel }} -->
                                     </div>
                                     <!-- Buttons -->
                                     <div class="row">
@@ -177,7 +182,7 @@
                                         <!-- Additional Chat -->
                                         <div class="row" style="margin-bottom: 30px;">
                                             <p class="text-center">{{ extra_chat.role }}</p>
-                                            {{ chat nickname=player.role channel=extra_chat.channel }}
+                                            <!-- {{ chat nickname=player.role channel=extra_chat.channel }} -->
                                         </div>
                                     </div>
                                 {{ endfor }}
@@ -343,6 +348,24 @@
                 }
             }, 100); // Check every 100ms
         }
+
+        let chat_input = document.getElementById('chat_input');
+
+        chat_input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                sendMsg();
+            }
+        });
+
+        function sendMsg() {
+            let text = chat_input.value.trim();
+            if (text) {
+                liveSend({'text': text});
+            }
+            chat_input.value = '';
+        }
+
+        let chat_messages = document.getElementById('chat_messages');
 
         // Receives information from backend
         function liveRecv(data) {
@@ -553,6 +576,16 @@
                             pointsValueSpan.textContent = lastTransaction["Balance"]; // Update the span with the balance
                         }
                     }
+                }
+            }
+
+            if (data.new_message) {
+                for (let msg of data) {
+                    let msgSpan = document.createElement('span');
+                    msgSpan.textContent = msg.text;
+                    let sender = msg.sender === js_vars.my_id ? 'Me' : `Player ${msg.sender}`;
+                    let row = `<div><b>${sender}</b>: ${msgSpan.innerHTML}</div>`;
+                    chat_messages.insertAdjacentHTML('beforeend', row);
                 }
             }
         }

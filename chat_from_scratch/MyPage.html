@@ -1,0 +1,44 @@
+{{ block content }}
+
+<div id="chats_container">
+    {% for p in player.get_others_in_group %}
+        <div>
+            <h3>Chat with Player {{ p.id_in_group }}</h3>
+            <div id="chat_messages_{{ p.id_in_group }}" class="chat-box"></div>
+            <input type="text" id="chat_input_{{ p.id_in_group }}" placeholder="Type a message...">
+            <button type="button" onclick="sendMsg({{ p.id_in_group }})">Send</button>
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+    let my_id = {{ player.id_in_group }};
+    let other_ids = [{% for p in player.get_others_in_group %}{{ p.id_in_group }}{% endfor %}];
+
+    function sendMsg(recipient) {
+        let chat_input = document.getElementById(`chat_input_${recipient}`);
+        let text = chat_input.value.trim();
+        if (text) {
+            liveSend({'text': text, 'recipient': recipient});
+        }
+        chat_input.value = '';
+    }
+
+    function liveRecv(messages) {
+        for (let msg of messages) {
+            let chat_messages = document.getElementById(`chat_messages_${msg.sender === my_id ? msg.recipient : msg.sender}`);
+            let msgSpan = document.createElement('span');
+            msgSpan.textContent = msg.text;
+            let sender = msg.sender === my_id ? 'Me' : `Player ${msg.sender}`;
+            let row = `<div><b>${sender}</b>: ${msgSpan.innerHTML}</div>`;
+            chat_messages.insertAdjacentHTML('beforeend', row);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        liveSend({});
+    });
+
+</script>
+
+{{ endblock }}

@@ -52,6 +52,13 @@ class Player(BasePlayer):
     corruption_audit = models.BooleanField() # True if player gets audit | False if player will not be audit
     corruption_punishment = models.BooleanField(blank=True) # True if player did corrupt action | False if they didn't
 
+class Message(ExtraModel):
+    sender = models.Link(Player)
+    channel = models.CharField(max_length=255)
+    text = models.StringField()
+
+def to_dict(msg: Message):
+    return dict(sender=msg.sender.id_in_group, text=msg.text)
 
 # FUNCTIONS
 def creating_session(subsession):
@@ -305,7 +312,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    timeout_seconds = 60 * 3
+    # timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -366,7 +373,8 @@ class Interaction(Page):
         return dict(
             secuential_decision=player.session.config['sequential_decision'],
             officer_interactions_public=player.session.config['officer_interactions_public'],
-            player_role=player.role
+            player_role=player.role,
+            my_id=player.id_in_group,
         )
 
     @staticmethod
@@ -458,6 +466,8 @@ class Interaction(Page):
             insert_row(data=status_data, table='status')
 
         data_type = data.get('type')
+        my_id = player.id_in_group
+        channel = 1
 
         # When contributing to the common project
         if data_type == 'contributionPoints':
@@ -640,6 +650,19 @@ class Interaction(Page):
             
             return {player.id_in_group: reload}
         
+        if 'text' in data:
+            text = data['text']
+            print(f'text: {text}')
+            print(f'player: {player}')
+            msg = Message.create(sender=player, channel=channel, text=text)
+            print(f'msg: {msg}')
+            print(f'0: [to_dict(msg)]: {0: [to_dict(msg)]}')
+            return {0: [to_dict(msg)]}
+        
+        return {my_id: [[to_dict(msg)] for msg in Message.filter(channel=channel)]}
+
+
+        
     @staticmethod
     def before_next_page(player, timeout_happened):
         if timeout_happened and player.id_in_group != 4: # Apply timeout penalty only to citizens
@@ -672,7 +695,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60 * 1.5
+    # timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -754,7 +777,7 @@ class ThirdWaitPage(WaitPage):
 
 
 class Results(Page):
-    timeout_seconds = 20
+    # timeout_seconds = 20
 
     @staticmethod
     def vars_for_template(player):
