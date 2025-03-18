@@ -1,12 +1,5 @@
 from otree.api import *
-# import os
-# from openai import OpenAI # type: ignore
-# from dotenv import load_dotenv # type: ignore
-
-# load_dotenv()
-# api_key = os.getenv("API_KEY")
-# client = OpenAI(api_key=api_key)
-
+from spanlp.palabrota import Palabrota # type: ignore
 
 doc = """
 Of course oTree has a readymade chat widget described here: 
@@ -23,9 +16,6 @@ class C(BaseConstants):
     NAME_IN_URL = 'chat_from_scratch'
     PLAYERS_PER_GROUP = 4
     NUM_ROUNDS = 1
-    # chatGPT vars
-    TEMP = 1 # temperature (range 0 - 2)
-    MODEL = "gpt-4o"
 
 
 class Subsession(BaseSubsession):
@@ -55,6 +45,18 @@ def to_dict(msg: Message):
 # PAGES
 class MyPage(Page):
     @staticmethod
+    def vars_for_template(player):
+        others = player.get_others_in_group()
+
+        # Ensure Player 4 (id_in_group == 4) appears first for Players 1, 2, and 3
+        if player.id_in_group != 4:
+            others = sorted(others, key=lambda p: 0 if p.id_in_group == 4 else 1)
+
+        return dict(
+            other_ids=[p.id_in_group for p in others]
+        )
+    
+    @staticmethod
     def js_vars(player: Player):
         return dict(
             my_id=player.id_in_group,
@@ -64,7 +66,6 @@ class MyPage(Page):
     @staticmethod
     def live_method(player: Player, data):
         my_id = player.id_in_group
-        others = player.get_others_in_group()
         group = player.group
 
         if 'text' in data and 'recipient' in data:
@@ -77,14 +78,21 @@ class MyPage(Page):
             print(f'group.get_player_by_id(my_id): {group.get_player_by_id(my_id)}')
             print(f'group.get_player_by_id(recipient_id): {group.get_player_by_id(recipient_id)}')
             
-            text=data['text']
+            text_unfiltered = data['text']
+            palabrota = Palabrota()
+            print(f'contains bad word: {palabrota.contains_palabrota(text_unfiltered)}')
+            if palabrota.contains_palabrota(text_unfiltered):
+                text_filtered = palabrota.censor(text_unfiltered)
+                print(f'text filtered: {text_filtered}')
+            else:
+                text_filtered = text_unfiltered
 
             msg = Message.create(
                 group=group,
                 sender=group.get_player_by_id(my_id),
                 recipient=group.get_player_by_id(recipient_id),
                 channel=channel,
-                text=data['text']
+                text=text_filtered
             )
 
             return {

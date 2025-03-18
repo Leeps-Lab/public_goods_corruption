@@ -4,12 +4,8 @@
 
 {{ block content }}
 
-    <p>
-        Acá se muestran las instrucciones según el tratamiento y rol...
-    </p>
-    <p>
-        Tu rol es: <b>{{ player.role }}</b>
-    </p>
+    {{ include_sibling 'instructions_body.html' }}   
+
     {{ next_button }}
     
 {{ endblock }}

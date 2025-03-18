@@ -1,12 +1,12 @@
 {{ block content }}
 
 <div id="chats_container">
-    {% for p in player.get_others_in_group %}
+    {% for other_id in other_ids %}
         <div>
-            <h3>Chat with Player {{ p.id_in_group }}</h3>
-            <div id="chat_messages_{{ p.id_in_group }}" class="chat-box"></div>
-            <input type="text" id="chat_input_{{ p.id_in_group }}" placeholder="Type a message...">
-            <button type="button" onclick="sendMsg({{ p.id_in_group }})">Send</button>
+            <h3>Chat with Player {{ other_id }}</h3>
+            <div id="chat_messages_{{ other_id }}" class="chat-box"></div>
+            <input type="text" id="chat_input_{{ other_id }}" placeholder="Type a message...">
+            <button type="button" onclick="sendMsg({{ other_id }})">Send</button>
         </div>
     {% endfor %}
 </div>

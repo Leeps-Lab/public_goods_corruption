@@ -14,7 +14,7 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     understanding = models.LongStringField(
         blank=True,
-        label='¿Qué entendiste de las instrucciones?',
+        label='¿Qué crees que no estuvo claro de las instrucciones?',
     )
     doubts = models.LongStringField(
         blank=True,

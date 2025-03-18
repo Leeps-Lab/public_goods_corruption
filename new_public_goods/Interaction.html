@@ -14,13 +14,15 @@
         <div class="row main-content-row">
             <!-- Left Column: Role Info -->
             <div class="
-            {% if not private_interaction %}
-                col-12
-            {% else %}
-                col-3
-            {% endif %}
-            d-flex flex-column align-items-center justify-content-center p-5 text-center"
-            style="{% if private_interaction %}border-right: solid #808080;{% endif %}">
+                {% if not private_interaction %}
+                    col-12
+                {% elif chat_only_officer and not officer_interactions_public and player.id_in_group != 4 %}
+                    col-5
+                {% else %}
+                    col-3
+                {% endif %}
+                d-flex flex-column align-items-center justify-content-center p-5 text-center"
+                style="{% if private_interaction %}border-right: solid #808080;{% endif %}">
                 {{ if player.id_in_group == 4 }}
                     <p>Tu rol es el de <b>funcionario</b>.</p>
                     <p>El multiplicador es <b>{{ group.multiplier }}</b></p>
@@ -59,15 +61,21 @@
 
             <!-- Right Column: Interaction Interface -->
             {{ if private_interaction }}
-                <div class="col-9 right-column">
+                <div class="
+                    {% if chat_only_officer and not officer_interactions_public and player.id_in_group != 4 %}
+                        col-7 
+                    {% else %}
+                        col-9
+                    {% endif %}
+                    right-column">
                     <!-- Chats and send/request buttons -->
                     {{ if chat_only_officer and player.id_in_group != 4}}
                         <div class="chat-container row p-5">
                             <!-- Show only the first chat from others (Officer) -->
-                            <div class="col" style="max-width: 261px;">
+                            <div class="col" style="max-width: 400px;">
                                 <div class="row" style="margin-bottom: 30px;">
                                     <p class="text-center">Chat con {{ others.0.role }}</p>
-                                    <!-- {{ chat nickname=player.role channel=others.0.channel }} -->
+                                    {{ chat nickname=player.role channel=others.0.channel }}
                                 </div>
                                 <!-- Buttons (Only for the officer chat) -->
                                 <div class="row">
@@ -111,7 +119,7 @@
                                 <div class="col">
                                     <div class="row" style="margin-bottom: 30px;">
                                         <p class="text-center">{{ extra_chat.role }}</p>
-                                        <!-- {{ chat nickname=player.role channel=extra_chat.channel }} -->
+                                        {{ chat nickname=player.role channel=extra_chat.channel }}
                                     </div>
                                 </div>
                             {{ endfor }}
@@ -120,18 +128,12 @@
                     <!-- Participants chat wiht everyone -->
                     {{ else }}
                         <div class="chat-container row p-5">
-                            <div id="chat_messages">
-                            </div>
-                            <div>
-                                <input type="text" id="chat_input">
-                                <button type="button" onclick="sendMsg()">Send</button>
-                            </div>
                             {{ for other in others }}
                                 <div class="col">
                                     <!-- Chat -->
                                     <div class="row" style="margin-bottom: 30px;">
                                         <p class="text-center">Chat con {{ other.role }}</p>
-                                        <!-- {{ chat nickname=player.role channel=other.channel }} -->
+                                        {{ chat nickname=player.role channel=other.channel }}
                                     </div>
                                     <!-- Buttons -->
                                     <div class="row">
@@ -182,7 +184,7 @@
                                         <!-- Additional Chat -->
                                         <div class="row" style="margin-bottom: 30px;">
                                             <p class="text-center">{{ extra_chat.role }}</p>
-                                            <!-- {{ chat nickname=player.role channel=extra_chat.channel }} -->
+                                            {{ chat nickname=player.role channel=extra_chat.channel }}
                                         </div>
                                     </div>
                                 {{ endfor }}
@@ -190,7 +192,6 @@
                         {{ endif }}
 
                     {{ endif}}
-
 
                     <!-- Transactions and balance -->
                     <div class="row p-5">
@@ -215,12 +216,15 @@
                 </div>
             {{ endif }}
         </div>
+        <br>
 
         <!-- History Section -->
         <h4 class="text-center">Historia</h4>
         <br>
-        {{ include '../_templates/global/history.html' }}         
+        {{ include '../_templates/global/history.html' }}     
         
+        <!-- Include block and general instructions -->
+        {{ include_sibling 'instructions_buttons.html' }}
     </div>
     
     {{ if player.id_in_group == 4}}
@@ -348,24 +352,6 @@
                 }
             }, 100); // Check every 100ms
         }
-
-        let chat_input = document.getElementById('chat_input');
-
-        chat_input.addEventListener("keydown", function (event) {
-            if (event.key === "Enter") {
-                sendMsg();
-            }
-        });
-
-        function sendMsg() {
-            let text = chat_input.value.trim();
-            if (text) {
-                liveSend({'text': text});
-            }
-            chat_input.value = '';
-        }
-
-        let chat_messages = document.getElementById('chat_messages');
 
         // Receives information from backend
         function liveRecv(data) {
@@ -576,16 +562,6 @@
                             pointsValueSpan.textContent = lastTransaction["Balance"]; // Update the span with the balance
                         }
                     }
-                }
-            }
-
-            if (data.new_message) {
-                for (let msg of data) {
-                    let msgSpan = document.createElement('span');
-                    msgSpan.textContent = msg.text;
-                    let sender = msg.sender === js_vars.my_id ? 'Me' : `Player ${msg.sender}`;
-                    let row = `<div><b>${sender}</b>: ${msgSpan.innerHTML}</div>`;
-                    chat_messages.insertAdjacentHTML('beforeend', row);
                 }
             }
         }
