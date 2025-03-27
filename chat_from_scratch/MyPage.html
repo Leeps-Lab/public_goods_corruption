@@ -5,7 +5,7 @@
         <div>
             <h3>Chat with Player {{ other_id }}</h3>
             <div id="chat_messages_{{ other_id }}" class="chat-box"></div>
-            <input type="text" id="chat_input_{{ other_id }}" placeholder="Type a message...">
+            <input type="text" id="chat_input_{{ other_id }}" placeholder="Envía un mensaje...">
             <button type="button" onclick="sendMsg({{ other_id }})">Send</button>
         </div>
     {% endfor %}

@@ -10,12 +10,13 @@ import math
 # c1_endowment: poner 3 valores separados por ;
 
 
+
 create_tables() # Creates additional tables
 
 class C(BaseConstants):
-    NAME_IN_URL = 'interaccion'
+    NAME_IN_URL = 'interaccion_A'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 3
+    NUM_ROUNDS = 10
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -368,7 +369,7 @@ class Interaction(Page):
             segment=player.participant.segment,
             others=others_info,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             officer_interactions_public=player.session.config['officer_interactions_public'],
             chat_only_officer=player.session.config['chat_only_officer'],
             additional_channels=additional_chats if player.session.config['officer_interactions_public'] else [],
@@ -737,7 +738,7 @@ class SecondWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )
@@ -772,7 +773,7 @@ class ResourceAllocation(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
         )
     
     @staticmethod
@@ -817,7 +818,7 @@ class ThirdWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )
@@ -843,7 +844,7 @@ class Results(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )

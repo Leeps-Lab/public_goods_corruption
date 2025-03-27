@@ -1,5 +1,6 @@
 from otree.api import *
 from spanlp.palabrota import Palabrota # type: ignore
+from unidecode import unidecode
 
 doc = """
 Of course oTree has a readymade chat widget described here: 
@@ -79,10 +80,11 @@ class MyPage(Page):
             print(f'group.get_player_by_id(recipient_id): {group.get_player_by_id(recipient_id)}')
             
             text_unfiltered = data['text']
+            unicode_text = unidecode(text_unfiltered)
             palabrota = Palabrota()
-            print(f'contains bad word: {palabrota.contains_palabrota(text_unfiltered)}')
-            if palabrota.contains_palabrota(text_unfiltered):
-                text_filtered = palabrota.censor(text_unfiltered)
+            print(f'contains bad word: {palabrota.contains_palabrota(unicode_text)}')
+            if palabrota.contains_palabrota(unicode_text):
+                text_filtered = palabrota.censor(unicode_text)
                 print(f'text filtered: {text_filtered}')
             else:
                 text_filtered = text_unfiltered

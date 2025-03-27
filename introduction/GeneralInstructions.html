@@ -7,10 +7,19 @@
     <input type="hidden" name="is_mobile" id="is_mobile">   
     
     <p>
-        ¡Bienvenido/a!
+        ¡Bienvenido/a a este estudio del E²LabUP! Apreciamos tu tiempo. 
     </p>
-
-    {{ include '../_templates/global/general_instructions.html' }}
+    <p>
+        {{ include '../_templates/global/general_instructions.html' }}
+    </p>
+    <div style="text-align: center;">
+        <img src="{{ static 'global/logo-e2labup.png' }}" alt="Logo del E²LabUP" style="max-height: 80px;">
+        <br>
+        <p style="font-size: 12px; font-weight: bold; margin-bottom: 8px;">
+            Este es un experimento oficial del Laboratorio de Economía <br>
+            Experimental de la Universidad del Pacífico (E²LabUP).
+        </p>
+    </div>
     
     {{ next_button }}
 
@@ -26,7 +35,6 @@
         }
     
         forminputs.is_mobile.value = isMobile() ? 1 : 0;
-    
     </script>
     
 {{ endblock }}
