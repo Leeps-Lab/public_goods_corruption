@@ -16,3 +16,4 @@ merge.ps1
 .env
 *.yml
 *.db
+*.pem

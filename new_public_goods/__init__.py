@@ -856,5 +856,10 @@ class Results(Page):
         if player.round_number == C.NUM_ROUNDS:
             player.participant.segment += 1
 
+        if player.round_number == 2:
+            player.session.config['random_multiplier'] = True
+            player.group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
+
+
 
 page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, Results]
