@@ -1,0 +1,86 @@
+<style>
+    .expand_block_ins {
+        padding-top: 10px;
+    }
+
+    /* Flexbox to align buttons in one row */
+    .button-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+     /* Styling for the specific buttons */
+     .expand-btn {
+        border: 1px solid DimGray;
+        color: DimGray;
+        background-color: white;
+        padding: 10px 15px;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: background-color 0.3s ease; /* Smooth transition */
+    }
+
+    /* Hover effect only for the specific buttons */
+    .expand-btn:hover {
+        background-color: LightGray;
+    }
+
+    /* Instructions box styling */
+    .instructions {
+        padding: 15px;
+        margin-top: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+</style>
+
+<br/>
+<br/>
+
+<div class="button-container">
+    <!-- First Button -->
+    <button id="expand-block-instructions" class="expand-btn" type="button" style="border-color: DimGray; color:DimGray;">
+        Click para ver las <b>Instrucciones del Bloque</b>
+    </button>
+
+    <!-- Second Button -->
+    <button id="expand-general-instructions" class="expand-btn" type="button" style="border-color: DimGray; color:DimGray;">
+        Click para ver las <b>Instrucciones Generales</b>
+    </button>
+</div>
+
+<!-- Block Instructions Content -->
+<div id="expand-block" class="instructions well well-lg">
+    {{ include_sibling 'instructions_body.html' }}
+</div>
+
+<!-- General Instructions Content -->
+<div id="expand-general" class="instructions well well-lg">
+    {{ extends '../_templates/global/general_instructions.html' }}
+</div>
+
+<!-- jQuery to toggle visibility -->
+<script src="https://code.jquery.com/jquery-3.1.1.js" 
+        integrity="sha256-16cdPddA6VdVInumRGo6IbivbERE8p7CQR3HzTBuELA=" 
+        crossorigin="anonymous">
+</script>
+
+
+<script type="text/javascript">
+    $(document).ready(function() {
+        // Initially hide both instructions
+        $("#expand-block, #expand-general").hide();
+
+        // Toggle for Block Instructions
+        $("#expand-block-instructions").click(function() {
+            $("#expand-block").toggle("fast");
+        });
+
+        // Toggle for General Instructions
+        $("#expand-general-instructions").click(function() {
+            $("#expand-general").toggle("fast");
+        });
+    });
+</script>

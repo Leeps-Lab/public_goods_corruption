@@ -1,5 +1,8 @@
 from otree.api import *
 
+# TODO: Agregar cuestionario demográfico después de FinalQuestionnaire
+# Inlcuye: Edad, género, carrera, ciclo, distrito de residencia
+
 class C(BaseConstants):
     NAME_IN_URL = 'cuestionario_final'
     PLAYERS_PER_GROUP = None
@@ -14,7 +17,7 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     understanding = models.LongStringField(
         blank=True,
-        label='¿Qué entendiste de las instrucciones?',
+        label='¿Qué crees que no estuvo claro de las instrucciones?',
     )
     doubts = models.LongStringField(
         blank=True,

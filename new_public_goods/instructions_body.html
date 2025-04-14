@@ -1,0 +1,33 @@
+<p>
+    Este es el <b>bloque {{ participant.segment }}</b>, como se mencionó anteriormente, vas a ser asignado a uno de dos roles: <b>ciudadano o funcionario</b>. En este bloque, hay un total de <b>10 rondas</b> de interacción. Abajo detallamos las reglas de la interacción y el cálculo de los puntos en cada ronda.
+</p>
+
+<ol>
+    <li>Los participantes reciben su dotación inicial:</li>
+    <ol type="a">
+        <li>Cada ciudadano recibe {{ C.CITIZEN_ENDOWMENT }} puntos.</li>
+        <li>El funcionario recibe xx puntos.</li>
+    </ol>
+    <li>Luego, cada ciudadano debe decidir cuánto de su dotación, desde <b>0 a {{ C.CITIZEN_ENDOWMENT }}</b>, contribuye al proyecto del grupo.</li>
+    <li>
+        Después de que todos los ciudadanos contribuyen al proyecto del grupo, la computadora suma las contribuciones y multiplica dicha suma por <b>{{ group.multiplier }}</b>:
+        <div style="text-align: center; font-family: Georgia, Cambria, serif;">
+            Recursos públicos totales = Contribución total × Multiplicador
+        </div>
+    </li>
+    <li>Luego, el funcionario decide cómo distribuir los <b>recursos públicos totales</b> entre los tres ciudadanos.</li>
+    <li>La ronda termina y se calcula los pagos:</li>
+    <ol type="a">
+        <li>
+            Para cada ciudadano, el pago se calcula de la siguiente forma:
+            <div style="text-align: center; font-family: Georgia, Cambria, serif;">
+                Pago = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
+            </div>
+        </li>
+        <li>El pago del funcionario será igual a su dotación inicial.</li>
+    </ol>
+</ol>
+
+<p class="alert alert-danger">
+    <strong>¡Atención!</strong> ...
+</p>

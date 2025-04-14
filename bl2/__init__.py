@@ -6,12 +6,17 @@ from random import choices
 import random
 import math
 
+# Sobre comentario de 3 endowments en T3
+# c1_endowment: poner 3 valores separados por ;
+
+
+
 create_tables() # Creates additional tables
 
 class C(BaseConstants):
-    NAME_IN_URL = 'interaccion'
+    NAME_IN_URL = 'interaccion_A'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 3
+    NUM_ROUNDS = 10
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -311,19 +316,11 @@ class Instructions(Page):
     
 
 class FirstWaitPage(WaitPage):
-    @staticmethod
-    def after_all_players_arrive(group):
-        """ 
-        Set multiplier value per groups and per rounds according to the `random_multiplier` session config. If its value is True, then randomly choose between 1.5 or 2.5, if it is False, then store the value of the `multiplier` session config.
-        """
-        if group.session.config['random_multiplier']:
-            group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
-        else:
-            group.multiplier = group.session.config['multiplier']  # Use fixed multiplier
+    pass
 
 
 class Interaction(Page):
-    timeout_seconds = 60 * 3
+    # timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -372,7 +369,7 @@ class Interaction(Page):
             segment=player.participant.segment,
             others=others_info,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             officer_interactions_public=player.session.config['officer_interactions_public'],
             chat_only_officer=player.session.config['chat_only_officer'],
             additional_channels=additional_chats if player.session.config['officer_interactions_public'] else [],
@@ -741,7 +738,7 @@ class SecondWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )
@@ -752,7 +749,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60 * 1.5
+    # timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -776,7 +773,7 @@ class ResourceAllocation(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
         )
     
     @staticmethod
@@ -821,7 +818,7 @@ class ThirdWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )
@@ -834,7 +831,7 @@ class ThirdWaitPage(WaitPage):
 
 
 class Results(Page):
-    timeout_seconds = 20
+    # timeout_seconds = 20
 
     @staticmethod
     def vars_for_template(player):
@@ -847,7 +844,7 @@ class Results(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=False,
             random_audits=player.session.config['random_audits'],
             corruption_audit=player.corruption_audit,
         )

@@ -12,7 +12,7 @@ class Group(BaseGroup):
     pass
 
 class Player(BasePlayer):
-    pass
+    additional_fee = models.FloatField()
 
 
 # PAGES
@@ -22,11 +22,13 @@ class FinalPayoff(Page):
         def format_currency(value):
             return "S/ {:,.2f}".format(value).replace(',', 'X').replace('.', ',').replace('X', ' ')
         
+        player.additional_fee = float(player.participant.session_payoff) / (20 * player.session.config['exchange_rate'])
+
         return dict(
-            total_points=player.participant.session_payoff,
+            mean_points=player.participant.session_payoff / 20,
             participation_fee=format_currency(player.session.config['participation_fee']),
-            additional_fee=format_currency(float(player.participant.session_payoff) / player.session.config['exchange_rate']),
-            total_payoff=format_currency(player.session.config['participation_fee'] + (float(player.participant.session_payoff) / player.session.config['exchange_rate'])),
+            additional_fee=format_currency(player.additional_fee),
+            total_payoff=format_currency(player.session.config['participation_fee'] + player.additional_fee),
         )
     
 

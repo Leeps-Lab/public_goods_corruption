@@ -39,6 +39,8 @@ def create_tables(db_path=DB_PATH):
     conn, cur = connect_to_db(db_path)
     if not conn:
         return
+    
+    cur.execute('CREATE SCHEMA IF NOT EXISTS game_data')
 
     # Create transactions table
     cur.execute('''
