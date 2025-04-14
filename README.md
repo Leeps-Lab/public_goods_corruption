@@ -55,3 +55,5 @@ Si deseas detener o eliminar el contenedor Docker, sigue estos pasos:
     ```
 
     Esto eliminará el contenedor Docker.
+
+<!-- TODO: como modificar el excel con los trats y session config del orden de los trats -->
