@@ -1,5 +1,6 @@
 from otree.api import *
 from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player, check_corruption
+from collections import namedtuple
 from spanlp.palabrota import Palabrota # type: ignore
 from unidecode import unidecode # type: ignore
 from random import choices
@@ -7,7 +8,28 @@ import random
 import math
 
 
+TreatmentConfig = namedtuple('TreatmentConfig', [
+    'private_interaction',          # True: chat and trasactions (BL)
+    'resource_allocation',          # True: P.O. decides how to allocate the public resources (T2)
+    'heterogenous_citizens',        # True: Citizen one will have different endowment (T3)
+    'random_multiplier',            # True: multiplier is a random value between 1.5 or 2.5 (T4)
+    'random_audits',                # True: there is a chance of random audits and punishments (T6)
+    'officer_interactions_public',  # True: all private interactions with officer becomes public (T7)
+])
+
+TREATMENTS = {
+    'BL1': TreatmentConfig(False, False, False, False, False, False),
+    'BL2': TreatmentConfig(False, True, False, False, False, False),
+    'T1': TreatmentConfig(True, False, False, False, False, False),
+    'T2': TreatmentConfig(True, True, False, False, False, False),
+    'T3': TreatmentConfig(True, True, True, False, False, False),
+    'T4': TreatmentConfig(True, True, False, True, False, False),
+    'T6': TreatmentConfig(True, True, False, False, True, False),
+    'T7': TreatmentConfig(True, True, False, False, False, True),
+}
+
 create_tables() # Creates additional tables
+
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
@@ -20,7 +42,8 @@ class C(BaseConstants):
     OFFICER_ROLE = 'Funcionario'
 
 class Subsession(BaseSubsession):
-    pass
+    current_treatment_pointer = models.IntegerField(initial=0)
+    current_treatment = models.StringField()
 
 class Group(BaseGroup):
     multiplier = models.FloatField(initial=0)
@@ -69,20 +92,24 @@ def creating_session(subsession):
     - The group's total points is stored according to the sum of all player's initial points
     - Asing to the `corruption_audit` player variable a boolean value according to the `audit_probability` session config
     """
+    
     # Retrieve configuration values
-    session_config = subsession.session.config
+    session_config = subsession.session.config 
+    subsession.current_treatment = subsession.session.config['treatment_order'][subsession.current_treatment_pointer]
     officer_endowment = session_config['officer_endowment']
     c1_endowment = session_config['c1_endowment']
-    heterogenous_citizens = session_config['heterogenous_citizens']
+    heterogenous_citizens = TREATMENTS[subsession.current_treatment].heterogenous_citizens
     audit_prob = session_config['audit_probability']
+    
+    print(f'Treatment playing: {subsession.current_treatment}')
 
     subsession.group_randomly(fixed_id_in_group=True)
 
     for group in subsession.get_groups():
-        if group.session.config['random_multiplier']:
+        if TREATMENTS[subsession.current_treatment].random_multiplier:
             group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
         else:
-            group.multiplier = group.session.config['multiplier']  # Use fixed multiplier
+            group.multiplier = TREATMENTS[subsession.current_treatment].random_multiplier  # Use fixed multiplier
 
     for player in subsession.get_players():
         player.participant.segment = 1  # Initialize segment value to 1
@@ -343,7 +370,7 @@ class Interaction(Page):
 
         # Generate additional citizen-officer chat channels (for citizens only)
         additional_chats = []
-        if player.session.config.get('officer_interactions_public', False) and player.role != "Funcionario":
+        if (TREATMENTS[player.subsession.current_treatment].officer_interactions_public) == False and (player.role != "Funcionario"):
             other_citizens = [cit for cit in other_players if cit.id_in_group != player.id_in_group]
             additional_chats = [
                 {
@@ -365,17 +392,17 @@ class Interaction(Page):
             segment=player.participant.segment,
             others=others_info,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
-            officer_interactions_public=player.session.config['officer_interactions_public'],
+            private_interaction=TREATMENTS[player.subsession.current_treatment].private_interaction,
+            officer_interactions_public=TREATMENTS[player.subsession.current_treatment].officer_interactions_public,
             chat_only_officer=player.session.config['chat_only_officer'],
-            additional_channels=additional_chats if player.session.config['officer_interactions_public'] else [],
+            additional_channels=additional_chats if TREATMENTS[player.session.config['treatment_order'][player.subsession.treatment_pointer]].officer_interactions_public else [],
         )
 
     @staticmethod
     def js_vars(player): # Sendign the sequential_decision session config to the frontend
         return dict(
             secuential_decision=player.session.config['sequential_decision'],
-            officer_interactions_public=player.session.config['officer_interactions_public'],
+            officer_interactions_public=TREATMENTS[player.subsession.current_treatment].officer_interactions_public,
             player_role=player.role,
             my_id=player.id_in_group,
             other_ids=[p.id_in_group for p in player.get_others_in_group()]
@@ -734,8 +761,8 @@ class SecondWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
-            random_audits=player.session.config['random_audits'],
+            private_interaction=TREATMENTS[player.subsession.current_treatment].private_interaction,
+            random_audits=TREATMENTS[player.subsession.current_treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
@@ -751,7 +778,7 @@ class ResourceAllocation(Page):
 
     @staticmethod
     def is_displayed(player):
-        if player.session.config['resource_allocation'] == True:
+        if TREATMENTS[player.subsession.current_treatment].resource_allocation == True:
             return player.id_in_group == 4
 
     @staticmethod
@@ -769,7 +796,7 @@ class ResourceAllocation(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
+            private_interaction=TREATMENTS[player.subsession.current_treatment].private_interaction,
         )
     
     @staticmethod
@@ -814,8 +841,8 @@ class ThirdWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
-            random_audits=player.session.config['random_audits'],
+            private_interaction=TREATMENTS[player.subsession.current_treatment].private_interaction,
+            random_audits=TREATMENTS[player.subsession.current_treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
@@ -840,8 +867,8 @@ class Results(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=player.session.config['private_interaction'],
-            random_audits=player.session.config['random_audits'],
+            private_interaction=TREATMENTS[player.subsession.current_treatment].private_interaction,
+            random_audits=TREATMENTS[player.subsession.current_treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
