@@ -6,10 +6,6 @@ from random import choices
 import random
 import math
 
-# Sobre comentario de 3 endowments en T3
-# c1_endowment: poner 3 valores separados por ;
-
-
 
 create_tables() # Creates additional tables
 
@@ -320,7 +316,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 60 * 3
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -749,7 +745,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    # timeout_seconds = 60 * 1.5
+    timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -831,7 +827,7 @@ class ThirdWaitPage(WaitPage):
 
 
 class Results(Page):
-    # timeout_seconds = 20
+    timeout_seconds = 20
 
     @staticmethod
     def vars_for_template(player):
