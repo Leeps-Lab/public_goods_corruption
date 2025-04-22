@@ -34,7 +34,7 @@ create_tables() # Creates additional tables
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 6
+    NUM_ROUNDS = 6 # NOTE: cambiar nro de rondas de cada trat
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -880,7 +880,8 @@ class Results(Page):
         """
         player.participant.treatment_round += 1
         print(f"treatment_round: {player.participant.treatment_round}")
-
+        
+        # NOTE: cambiar nro de rondas de cada trat
         if (player.round_number != 0) and (player.round_number % 3 == 0):
             player.participant.segment += 1
             player.participant.treatment_round = 1
