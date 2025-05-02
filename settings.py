@@ -10,6 +10,7 @@ SESSION_CONFIGS = [
         display_name='public_goods',
         app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'BL2'],
+        num_rounds=3, # NOTE: change num of rounds per treatment
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
@@ -27,7 +28,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
 )
 
-PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'session_payoff']
+PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'treatment', 'session_payoff']
 SESSION_FIELDS = []
 
 # ISO-639 code

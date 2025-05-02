@@ -371,13 +371,13 @@ def filter_history(data, db_path=DB_PATH):
         conn.close()
 
 
-def get_last_transaction_status(participant_code, round_number, segment, session_code, db_path=DB_PATH):
+def get_last_transaction_status(participant_code, treatment_round, segment, session_code, db_path=DB_PATH):
     """
     Retrieves the latest transaction ID for a participant in the current session, round, and segment,
     ensuring that it is still 'Iniciado' and has not been closed.
 
     :param participant_code: The participant's unique code.
-    :param round_number: The current round number.
+    :param treatment_round: The current round number.
     :param segment: The current segment.
     :param session_code: The session code.
     :param db_path: Path to the PostSQL database.
@@ -409,7 +409,7 @@ def get_last_transaction_status(participant_code, round_number, segment, session
         LIMIT 1;
         """
 
-        cur.execute(query, (participant_code, participant_code, session_code, round_number, segment))
+        cur.execute(query, (participant_code, participant_code, session_code, treatment_round, segment))
         result = cur.fetchone()
 
         if result:

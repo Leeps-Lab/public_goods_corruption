@@ -7,7 +7,6 @@ from random import choices
 import random
 import math
 
-
 TreatmentConfig = namedtuple('TreatmentConfig', [
     'private_interaction',          # True: chat and trasactions (BL)
     'resource_allocation',          # True: P.O. decides how to allocate the public resources (T2)
@@ -30,11 +29,10 @@ TREATMENTS = {
 
 create_tables() # Creates additional tables
 
-
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 6 # NOTE: cambiar nro de rondas de cada trat
+    NUM_ROUNDS = 6 # NOTE: change num of rounds in total (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -45,8 +43,6 @@ class Subsession(BaseSubsession):
     pass
 
 class Group(BaseGroup):
-    current_treatment_pointer = models.IntegerField(initial=0)
-    current_treatment = models.StringField()
     multiplier = models.FloatField(initial=0)
     total_initial_points = models.IntegerField(initial=0)
     total_contribution = models.IntegerField()
@@ -95,34 +91,31 @@ def creating_session(subsession):
     """
     
     # Retrieve configuration values
-    session_config = subsession.session.config 
-    officer_endowment = session_config['officer_endowment']
-    c1_endowment = session_config['c1_endowment']
-    audit_prob = session_config['audit_probability']
+    officer_endowment = subsession.session.config['officer_endowment']
+    c1_endowment = subsession.session.config['c1_endowment']
+    audit_prob = subsession.session.config['audit_probability']
 
     subsession.group_randomly(fixed_id_in_group=True)
 
-    for group in subsession.get_groups():
-        group.current_treatment = session_config['treatment_order'][group.current_treatment_pointer]
-        if TREATMENTS[group.current_treatment].random_multiplier:
-            group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
-        else:
-            group.multiplier = TREATMENTS[group.current_treatment].random_multiplier  # Use fixed multiplier
-    
-    print(f'Treatment playing: {group.current_treatment}')
-    heterogenous_citizens = TREATMENTS[group.current_treatment].heterogenous_citizens
-
     for player in subsession.get_players():
         player.participant.treatment_round = 1 # Initialize treatment_round value to 1
-        player.participant.segment = 1  # Initialize segment value to 1
+        player.participant.segment = 1 # Initialize segment value to 1
+        player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
         player.participant.session_payoff = 0 # Initialize session payoff to 0
         player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment # Store initial points
-        if heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
-            player.initial_points = c1_endowment
         player.current_points = player.initial_points # Initialize current points
+        print(f'Treatment playing: {player.participant.treatment}')
+
+        if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
+            player.initial_points = c1_endowment
+        if TREATMENTS[player.participant.treatment].random_multiplier:
+            player.group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
+        else:
+            player.group.multiplier = player.session.config['multiplier']  # Use fixed multiplier
         player.group.total_initial_points += player.initial_points  # Update total points per group
         player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
-        print(f'{player.role} will be audit in round {player.participant.treatment_round}: {player.corruption_audit}')
+        print(f'Treatment playing: {player.participant.treatment}')
+        print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
 
 
 def to_dict(msg: Message):
@@ -211,7 +204,7 @@ def apply_corruption_penalty(group):
 
     group_data = {
         'segment': p1.participant.segment,
-        'round': p1.round_number,
+        'round': p1.participant.treatment_round,
         'session_code': p1.session.code,
         'group_id': p1.group_id
     }
@@ -336,7 +329,7 @@ def insert_history(group):
 # PAGES
 class Instructions(Page):
     @staticmethod
-    def is_displayed(player: Player):
+    def is_displayed(player):
         return player.participant.treatment_round == 1
     
 
@@ -355,6 +348,7 @@ class Interaction(Page):
 
     @staticmethod
     def vars_for_template(player):
+        print(f"treatment: {player.participant.treatment}")
         others = player.get_others_in_group()
         funcionario = next((other for other in others if other.role == "Funcionario"), None) # Extract 'Funcionario'
         other_players = [other for other in others if other.role != "Funcionario"] # Extract citizens
@@ -372,7 +366,7 @@ class Interaction(Page):
 
         # Generate additional citizen-officer chat channels (for citizens only)
         additional_chats = []
-        if (TREATMENTS[player.group.current_treatment].officer_interactions_public) == False and (player.role != "Funcionario"):
+        if (TREATMENTS[player.participant.treatment].officer_interactions_public) == False and (player.role != "Funcionario"):
             other_citizens = [cit for cit in other_players if cit.id_in_group != player.id_in_group]
             additional_chats = [
                 {
@@ -390,20 +384,39 @@ class Interaction(Page):
             'participant_code': player.participant.code,
         })
 
+        # Instructions variables
+        num_treatments = len(player.session.config['treatment_order'])
+        num_rounds = player.session.config['num_rounds']
+        tot_num_rounds = num_treatments * num_rounds
+        avg_round_time = 4
+        tot_session_time = tot_num_rounds * avg_round_time
+        if tot_session_time < 60:
+            time_unit = 'minutos'
+        else:
+            tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
+            time_unit = 'horas'
+
         return dict(
+            # Interaction variables
             others=others_info,
             history=history,
-            private_interaction=TREATMENTS[player.group.current_treatment].private_interaction,
-            officer_interactions_public=TREATMENTS[player.group.current_treatment].officer_interactions_public,
+            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
+            officer_interactions_public=TREATMENTS[player.participant.treatment].officer_interactions_public,
             chat_only_officer=player.session.config['chat_only_officer'],
-            additional_channels=additional_chats if TREATMENTS[player.group.current_treatment].officer_interactions_public else [],
+            additional_channels=additional_chats if TREATMENTS[player.participant.treatment].officer_interactions_public else [],
+            # Instructions variables
+            num_treatments=num_treatments,
+            num_rounds=num_rounds,
+            tot_num_rounds=tot_num_rounds,
+            tot_session_time=tot_session_time,
+            time_unit=time_unit,
         )
 
     @staticmethod
     def js_vars(player): # Sendign the sequential_decision session config to the frontend
         return dict(
             secuential_decision=player.session.config['sequential_decision'],
-            officer_interactions_public=TREATMENTS[player.group.current_treatment].officer_interactions_public,
+            officer_interactions_public=TREATMENTS[player.participant.treatment].officer_interactions_public,
             player_role=player.role,
             my_id=player.id_in_group,
             other_ids=[p.id_in_group for p in player.get_others_in_group()]
@@ -453,7 +466,7 @@ class Interaction(Page):
             transaction_data = {
                 'session_code': player.session.code,
                 'segment': player.participant.segment,
-                'round': player.group.round_number,
+                'round': player.participant.treatment_round,
                 'group_id': player.group_id,
                 'initiator_code': player.group.get_player_by_id(data['initiatorId']).participant.code,
                 'receiver_code': player.group.get_player_by_id(data['receiverId']).participant.code,
@@ -540,13 +553,13 @@ class Interaction(Page):
                 receiver = player.group.get_player_by_id(data['receiverId'])
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
-                    'round': initiator.round_number,
+                    'round': initiator.treatment_round,
                     'segment': initiator.participant.segment,
                     'session_code': initiator.session.code,
                 })
                 filter_transactions_r = filter_transactions({
                     'participant_code': receiver.participant.code,
-                    'round': receiver.round_number,
+                    'round': receiver.treatment_round,
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
@@ -575,13 +588,13 @@ class Interaction(Page):
                 receiver = player.group.get_player_by_id(data['receiverId'])
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
-                    'round': initiator.round_number,
+                    'round': initiator.treatment_round,
                     'segment': initiator.participant.segment,
                     'session_code': initiator.session.code,
                 })
                 filter_transactions_r = filter_transactions({
                     'participant_code': receiver.participant.code,
-                    'round': receiver.round_number,
+                    'round': receiver.treatment_round,
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
@@ -595,7 +608,7 @@ class Interaction(Page):
             # Get the last transaction of the player in the current session, round, and segment
             last_transaction = get_last_transaction_status(
                 participant_code=player.participant.code,
-                round_number=player.participant.treatment_round,
+                treatment_round=player.participant.treatment_round,
                 segment=player.participant.segment,
                 session_code=player.session.code
             ) 
@@ -762,8 +775,8 @@ class SecondWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=TREATMENTS[player.group.current_treatment].private_interaction,
-            random_audits=TREATMENTS[player.group.current_treatment].random_audits,
+            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
+            random_audits=TREATMENTS[player.participant.treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
@@ -779,7 +792,7 @@ class ResourceAllocation(Page):
 
     @staticmethod
     def is_displayed(player):
-        if TREATMENTS[player.group.current_treatment].resource_allocation == True:
+        if TREATMENTS[player.participant.treatment].resource_allocation == True:
             return player.id_in_group == 4
 
     @staticmethod
@@ -788,16 +801,35 @@ class ResourceAllocation(Page):
 
     @staticmethod
     def vars_for_template(player):
+
         history = filter_history({
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'participant_code': player.participant.code,
         }) 
 
+        # Instructions variables
+        num_treatments = len(player.session.config['treatment_order'])
+        num_rounds = player.session.config['num_rounds']
+        tot_num_rounds = num_treatments * num_rounds
+        avg_round_time = 4
+        tot_session_time = tot_num_rounds * avg_round_time
+        if tot_session_time < 60:
+            time_unit = 'minutos'
+        else:
+            tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
+            time_unit = 'horas'
+
         return dict(
-            segment=player.participant.segment,
+            # Page varibles
             history=history,
-            private_interaction=TREATMENTS[player.group.current_treatment].private_interaction,
+            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
+            # Instructions variables
+            num_treatments=num_treatments,
+            num_rounds=num_rounds,
+            tot_num_rounds=tot_num_rounds,
+            tot_session_time=tot_session_time,
+            time_unit=time_unit,
         )
     
     @staticmethod
@@ -842,8 +874,8 @@ class ThirdWaitPage(WaitPage):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=TREATMENTS[player.group.current_treatment].private_interaction,
-            random_audits=TREATMENTS[player.group.current_treatment].random_audits,
+            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
+            random_audits=TREATMENTS[player.participant.treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
@@ -868,8 +900,8 @@ class Results(Page):
         return dict(
             segment=player.participant.segment,
             history=history,
-            private_interaction=TREATMENTS[player.group.current_treatment].private_interaction,
-            random_audits=TREATMENTS[player.group.current_treatment].random_audits,
+            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
+            random_audits=TREATMENTS[player.participant.treatment].random_audits,
             corruption_audit=player.corruption_audit,
         )
     
@@ -878,18 +910,15 @@ class Results(Page):
         """
         Ending the last round of the segment, update segment value
         """
-        player.participant.treatment_round += 1
-        print(f"treatment_round: {player.participant.treatment_round}")
         
-        # NOTE: cambiar nro de rondas de cada trat
-        if (player.round_number != 0) and (player.round_number % 3 == 0):
+        if (player.participant.treatment_round % player.session.config['num_rounds']) == 0:
             player.participant.segment += 1
             player.participant.treatment_round = 1
-            if player.id_in_group == 1:
-                player.group.current_treatment_pointer += 1
-                player.group.current_treatment = player.session.config['treatment_order'][player.group.current_treatment_pointer]
+            player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
+        else:
+            player.participant.treatment_round += 1
         
-        print(f"current_treatment_pointer: {player.group.current_treatment_pointer}")
+        print(f"treatment_round: {player.participant.treatment_round}")
 
 
 page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, Results]
