@@ -102,7 +102,9 @@ def creating_session(subsession):
             player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
             print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
         
-        print(f'Treatment playing: {player.participant.treatment}')
+        # Print first treatment to play
+        if subsession.round_number == 1 and player == subsession.get_players()[0]:
+            print(f'Treatment playing: {player.participant.treatment}')
         
         player.group.total_initial_points += player.initial_points  # Update total points per group
 
@@ -337,7 +339,6 @@ class Interaction(Page):
 
     @staticmethod
     def vars_for_template(player):
-        print(f"treatment: {player.participant.treatment}")
         others = player.get_others_in_group()
         funcionario = next((other for other in others if other.role == "Funcionario"), None) # Extract 'Funcionario'
         other_players = [other for other in others if other.role != "Funcionario"] # Extract citizens
@@ -596,7 +597,6 @@ class Interaction(Page):
                     } 
         
         # Close transaction between participants (accept or cancel)
-        # TODO: add messages to msg: canceló la transacción, rechazó, 
         elif data_type == 'closingTransaction':
             status = data['status']
             transaction_id = data['transactionId']
@@ -604,12 +604,38 @@ class Interaction(Page):
             initiator = group.get_player_by_id(initiator_id)
             receiver = group.get_player_by_id(receiver_id)
 
+            points = get_points(transaction_id)
+            action = get_action(transaction_id)
+
+            print(f'initiator: {initiator}')
+            print(f'receiver: {receiver}')
+            print(f'status: {status}')
+            print(f'transaction_id: {transaction_id}')
+
             closing_transaction(status, transaction_id)
+
+            channel = f'{min(initiator_id, receiver_id)}{max(initiator_id, receiver_id)}'
+            action_label = 'oferta' if action == 'Ofrece' else 'solicitud'
+            if status == 'Cancelado':
+                status_label = 'canceló'
+            elif status == 'Rechazado':
+                status_label = 'rechazó'
+            else:
+                status_label = 'aceptó'
+            
+            msg = Message.create(
+                group=group,
+                sender=group.get_player_by_id(initiator_id),
+                recipient=group.get_player_by_id(receiver_id),
+                channel=channel,
+                text=f'{player.role} {status_label} la {action_label}.',
+                name='TransferInfo',
+            )
 
             if status == 'Cancelado':
                 return {
-                    initiator_id: {'cancelAction': True, 'otherId': receiver_id},
-                    receiver_id: {'cancelAction': True, 'otherId': initiator_id}
+                    initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [to_dict(msg)]},
+                    receiver_id: {'cancelAction': True, 'otherId': initiator_id, 'chat': [to_dict(msg)]},
                 }    
 
             elif status == 'Rechazado':
@@ -633,6 +659,7 @@ class Interaction(Page):
                         'transactions': filter_transactions_i, 
                         'otherId': receiver_id, 
                         'reload': False,
+                        'chat': [to_dict(msg)],
                     },
                     receiver_id: {
                         'update': True, 
@@ -640,13 +667,11 @@ class Interaction(Page):
                         'transactions': filter_transactions_r,
                         'otherId': initiator_id, 
                         'reload': False,
+                        'chat': [to_dict(msg)],
                     },
                 }
             
             elif status == 'Aceptado':
-                points = get_points(transaction_id)
-                action = get_action(transaction_id)
-
                 # Apply the transaction
                 if action == 'Ofrece':
                     initiator.current_points -= points
@@ -681,6 +706,7 @@ class Interaction(Page):
                         'otherId': initiator_id, 
                         'reload': False, 
                         'update': True,
+                        'chat': [to_dict(msg)],
                     },
                     initiator_id: {
                         'updateTransactions': True, 
@@ -688,6 +714,7 @@ class Interaction(Page):
                         'otherId': receiver_id, 
                         'reload': False, 
                         'update':True,
+                        'chat': [to_dict(msg)],
                     }
                 }
         
@@ -700,6 +727,14 @@ class Interaction(Page):
                 session_code=player.session.code
             )
 
+            # Fetch the filtered transactions
+            transactions_data = filter_transactions({
+                'participant_code': player.participant.code,
+                'round': player.participant.treatment_round,
+                'segment': player.participant.segment,
+                'session_code': player.session.code,
+            })
+
             reload = reload_contribution()
 
             # If the last transaction is still in process, send offer/request buttons again and filtered transactions
@@ -709,14 +744,6 @@ class Interaction(Page):
                 receiver_id = last_transaction['receiverId']
                 action = last_transaction['action']
                 value = last_transaction['value']
-
-                # Fetch the filtered transactions
-                transactions_data = filter_transactions({
-                    'participant_code': player.participant.code,
-                    'round': player.participant.treatment_round,
-                    'segment': player.participant.segment,
-                    'session_code': player.session.code,
-                })
 
                 # Construct common response data
                 response_data = {

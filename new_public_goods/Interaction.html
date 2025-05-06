@@ -592,14 +592,32 @@
                     }
                 }
             }
-            // TODO 1: Read the array inside the dict of ofrece/solicita
             // TODO 2: Modify format of msg.name == 'TransferInfo', so its centered, without color
-            for (let msg of data) {
+            if (Array.isArray(data)) {
+                // Direct chat messages
+                for (let msg of data) {
+                    insertChatMessage(msg);
+                }
+            } else if (Array.isArray(data.chat)) {
+                // Chat from offers or requests
+                for (let msg of data.chat) {
+                    insertChatMessage(msg);
+                }
+            }
+
+            function insertChatMessage(msg) {
                 let chat_messages = document.getElementById(`chat_messages_${msg.sender === my_id ? msg.recipient : msg.sender}`);
                 let msgSpan = document.createElement('span');
                 msgSpan.textContent = msg.text;
-                let sender = msg.sender === my_id ? 'msg selfText' : 'msg otherText';
-                let row = `<div class="${sender}">${msgSpan.innerHTML}</div><br>`;
+
+                let cssClass;
+                if (msg.name === 'TransferInfo') {
+                    cssClass = 'msg transferInfoText'; // Centered and neutral (no color)
+                } else {
+                    cssClass = msg.sender === my_id ? 'msg selfText' : 'msg otherText';
+                }
+
+                let row = `<div class="${cssClass}">${msgSpan.innerHTML}</div><br>`;
                 chat_messages.insertAdjacentHTML('beforeend', row);
                 chat_messages.scrollTop = chat_messages.scrollHeight;
             }
