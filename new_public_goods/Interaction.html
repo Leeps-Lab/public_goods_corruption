@@ -208,6 +208,7 @@
                     {{ endif}}
 
                     <!-- Transactions and balance -->
+                    <!-- TODO: que el header sea con fondo blanco, no transparente -->
                     <div class="row p-5">
                         <h5 class="text-center">Balance de transacciones</h5>
                         <div id="transactionsContainer">
@@ -591,6 +592,8 @@
                     }
                 }
             }
+            // TODO 1: Read the array inside the dict of ofrece/solicita
+            // TODO 2: Modify format of msg.name == 'TransferInfo', so its centered, without color
             for (let msg of data) {
                 let chat_messages = document.getElementById(`chat_messages_${msg.sender === my_id ? msg.recipient : msg.sender}`);
                 let msgSpan = document.createElement('span');

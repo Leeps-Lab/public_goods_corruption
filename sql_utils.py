@@ -373,22 +373,22 @@ def filter_history(data, db_path=DB_PATH):
 
 def get_last_transaction_status(participant_code, treatment_round, segment, session_code, db_path=DB_PATH):
     """
-    Retrieves the latest transaction ID for a participant in the current session, round, and segment,
-    ensuring that it is still 'Iniciado' and has not been closed.
+    Retrieves the latest transaction for a participant in the current session, round, and segment,
+    ONLY if its most recent status is 'Iniciado' (i.e., still open).
 
     :param participant_code: The participant's unique code.
     :param treatment_round: The current round number.
     :param segment: The current segment.
     :param session_code: The session code.
     :param db_path: Path to the PostSQL database.
-    :return: Dictionary with transaction details if 'Iniciado' and not closed, otherwise None.
+    :return: Dictionary with transaction details if 'Iniciado', otherwise None.
     """
     conn, cur = connect_to_db(db_path)
     if not conn:
         return None
 
     try:
-        # Find the latest transaction where the participant is the initiator or receiver
+        # This query gets the latest transaction for the participant where the *most recent* status is 'Iniciado'
         query = """
         SELECT 
             t.transaction_id,
@@ -396,16 +396,21 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
             t.receiver_id,
             t.action,
             t.points,
-            s.status,
-            COUNT(*) FILTER (WHERE s.status = 'Iniciado') AS status_count
+            s.status
         FROM game_data.transactions t
-        JOIN game_data.status s ON t.transaction_id = s.transaction_id
+        JOIN LATERAL (
+            SELECT status 
+            FROM game_data.status 
+            WHERE transaction_id = t.transaction_id
+            ORDER BY status_id DESC  -- assuming status_id is incrementing
+            LIMIT 1
+        ) s ON true
         WHERE (t.initiator_code = %s OR t.receiver_code = %s)
-        AND t.session_code = %s
-        AND t.round = %s
-        AND t.segment = %s
-        GROUP BY t.transaction_id, t.initiator_id, t.receiver_id, t.action, t.points, s.status
-        ORDER BY t.transaction_id DESC  -- Get the latest transaction in this session/round/segment
+          AND t.session_code = %s
+          AND t.round = %s
+          AND t.segment = %s
+          AND s.status = 'Iniciado'
+        ORDER BY t.transaction_id DESC
         LIMIT 1;
         """
 
@@ -413,20 +418,17 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
         result = cur.fetchone()
 
         if result:
-            transaction_id, initiator_id, receiver_id, action, points, status, status_count = result
-            print(f"Last Transaction in Current Round & Segment: {result}")
+            transaction_id, initiator_id, receiver_id, action, points, status = result
+            print(f"Last open transaction: {result}")
+            return {
+                'transactionId': transaction_id,
+                'initiatorId': initiator_id,
+                'receiverId': receiver_id,
+                'action': action,
+                'value': points
+            }
 
-            # The transaction is open if its only status is 'Iniciado'
-            if status == 'Iniciado' and status_count == 1:
-                return {
-                    'transactionId': transaction_id,
-                    'initiatorId': initiator_id,
-                    'receiverId': receiver_id,
-                    'action': action,
-                    'value': points
-                }
-
-        return None # No active transaction in this session/round/segment
+        return None  # No open transaction
 
     except psycopg2.Error as e:
         print(f"Database error while fetching last transaction: {e}")

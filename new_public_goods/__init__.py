@@ -1,5 +1,6 @@
 from otree.api import *
 from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player, check_corruption
+from treatment_config_loader import load_treatments_from_csv
 from collections import namedtuple
 from spanlp.palabrota import Palabrota # type: ignore
 from unidecode import unidecode # type: ignore
@@ -7,27 +8,12 @@ from random import choices
 import random
 import math
 
-TreatmentConfig = namedtuple('TreatmentConfig', [
-    'private_interaction',          # True: chat and trasactions (BL)
-    'resource_allocation',          # True: P.O. decides how to allocate the public resources (T2)
-    'heterogenous_citizens',        # True: Citizen one will have different endowment (T3)
-    'random_multiplier',            # True: multiplier is a random value between 1.5 or 2.5 (T4)
-    'random_audits',                # True: there is a chance of random audits and punishments (T6)
-    'officer_interactions_public',  # True: all private interactions with officer becomes public (T7)
-])
 
-TREATMENTS = {
-    'BL1': TreatmentConfig(False, False, False, False, False, False),
-    'BL2': TreatmentConfig(False, True, False, False, False, False),
-    'T1': TreatmentConfig(True, False, False, False, False, False),
-    'T2': TreatmentConfig(True, True, False, False, False, False),
-    'T3': TreatmentConfig(True, True, True, False, False, False),
-    'T4': TreatmentConfig(True, True, False, True, False, False),
-    'T6': TreatmentConfig(True, True, False, False, True, False),
-    'T7': TreatmentConfig(True, True, False, False, False, True),
-}
+# Create treatments dictionary
+TREATMENTS = load_treatments_from_csv()
 
-create_tables() # Creates additional tables
+# Creates additional tables
+create_tables() 
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
@@ -78,6 +64,7 @@ class Message(ExtraModel):
     recipient = models.Link(Player)
     text = models.StringField()
     text_unfiltered = models.StringField()
+    name = models.StringField(choices=['Player', 'TransferInfo'])
 
 
 # FUNCTIONS
@@ -104,7 +91,6 @@ def creating_session(subsession):
         player.participant.session_payoff = 0 # Initialize session payoff to 0
         player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment # Store initial points
         player.current_points = player.initial_points # Initialize current points
-        print(f'Treatment playing: {player.participant.treatment}')
 
         if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
             player.initial_points = c1_endowment
@@ -112,14 +98,17 @@ def creating_session(subsession):
             player.group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
         else:
             player.group.multiplier = player.session.config['multiplier']  # Use fixed multiplier
-        player.group.total_initial_points += player.initial_points  # Update total points per group
-        player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
+        if TREATMENTS[player.participant.treatment].random_audits:
+            player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
+            print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
+        
         print(f'Treatment playing: {player.participant.treatment}')
-        print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
+        
+        player.group.total_initial_points += player.initial_points  # Update total points per group
 
 
 def to_dict(msg: Message):
-    return dict(channel=msg.channel, sender=msg.sender.id_in_group, recipient=msg.recipient.id_in_group, text=msg.text)
+    return dict(channel=msg.channel, sender=msg.sender.id_in_group, recipient=msg.recipient.id_in_group, text=msg.text, name=msg.name)
 
 
 def public_good_default_raw_gain(group):
@@ -511,107 +500,205 @@ class Interaction(Page):
             insert_row(data=status_data, table='status')
 
         data_type = data.get('type')
-        my_id = player.id_in_group
         group = player.group
+        my_id = player.id_in_group
+        initiator_id = data.get('initiatorId')
+        receiver_id = data.get('receiverId')
+        value = data.get('value')
+        action = data.get('action')
 
-        # When contributing to the common project
+        # Contribution to the shared project
         if data_type == 'contributionPoints':
-            return {player.id_in_group: handle_contribution(data['value'])}
+            return {my_id: handle_contribution(value)}
         
-        # When offering/requesting points to another player (as a initiator)
+        # Initialize transaction between participants (offer or request)
         elif data_type == 'initiatingTransaction':
             transaction_id = new_transaction()
 
-            if 'Ofrece' in data['action']:
-                offer_points = data.get('value')
-                if offer_points <= player.current_points:
+            print(f'action: {action}')
+
+            channel = f'{min(initiator_id, receiver_id)}{max(initiator_id, receiver_id)}'
+            action_label = 'ofreció' if action == 'Ofrece' else 'solicitó'
+            unit_label = 'punto' if value == 1 else 'puntos'
+            
+            msg = Message.create(
+                group=group,
+                sender=group.get_player_by_id(initiator_id),
+                recipient=group.get_player_by_id(receiver_id),
+                channel=channel,
+                text=f'{player.role} {action_label} {value} {unit_label}.',
+                name='TransferInfo',
+            )
+
+            if 'Ofrece' in action:
+                if value <= player.current_points:
                     return {
-                        player.id_in_group: dict(offerPoints=True, initiator=True, receiver=False, offerValue=data.get('value'), myId=data.get('initiatorId'), otherId=data.get('receiverId'), transactionId=transaction_id),
-                        data.get('receiverId'): dict(offerPoints=True, initiator=False, receiver=True, offerValue=data.get('value'), myId=data.get('receiverId'), otherId=data.get('initiatorId'), transactionId=transaction_id),
+                        initiator_id: {
+                            'offerPoints': True, 
+                            'initiator': True, 
+                            'receiver': False, 
+                            'offerValue': value, 
+                            'myId': initiator_id, 
+                            'otherId': receiver_id, 
+                            'transactionId':transaction_id,
+                            'chat': [to_dict(msg)], # Chat variable
+                        },
+                        receiver_id: {
+                            'offerPoints': True, 
+                            'initiator': False, 
+                            'receiver': True, 
+                            'offerValue': value, 
+                            'myId': receiver_id, 
+                            'otherId': initiator_id, 
+                            'transactionId': transaction_id,
+                            'chat': [to_dict(msg)], # Chat variable
+
+                        },
                     }
                 else:
-                    return {player.id_in_group: dict(offerPoints=False, error="No puedes ofrecer más puntos de los que tienes disponibles.")} 
-            elif 'Solicita' in data['action']:
-                if data.get('value') <= player.group.total_initial_points:
                     return {
-                            player.id_in_group: dict(requestPoints=True, initiator=True, receiver=False, requestValue=data.get('value'), myId=data.get('initiatorId'), otherId=data.get('receiverId'), transactionId=transaction_id),
-                            data.get('receiverId'): dict(requestPoints=True, initiator=False, receiver=True, requestValue=data.get('value'), myId=data.get('receiverId'), otherId=data.get('initiatorId'), transactionId=transaction_id),
+                        initiator_id: {
+                            'offerPoints': False, 
+                            'error': "No puedes ofrecer más puntos de los que tienes disponibles."
+                        }
+                    }
+            
+            elif 'Solicita' in action:
+                if value <= group.total_initial_points:
+                    return {
+                            initiator_id: {
+                                'requestPoints': True, 
+                                'initiator': True, 
+                                'receiver': False, 
+                                'requestValue': value, 
+                                'myId': initiator_id, 
+                                'otherId': receiver_id, 
+                                'transactionId': transaction_id,
+                                'chat': [to_dict(msg)], # Chat variable
+                            },
+                            receiver_id: {
+                                'requestPoints': True, 
+                                'initiator': False, 
+                                'receiver': True, 
+                                'requestValue': value, 
+                                'myId': receiver_id, 
+                                'otherId': initiator_id, 
+                                'transactionId': transaction_id,
+                                'chat': [to_dict(msg)], # Chat variable
+                            },
                         }
                 else:
-                    return {player.id_in_group: dict(requestPoints=False, initiator=True)} 
+                    return {
+                        initiator_id: {
+                            'requestPoints': False, 
+                            'initiator': True
+                        }
+                    } 
         
-        # When accepting/canceling points to another player (as a receiver) or canceling transaction (as initiator)
+        # Close transaction between participants (accept or cancel)
+        # TODO: add messages to msg: canceló la transacción, rechazó, 
         elif data_type == 'closingTransaction':
-            if data['status'] == 'Cancelado':
-                closing_transaction(data['status'], data['transactionId'])
-                return {player.id_in_group: dict(cancelAction=True, otherId=data['receiverId']),
-                        data['receiverId']: dict(cancelAction=True, otherId=player.id_in_group)}    
+            status = data['status']
+            transaction_id = data['transactionId']
 
-            elif data['status'] == 'Rechazado':
-                closing_transaction(data['status'], data['transactionId'])
-                initiator = player.group.get_player_by_id(data['initiatorId'])
-                receiver = player.group.get_player_by_id(data['receiverId'])
+            initiator = group.get_player_by_id(initiator_id)
+            receiver = group.get_player_by_id(receiver_id)
+
+            closing_transaction(status, transaction_id)
+
+            if status == 'Cancelado':
+                return {
+                    initiator_id: {'cancelAction': True, 'otherId': receiver_id},
+                    receiver_id: {'cancelAction': True, 'otherId': initiator_id}
+                }    
+
+            elif status == 'Rechazado':
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
-                    'round': initiator.treatment_round,
+                    'round': initiator.participant.treatment_round,
                     'segment': initiator.participant.segment,
                     'session_code': initiator.session.code,
                 })
                 filter_transactions_r = filter_transactions({
                     'participant_code': receiver.participant.code,
-                    'round': receiver.treatment_round,
+                    'round': receiver.participant.treatment_round,
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
 
                 return {
-                    player.id_in_group: dict(update=True, updateTransactions=True, transactions=filter_transactions_r, otherId=data['initiatorId'], reload=False),
-                    data['initiatorId']: dict(update=True, updateTransactions=True, transactions=filter_transactions_i, otherId=data['receiverId'], reload=False),
+                    initiator_id: {
+                        'update': True, 
+                        'updateTransactions': True, 
+                        'transactions': filter_transactions_i, 
+                        'otherId': receiver_id, 
+                        'reload': False,
+                    },
+                    receiver_id: {
+                        'update': True, 
+                        'updateTransactions': True, 
+                        'transactions': filter_transactions_r,
+                        'otherId': initiator_id, 
+                        'reload': False,
+                    },
                 }
             
-            elif data['status'] == 'Aceptado':
-                other_player = player.group.get_player_by_id(data['initiatorId'])
-                points = get_points(data['transactionId'])
-                action = get_action(data['transactionId'])
+            elif status == 'Aceptado':
+                points = get_points(transaction_id)
+                action = get_action(transaction_id)
+
+                # Apply the transaction
                 if action == 'Ofrece':
-                    other_player.current_points -= points
-                    player.current_points += points
-                else:
-                    if points <= player.current_points:
-                        other_player.current_points += points
-                        player.current_points -= points
+                    initiator.current_points -= points
+                    receiver.current_points += points
+                else: # Solicita
+                    if points <= receiver.current_points:
+                        initiator.current_points += points
+                        receiver.current_points -= points
                     else:
-                        return {player.id_in_group: dict(requestPoints=False, initiator=False)} 
-                
-                closing_transaction(data['status'], data['transactionId'])
-                initiator = player.group.get_player_by_id(data['initiatorId'])
-                receiver = player.group.get_player_by_id(data['receiverId'])
+                        return {receiver: {
+                            'requestPoints':False, 
+                            'initiator': False
+                        }
+                    }
+
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
-                    'round': initiator.treatment_round,
+                    'round': initiator.participant.treatment_round,
                     'segment': initiator.participant.segment,
                     'session_code': initiator.session.code,
                 })
                 filter_transactions_r = filter_transactions({
                     'participant_code': receiver.participant.code,
-                    'round': receiver.treatment_round,
+                    'round': receiver.participant.treatment_round,
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
                 return {
-                    player.id_in_group: dict(updateTransactions=True, transactions=filter_transactions_r, otherId=data['initiatorId'], reload=False, update=True),
-                    data['initiatorId']: dict(updateTransactions=True, transactions=filter_transactions_i, otherId=data['receiverId'], reload=False, update=True)
+                    receiver_id: {
+                        'updateTransactions': True, 
+                        'transactions': filter_transactions_r, 
+                        'otherId': initiator_id, 
+                        'reload': False, 
+                        'update': True,
+                    },
+                    initiator_id: {
+                        'updateTransactions': True, 
+                        'transactions': filter_transactions_i, 
+                        'otherId': receiver_id, 
+                        'reload': False, 
+                        'update':True,
+                    }
                 }
         
         # When player reloads their page
         elif data_type == 'reloadPage':
-            # Get the last transaction of the player in the current session, round, and segment
             last_transaction = get_last_transaction_status(
                 participant_code=player.participant.code,
                 treatment_round=player.participant.treatment_round,
                 segment=player.participant.segment,
                 session_code=player.session.code
-            ) 
+            )
 
             reload = reload_contribution()
 
@@ -684,15 +771,12 @@ class Interaction(Page):
                         )
                     }
 
-            transactions_data = filter_transactions({
-                'participant_code': player.participant.code,
-                'round': player.participant.treatment_round,
-                'segment': player.participant.segment,
-                'session_code': player.session.code,
-            })
-
             if transactions_data: # If it is not empty
-                reload.update({'updateTransactions':True, 'transactions':transactions_data, 'update': True})
+                reload.update({
+                    'updateTransactions':True, 
+                    'transactions':transactions_data, 
+                    'update': True
+                })
                 return {player.id_in_group: reload}
             
             return {player.id_in_group: reload}
@@ -737,6 +821,7 @@ class Interaction(Page):
                 channel=channel,
                 text=text_filtered,
                 text_unfiltered=text_unfiltered,
+                name='Player',
             )
 
             return {
@@ -753,7 +838,6 @@ class Interaction(Page):
         }
 
 
-        
     @staticmethod
     def before_next_page(player, timeout_happened):
         if timeout_happened and player.id_in_group != 4: # Apply timeout penalty only to citizens
@@ -777,7 +861,6 @@ class SecondWaitPage(WaitPage):
             history=history,
             private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
             random_audits=TREATMENTS[player.participant.treatment].random_audits,
-            corruption_audit=player.corruption_audit,
         )
     
     @staticmethod
@@ -876,14 +959,16 @@ class ThirdWaitPage(WaitPage):
             history=history,
             private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
             random_audits=TREATMENTS[player.participant.treatment].random_audits,
-            corruption_audit=player.corruption_audit,
         )
     
     @staticmethod
     def after_all_players_arrive(group):
         store_actual_allocation(group)
-        apply_corruption_penalty(group)
         insert_history(group)
+        # Get the treatment info from one of the group's players
+        player = group.get_players()[0]
+        if TREATMENTS[player.participant.treatment].random_audits:
+            apply_corruption_penalty(group)
 
 
 class Results(Page):
@@ -902,7 +987,7 @@ class Results(Page):
             history=history,
             private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
             random_audits=TREATMENTS[player.participant.treatment].random_audits,
-            corruption_audit=player.corruption_audit,
+            corruption_audit=player.field_maybe_none('corruption_audit'),
         )
     
     @staticmethod

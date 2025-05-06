@@ -1,0 +1,9 @@
+treatment,private_interaction,resource_allocation,heterogenous_citizens,random_multiplier,random_audits,officer_interactions_public
+BL1,False,False,False,False,False,False
+BL2,False,True,False,False,False,False
+T1,True,False,False,False,False,False
+T2,True,True,False,False,False,False
+T3,True,True,True,False,False,False
+T4,True,True,False,True,False,False
+T6,True,True,False,False,True,False
+T7,True,True,False,False,False,True
