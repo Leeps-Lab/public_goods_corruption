@@ -18,7 +18,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 6 # NOTE: change num of rounds in total (round per treatment * num of treatments)
+    NUM_ROUNDS = 3 # NOTE: change num of rounds in total (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -1022,7 +1022,8 @@ class Results(Page):
         """
         Ending the last round of the segment, update segment value
         """
-        
+        if (player.participant.treatment_round * player.participant.segment) == C.NUM_ROUNDS:
+            return
         if (player.participant.treatment_round % player.session.config['num_rounds']) == 0:
             player.participant.segment += 1
             player.participant.treatment_round = 1
