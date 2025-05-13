@@ -1,7 +1,6 @@
 from otree.api import *
 from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player, check_corruption
-from treatment_config_loader import load_treatments_from_csv
-from collections import namedtuple
+from treatment_config_loader import load_treatments_from_excel
 from spanlp.palabrota import Palabrota # type: ignore
 from unidecode import unidecode # type: ignore
 from random import choices
@@ -10,15 +9,15 @@ import math
 
 
 # Create treatments dictionary
-TREATMENTS = load_treatments_from_csv()
+TREATMENTS = load_treatments_from_excel()
 
 # Creates additional tables
-create_tables() 
+create_tables()
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 3 # NOTE: change num of rounds in total (round per treatment * num of treatments)
+    NUM_ROUNDS = 4 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -34,7 +33,8 @@ class Group(BaseGroup):
     total_contribution = models.IntegerField()
     total_allocation = models.FloatField() # = total_contribution * multiplier
     equitative_allocation = models.FloatField() # = total_allocation / 3
-    # Forms for treatments where Officer decides the allocation:
+    
+    # Decision variables: For treatments where Officer decides the allocation
     allocation1 = models.FloatField( # Allocation for Citizen 1
         blank=True, 
         label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?'
@@ -49,15 +49,76 @@ class Group(BaseGroup):
     )
 
 class Player(BasePlayer):
+    # Comprehension questions
+    comp_q1 = models.IntegerField(
+        label="¿Cuántos puntos recibe cada ciudadano al inicio de cada ronda?",
+        choices=[
+            [1, '50 puntos'], 
+            [2, '100 puntos'], # Correct
+            [3, '140 puntos'], 
+            [4, '0 puntos'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+    comp_q2 = models.IntegerField(
+        label="¿Cuál es la fórmula para calcular el pago de un ciudadano?",
+        choices=[
+            [1, 'Se calcula al azar'], 
+            [2, 'Contribución total × Multiplicador'], 
+            [3, 'Dotación + Contribución + Recursos públicos'], 
+            [4, 'Dotación - Contribución + Recursos públicos'], # Correct
+        ], 
+        widget=widgets.RadioSelect
+    )
+    comp_q3 = models.IntegerField(
+        label="¿Quién decide cómo se distribuyen los recursos públicos generados?",
+        choices=[
+            [1, 'El funcionario'], # Correct for BL2 y T2 - T7
+            [2, 'Los ciudadanos'],
+            [3, 'Se reparten por igual'], # Correct for BL1 y T1
+            [4, 'Se reparten al azar'],
+        ],
+        widget=widgets.RadioSelect,
+    )
+    comp_q4 = models.IntegerField(
+        label="¿Los ciudadanos pueden enviar puntos directamente al funcionario?",
+        choices=[
+            [1, 'Sí'], # Correct for T1 - T7
+            [2, 'No'], # Correct for BL1 y BL2
+        ], 
+        widget=widgets.RadioSelect
+    )
+    # Only for T6
+    comp_q5 = models.IntegerField(
+        label="¿Durante cada ronda, cuándo podrás ser auditado?",
+        choices=[
+            [1, 'Después de que los ciudadanos contribuyen al proyecto del grupo'], 
+            [2, 'Después de que el funcionario decide cómo distribuir los recursos públicos totales'],
+            [3, 'Antes de la interacción con los participantes'],
+            [4, 'En este bloque no hay auditorías'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+    
+    # Game variables
     initial_points = models.IntegerField() # Initial endowment per round
     current_points = models.IntegerField()
-    contribution_points = models.IntegerField(blank=True)
     actual_allocation = models.FloatField() # The actual allocation the citizen receives
     timeout_penalty = models.BooleanField(initial=False) # True when timeout occurs | False if it didn't happen
     corruption_audit = models.BooleanField() # True if player gets audit | False if player will not be audit
     corruption_punishment = models.BooleanField(blank=True) # True if player did corrupt action | False if they didn't
+    
+    # Decision variable
+    contribution_points = models.IntegerField(blank=True)
 
 class Message(ExtraModel):
+    """
+    Stores messages between players in a group.
+
+    The `name` field indicates the message type:
+    - 'Player': written by a participant.
+    - 'TransferInfo': system-generated message about a transfer.
+    """
     group = models.Link(Group)
     channel = models.CharField(max_length=255)
     sender = models.Link(Player)
@@ -85,19 +146,23 @@ def creating_session(subsession):
     subsession.group_randomly(fixed_id_in_group=True)
 
     for player in subsession.get_players():
-        player.participant.treatment_round = 1 # Initialize treatment_round value to 1
-        player.participant.segment = 1 # Initialize segment value to 1
+        # Initializing participants fields
+        player.participant.treatment_round = 1
+        player.participant.segment = 1
         player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
-        player.participant.session_payoff = 0 # Initialize session payoff to 0
-        player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment # Store initial points
-        player.current_points = player.initial_points # Initialize current points
+        player.participant.session_payoff = 0
+        
+        # Initializing points
+        player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment
+        player.current_points = player.initial_points
 
-        if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1: # Apply heterogeneous endowment only for Citizen 1 if enabled
+        # Updating variables by treatments
+        if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1:
             player.initial_points = c1_endowment
         if TREATMENTS[player.participant.treatment].random_multiplier:
-            player.group.multiplier = random.choice([1.5, 2.5])  # Assign the random multiplier to the group
+            player.group.multiplier = random.choice([1.5, 2.5])
         else:
-            player.group.multiplier = player.session.config['multiplier']  # Use fixed multiplier
+            player.group.multiplier = player.session.config['multiplier']
         if TREATMENTS[player.participant.treatment].random_audits:
             player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
             print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
@@ -106,19 +171,23 @@ def creating_session(subsession):
         if subsession.round_number == 1 and player == subsession.get_players()[0]:
             print(f'Treatment playing: {player.participant.treatment}')
         
-        player.group.total_initial_points += player.initial_points  # Update total points per group
+        player.group.total_initial_points += player.initial_points # Update total points per group
 
 
+# TODO: convertir a método de Message y actualizar cuando se llama esta función
 def to_dict(msg: Message):
     return dict(channel=msg.channel, sender=msg.sender.id_in_group, recipient=msg.recipient.id_in_group, text=msg.text, name=msg.name)
 
 
+# TODO: Cambiar public_good_default_raw_gain por public_good_default_gross_gain
 def public_good_default_raw_gain(group):
     """
-    Get the equitative resources distribution for each citizen per group, then stores the value in the `equitative_allocation` group variable.
+    Get the equitative resources distribution for each citizen per group, then stores 
+    the value in the `equitative_allocation` group variable.
     
     The formula used is: `(total_contribution * multiplier) / 3`
     """
+    
     players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude player with id 4 (P.O.)
     group.total_contribution = sum(p.field_maybe_none('contribution_points') or 0 for p in players)
     group.total_allocation = group.total_contribution * group.multiplier
@@ -127,12 +196,19 @@ def public_good_default_raw_gain(group):
 
 def store_actual_allocation(group):
     """
-    Get the allocation the officer decided for each citizen and verifies if has a valid value (in case there was a timeout and the values the officer wrote weren't right). 
-    - If the total allocation don't sum the total public resources, the function asings the default allocation to all citizens
-    - If there is at least one missing, the function asigns the remaining public resources between the citizens that don't have an allocation
+    Get the allocation the officer decided for each citizen and verifies if has a 
+    valid value (in case there was a timeout and the values the officer wrote weren't 
+    right).
+
+    - If the total allocation don't sum the total public resources, the function 
+    asings the default allocation to all citizens
+    - If there is at least one missing, the function asigns the remaining public 
+    resources between the citizens that don't have an allocation
     
-    This funtion should be executed only in treatments when the Public Officer decides how to distribute the public resources between the citizens.
+    This funtion should be executed only in treatments when the Public Officer decides 
+    how to distribute the public resources between the citizens.
     """
+    
     allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
     players = [p for p in group.get_players() if p.id_in_group != 4] # Get only the citizens
     
@@ -187,7 +263,8 @@ def apply_corruption_penalty(group):
     - If a citizen is also audited, store corruption status in `player.corruption_punishment`.
     - If the officer is audited, check if at least one citizen is corrupt and store result.
 
-    This funtion should be executed only in treatment 6, when there are random audits and punishment for corruption behavior.
+    This funtion should be executed only in treatment 6, when there are random audits and 
+    punishment for corruption behavior.
     """
 
     # Choose an arbitrary player to extract group info
@@ -208,8 +285,9 @@ def apply_corruption_penalty(group):
     corruption_results = {}
     any_citizen_corrupt = False  # Track if any citizen is corrupt
 
+    # Validate if corruption took place for citizens
     for player in group.get_players():
-        if player.id_in_group != 4:  # Skip funcionario (player 4)
+        if player.id_in_group != 4:  # Skip officer (player 4)
 
             # Get corruption values for this player
             citizen_data = corruption_info.get(player.id_in_group, {'transfers_from_citizen_to_officer': 0, 'transfers_from_officer_to_citizen': 0})
@@ -233,22 +311,31 @@ def apply_corruption_penalty(group):
             if player.corruption_audit:
                 player.corruption_punishment = corrupt
 
-    # Assign corruption punishment for funcionario (player 4)
-    funcionario = group.get_player_by_id(4)
+    # Validate if corruption took place for officers
+    funcionario = group.get_player_by_id(4) # TODO: cambiar a inglés
     if funcionario.corruption_audit:
         funcionario.corruption_punishment = any_citizen_corrupt
 
 
+# NOTE: revision code desde aquí
 def set_payoffs(player):
     """
-    Set the player's payoffs, which is the sum of the `public_interaction_payoff` and the `private_interaction_payoff`.
-    - `private_interaction_payoff`: Is the total transfers given minus the total transfers given
-    - `public_interaction_payoff`: For the citizens, is the initial endowment minus their contribution to the public project plus the actual allocation they received. If they made a timeout in the contribution page, they get 0 public payoff. For the public officer, is only initial endowment. If they made a timeout in the allocation page (if applicable), they get 0 public payoff.
-    - If they are also playing the audit treatment (T6), and get punished for corruption behavior, the receive 0 total payoff.
+    Set the player's payoffs, which is the sum of the `public_interaction_payoff` and 
+    the `private_interaction_payoff`.
+    - `private_interaction_payoff`: Is the total transfers given minus the total transfers 
+    given
+    - `public_interaction_payoff`: For the citizens, is the initial endowment minus their 
+    contribution to the public project plus the actual allocation they received. If they 
+    made a timeout in the contribution page, they get 0 public payoff. For the public officer, 
+    is only initial endowment. If they made a timeout in the allocation page (if applicable), 
+    they get 0 public payoff.
+    - If they are also playing the audit treatment (T6), and get punished for corruption 
+    behavior, the receive 0 total payoff.
 
     :return Public interaction payoff: The actual public payoff, with the timeout punishment applied.
     :return Private interaction payoff: The actual private payoff, with the timeout punishment applied.
     """
+    
     total_transfers = total_transfers_per_player({
         'session_code': player.session.code,
         'segment': player.participant.segment,
@@ -319,9 +406,26 @@ def insert_history(group):
 
 # PAGES
 class Instructions(Page):
+    form_model = 'player'
+    form_fields = ['comp_q1', 'comp_q2']
+
     @staticmethod
     def is_displayed(player):
         return player.participant.treatment_round == 1
+    
+    def error_message(player, values):
+        solutions = dict(
+            comp_q1=2,  # 100 puntos
+            comp_q2=4,  # Dotación - Contribución + Recursos públicos
+        )
+
+        errors = {}
+        for field, correct in solutions.items():
+            if values[field] != correct:
+                errors[field] = 'Respuesta incorrecta.'
+
+        if errors:
+            return errors
     
 
 class FirstWaitPage(WaitPage):
@@ -872,7 +976,7 @@ class Interaction(Page):
 
 
 class SecondWaitPage(WaitPage):
-    template_name = 'new_public_goods/MyWaitPage.html'
+    template_name = 'public_goods/MyWaitPage.html'
     body_text = 'Esperando a que los demás participantes tomen sus decisiones...'
 
     @staticmethod
@@ -970,7 +1074,7 @@ class ResourceAllocation(Page):
     
 
 class ThirdWaitPage(WaitPage):
-    template_name = 'new_public_goods/MyWaitPage.html'
+    template_name = 'public_goods/MyWaitPage.html'
     body_text = 'Esperando a que los demás participantes tomen sus decisiones...'
 
     @staticmethod

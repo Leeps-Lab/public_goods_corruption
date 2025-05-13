@@ -10,12 +10,12 @@ TreatmentConfig = namedtuple('TreatmentConfig', [
     'officer_interactions_public',
 ])
 
-def load_treatments_from_csv(filepath='treatments.csv'):
-    df = pd.read_csv(filepath)
+def load_treatments_from_excel(filepath='treatments.xlsx'):
+    df = pd.read_excel(filepath)
 
     bool_cols = df.columns.drop('treatment')
     for col in bool_cols:
-     df[col] = df[col].astype(str).str.lower() == 'true'
+        df[col] = df[col].astype(str).str.lower() == 'true'
 
     return {
         row['treatment']: TreatmentConfig(

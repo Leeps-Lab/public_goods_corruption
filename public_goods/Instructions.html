@@ -1,3 +1,7 @@
+{{ block styles }}
+    <link rel="stylesheet" href="{% static 'global/global.css' %}">
+{{ endblock }}
+
 {{ block title }}
     Instrucciones
 {{ endblock }}
@@ -14,6 +18,8 @@
     </style>
 
     <p>{{ include_sibling 'instructions_body.html' }}  </p>
+
+    {{ formfields }}
      
     {{ next_button }}
     

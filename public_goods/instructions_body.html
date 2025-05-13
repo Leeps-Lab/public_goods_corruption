@@ -29,7 +29,7 @@
     </li>
     <li>
         Después de que todos los ciudadanos contribuyen al proyecto del grupo, la computadora suma las contribuciones y multiplica dicha suma por <b>{{ group.multiplier }}</b>:
-        <div style="text-align: center; font-family: Georgia, Cambria, serif;">
+        <div class="math-box">
             Recursos públicos totales = Contribución total × Multiplicador
         </div>
     </li>
@@ -46,9 +46,32 @@
     {{ endif }}
         <li>
             Para cada ciudadano, el pago se calcula de la siguiente forma:
-            <div style="text-align: center; font-family: Georgia, Cambria, serif;">
-                Pago = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
-            </div>
+            {{ if participant.treatment in ['BL1', 'T1'] }}
+                <div class="math-box">        
+                    Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 )
+                </div>
+
+                <!-- Ejemplo mínima contribución -->
+                <div class="example-box">
+                    <b>Ejemplo 1 (Contribución mínima):</b><br>
+                    Todos los ciudadanos contribuyen 0 puntos.<br>
+                    Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
+                    Pago del ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + (0 / 3) = <b>100 puntos</b>
+                </div>
+                
+                <!-- Ejemplo máxima contribución -->
+                <div class="example-box">
+                    <b>Ejemplo 2 (Contribución máxima):</b><br>
+                    Todos los ciudadanos contribuyen 100 puntos.<br>
+                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
+                    Pago del ciudadano = 100 - 100 + (600 / 3) = <b>200 puntos</b>
+                </div>
+                
+            {{ else }}
+                <div class="math-box">  
+                    Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
+                </div>
+            {{ endif }}
         </li>
         <li>
             El pago del funcionario será igual a su dotación inicial.
@@ -59,8 +82,6 @@
 </ol>
 </li>
 {{ endif }}
-
-<!-- TODO: Box con un ejemplo numérico -->
 
 <p>
     Es importante que permanezcas atento. La decisión sobre contribución al proyecto del grupo y de distribución de recursos públicos (según el rol que se te asigne) tienen tiempo límite. <b>Se penalizará las rondas donde no tomes una decisión</b> y la envíes dentro del tiempo límite. En dichas rondas, <b>recibirás cero puntos en tu pago de la interacción pública</b>.

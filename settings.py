@@ -8,9 +8,9 @@ SESSION_CONFIGS = [
     dict(
         name='public_goods',
         display_name='public_goods',
-        app_sequence=['introduction', 'new_public_goods', 'final_questionnaire', 'final_payoff'],
-        treatment_order=['T1'],
-        num_rounds=3, # NOTE: change num of rounds per treatment
+        app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
+        treatment_order=['BL1', 'BL2', 'T1', 'T2'],
+        num_rounds=1, # NOTE: change num of rounds per treatment
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
