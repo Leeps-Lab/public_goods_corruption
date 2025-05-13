@@ -17,7 +17,16 @@
         }
     </style>
 
-    <p>{{ include_sibling 'instructions_body.html' }}  </p>
+    <p>{{ include_sibling 'instructions_body.html' }}</p><br>
+
+    <p>
+        Antes de empezar, responde
+        {{ if participant.segment == 1 }}
+            las siguientes preguntas:
+        {{ else }}
+            la siguiente pregunta:
+        {{ endif }}
+    </p>
 
     {{ formfields }}
      

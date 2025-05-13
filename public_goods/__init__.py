@@ -4,6 +4,7 @@ from treatment_config_loader import load_treatments_from_excel
 from spanlp.palabrota import Palabrota # type: ignore
 from unidecode import unidecode # type: ignore
 from random import choices
+import json
 import random
 import math
 
@@ -17,7 +18,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 4 # NOTE: change if neccesary (round per treatment * num of treatments)
+    NUM_ROUNDS = 6 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -49,56 +50,143 @@ class Group(BaseGroup):
     )
 
 class Player(BasePlayer):
-    # Comprehension questions
+    # Comprehension questions displayed at first treatment
     comp_q1 = models.IntegerField(
-        label="¿Cuántos puntos recibe cada ciudadano al inicio de cada ronda?",
+        label="¿Cuántos puntos recibe el funcionario al inicio de cada ronda?",
         choices=[
-            [1, '50 puntos'], 
-            [2, '100 puntos'], # Correct
-            [3, '140 puntos'], 
+            [1, '50 puntos'],
+            [2, '100 puntos'],
+            [3, '140 puntos'], # Correct 
             [4, '0 puntos'],
         ], 
         widget=widgets.RadioSelect
     )
     comp_q2 = models.IntegerField(
-        label="¿Cuál es la fórmula para calcular el pago de un ciudadano?",
+        label="¿Quién decide cuánto se contribuye al proyecto del grupo?",
         choices=[
-            [1, 'Se calcula al azar'], 
-            [2, 'Contribución total × Multiplicador'], 
-            [3, 'Dotación + Contribución + Recursos públicos'], 
-            [4, 'Dotación - Contribución + Recursos públicos'], # Correct
+            [1, 'La computadora'],
+            [2, 'Cada ciudadano'], # Correct
+            [3, 'El funcionario'],
+            [4, 'Todos los participantes'],
         ], 
         widget=widgets.RadioSelect
     )
     comp_q3 = models.IntegerField(
-        label="¿Quién decide cómo se distribuyen los recursos públicos generados?",
+        label="¿Qué sucede si un jugador no toma una decisión a tiempo?",
         choices=[
-            [1, 'El funcionario'], # Correct for BL2 y T2 - T7
-            [2, 'Los ciudadanos'],
-            [3, 'Se reparten por igual'], # Correct for BL1 y T1
-            [4, 'Se reparten al azar'],
+            [1, 'No pasa nada'],
+            [2, 'Se elige un monto aleatorio entre 0 y 100'],
+            [3, 'No recibe puntos en la ronda'],
+            [4, 'No recibe puntos en la interacción pública de la ronda'], # Correct
         ],
         widget=widgets.RadioSelect,
     )
     comp_q4 = models.IntegerField(
-        label="¿Los ciudadanos pueden enviar puntos directamente al funcionario?",
+        label="¿Qué factores afectan el pago final de un ciudadano?",
         choices=[
-            [1, 'Sí'], # Correct for T1 - T7
-            [2, 'No'], # Correct for BL1 y BL2
+            [1, 'Su rol'],
+            [2, 'Su dotación, su contribución y los recursos públicos recibidos'], # Correct
+            [3, 'Solo la decisión del funcionario'],
+            [4, 'Solo la contribución de los demás ciudadanos'],
         ], 
         widget=widgets.RadioSelect
     )
-    # Only for T6
-    comp_q5 = models.IntegerField(
-        label="¿Durante cada ronda, cuándo podrás ser auditado?",
+
+    # Comprehension question for BL1
+    comp_bl1 = models.IntegerField(
+        label="¿Cuál es la fórmula para calcular el pago de un ciudadano?",
+        choices=[
+            [1, 'Contribución total × Multiplicador'],
+            [2, 'Dotación + Contribución + ( Recursos públicos / 3 )'],
+            [3, 'Dotación - Contribución + ( Recursos públicos / 3 )'], # Correct
+            [4, 'Se calcula al azar'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for BL2
+    comp_bl2 = models.IntegerField(
+        label="¿Quién decide cómo se distribuyen los recursos públicos generados?",
+        choices=[
+            [1, 'El funcionario'], # Correct
+            [2, 'Los ciudadanos'], 
+            [3, 'Se reparten por igual'], 
+            [4, 'Se reparten al azar'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for T1
+    comp_t1 = models.IntegerField(
+        label="¿Qué tipo de interacción ocurre además de la pública?",
+        choices=[
+            [1, 'Votación'],
+            [2, 'Interacción privada'], # Correct
+            [3, 'Interacción controlada'], 
+            [4, 'No hay otra interacción'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for T2
+    comp_t2 = models.IntegerField(
+        label="¿Los ciudadanos pueden enviar puntos directamente al funcionario?",
+        choices=[
+            [1, 'Sí'], # Correct
+            [2, 'No'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for T3
+    comp_t3 = models.IntegerField(
+        label="¿Cuántos puntos recibe el ciudadano 1 al inicio de cada ronda?",
+        choices=[
+            [1, '50 puntos'],
+            [2, '100 puntos'],
+            [3, '120 puntos'], # Correct
+            [4, '140 puntos'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for T4
+    comp_t4 = models.IntegerField(
+        label="¿Cuál es el valor del multiplicador?",
+        choices=[
+            [1, '0,8'],
+            [2, '2,0'],
+            [3, '2,5'],
+            [4, 'Se determina al azar'], # Correct
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for T6
+    comp_t6 = models.IntegerField(
+        label="¿Cuándo podrás ser auditado?",
         choices=[
             [1, 'Después de que los ciudadanos contribuyen al proyecto del grupo'], 
-            [2, 'Después de que el funcionario decide cómo distribuir los recursos públicos totales'],
-            [3, 'Antes de la interacción con los participantes'],
+            [2, 'Después de que el funcionario decide cómo distribuir los recursos públicos totales'], # Correct
+            [3, 'Antes de la interacción privada'],
             [4, 'En este bloque no hay auditorías'],
         ], 
         widget=widgets.RadioSelect
     )
+
+    # Comprehension question for T7
+    comp_t7 = models.IntegerField(
+        label="¿Podrás ver la interacción privada de los otros ciudadanos con el funcionario?",
+        choices=[
+            [1, 'Sí'], # Correct
+            [2, 'No'],
+        ], 
+        widget=widgets.RadioSelect
+    )
+
+    # Error fields
+    num_failed_attempts = models.IntegerField(initial=0)
+    errors_per_attempt = models.LongStringField() # Stores list of dicts
     
     # Game variables
     initial_points = models.IntegerField() # Initial endowment per round
@@ -116,8 +204,8 @@ class Message(ExtraModel):
     Stores messages between players in a group.
 
     The `name` field indicates the message type:
-    - 'Player': written by a participant.
-    - 'TransferInfo': system-generated message about a transfer.
+    - 'Player': message written by a participant.
+    - 'TransferInfo': system-generated message when a transfer is made.
     """
     group = models.Link(Group)
     channel = models.CharField(max_length=255)
@@ -407,26 +495,62 @@ def insert_history(group):
 # PAGES
 class Instructions(Page):
     form_model = 'player'
-    form_fields = ['comp_q1', 'comp_q2']
 
     @staticmethod
     def is_displayed(player):
         return player.participant.treatment_round == 1
+
+    @staticmethod
+    def get_form_fields(player):
+        fields = []
+
+        if player.participant.segment == 1:
+            # Add general questions
+            fields += ['comp_q1', 'comp_q2', 'comp_q3', 'comp_q4']
+
+        # Add treatment-specific question
+        treatment_fields = {
+            'BL1': 'comp_bl1',
+            'BL2': 'comp_bl2',
+            'T1': 'comp_t1',
+            'T2': 'comp_t2',
+            'T3': 'comp_t3',
+            'T4': 'comp_t4',
+            'T6': 'comp_t6',
+            'T7': 'comp_t7',
+        }
+        treatment = player.participant.treatment
+        if treatment in treatment_fields:
+            fields.append(treatment_fields[treatment])
+        
+        return fields
     
+    @staticmethod
     def error_message(player, values):
-        solutions = dict(
-            comp_q1=2,  # 100 puntos
-            comp_q2=4,  # Dotación - Contribución + Recursos públicos
-        )
+        solutions = {
+            'comp_q1': 3, 'comp_q2': 2, 'comp_q3': 4, 'comp_q4': 2,
+            'comp_bl1': 3, 'comp_bl2': 1, 'comp_t1': 2, 'comp_t2': 1,
+            'comp_t3': 3, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
+        }
 
-        errors = {}
-        for field, correct in solutions.items():
-            if values[field] != correct:
-                errors[field] = 'Respuesta incorrecta.'
+        incorrect = {
+            field: answer
+            for field, answer in values.items()
+            if field in solutions and answer != solutions[field]
+        }
 
-        if errors:
-            return errors
-    
+        if incorrect:
+            player.num_failed_attempts += 1
+
+            # Load previous attempts if any
+            previous = json.loads(player.field_maybe_none('errors_per_attempt') or '[]')
+            previous.append(incorrect)
+            player.errors_per_attempt = json.dumps(previous)
+            print(f'num_failed_attempts: {player.num_failed_attempts}')
+            print(f'errors_per_attempt: {player.errors_per_attempt}')
+
+            return {field: 'Respuesta incorrecta.' for field in incorrect}
+
 
 class FirstWaitPage(WaitPage):
     pass
