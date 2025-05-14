@@ -49,27 +49,55 @@
             {{ if participant.treatment in ['BL1', 'T1'] }}
                 <div class="math-box">        
                     Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 )
-                </div>
-
-                <!-- Ejemplo mínima contribución -->
+                </div>   
+                
+                <!-- Example 1 -->
                 <div class="example-box">
                     <b>Ejemplo 1 (Contribución mínima):</b><br>
                     Todos los ciudadanos contribuyen 0 puntos.<br>
                     Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
-                    Pago del ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + (0 / 3) = <b>100 puntos</b>
+                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + (0 / 3) = <b>100 puntos</b>
                 </div>
                 
-                <!-- Ejemplo máxima contribución -->
+                <!-- Example 2 -->
                 <div class="example-box">
                     <b>Ejemplo 2 (Contribución máxima):</b><br>
                     Todos los ciudadanos contribuyen 100 puntos.<br>
                     Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                    Pago del ciudadano = 100 - 100 + (600 / 3) = <b>200 puntos</b>
-                </div>
-                
+                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + (600 / 3) = <b>200 puntos</b>
+                </div>             
             {{ else }}
                 <div class="math-box">  
                     Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
+                </div>
+
+                <!-- Example 1 -->
+                <div class="example-box">
+                    <b>Ejemplo 1 (Contribución mínima y recursos públicos asignados equitativamente):</b><br>
+                    Todos los ciudadanos contribuyen 0 puntos.<br>
+                    Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
+                    El funcionario reparte <b>0 puntos</b> a cada ciudadano<br>
+                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
+                </div>
+                
+                <!-- Example 2 -->
+                <div class="example-box">
+                    <b>Ejemplo 2 (Contribución máxima y recursos públicos asignados equitativamente):</b><br>
+                    Todos los ciudadanos contribuyen 100 puntos.<br>
+                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
+                    El funcionario reparte <b>200 puntos</b> a cada ciudadano<br>
+                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 200 = <b>200 puntos</b>
+                </div>
+
+                <!-- Example 3 -->
+                <div class="example-box">
+                    <b>Ejemplo 3 (Contribución máxima y recursos públicos asignados desigualmente):</b><br>
+                    Todos los ciudadanos contribuyen 100 puntos.<br>
+                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
+                    El funcionario reparte <b>50 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>250 puntos</b> al ciudadano 3<br>
+                    Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 50 = <b>50 puntos</b><br>
+                    Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
+                    Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
                 </div>
             {{ endif }}
         </li>

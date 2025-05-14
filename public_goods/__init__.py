@@ -1,19 +1,33 @@
-from otree.api import *
-from sql_utils import create_tables, insert_row, add_balance, get_points, get_action, filter_transactions, filter_history, get_last_transaction_status, total_transfers_per_player, check_corruption
-from treatment_config_loader import load_treatments_from_excel
-from spanlp.palabrota import Palabrota # type: ignore
-from unidecode import unidecode # type: ignore
-from random import choices
+from otree.api import * 
 import json
-import random
 import math
+import random
+from random import choices
+from unidecode import unidecode  # type: ignore
+from spanlp.palabrota import Palabrota  # type: ignore
+
+# Local utilities
+from sql_utils import (
+    create_tables,
+    insert_row,
+    add_balance,
+    get_points,
+    get_action,
+    filter_transactions,
+    filter_history,
+    get_last_transaction_status,
+    total_transfers_per_player,
+    check_corruption,
+)
+from treatment_config_loader import load_treatments_from_excel
 
 
-# Create treatments dictionary
+# Initialize treatment configuration
 TREATMENTS = load_treatments_from_excel()
 
-# Creates additional tables
+# Create additional database tables (e.g., transactions, status)
 create_tables()
+
 
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
@@ -25,8 +39,10 @@ class C(BaseConstants):
     CITIZEN3_ROLE = 'Ciudadano 3'
     OFFICER_ROLE = 'Funcionario'
 
+
 class Subsession(BaseSubsession):
     pass
+
 
 class Group(BaseGroup):
     multiplier = models.FloatField(initial=0)
@@ -48,6 +64,7 @@ class Group(BaseGroup):
         blank=True, 
         label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?'
     )
+
 
 class Player(BasePlayer):
     # Comprehension questions displayed at first treatment
@@ -186,18 +203,27 @@ class Player(BasePlayer):
 
     # Error fields
     num_failed_attempts = models.IntegerField(initial=0)
-    errors_per_attempt = models.LongStringField() # Stores list of dicts
+    errors_per_attempt = models.LongStringField()
+    # Stores a JSON string representing a list of dicts.
+    # Each dict corresponds to one failed comprehension attempt and contains
+    # question names as keys and the incorrect answers the participant gave as values.
+    # Example:
+    # [
+    #     {"comp_q1": 1, "comp_q4": 3}, # First failed attempt
+    #     {"comp_q4": 1},               # Second failed attempt
+    # ]
     
     # Game variables
-    initial_points = models.IntegerField() # Initial endowment per round
-    current_points = models.IntegerField()
-    actual_allocation = models.FloatField() # The actual allocation the citizen receives
-    timeout_penalty = models.BooleanField(initial=False) # True when timeout occurs | False if it didn't happen
-    corruption_audit = models.BooleanField() # True if player gets audit | False if player will not be audit
-    corruption_punishment = models.BooleanField(blank=True) # True if player did corrupt action | False if they didn't
+    initial_points = models.IntegerField() # Endowment received at the start of each round
+    current_points = models.IntegerField() # Current point balance after actions
+    actual_allocation = models.FloatField() # Amount the citizen actually received
+    timeout_penalty = models.BooleanField(initial=False) # True if the player timed out during a decision
+    corruption_audit = models.BooleanField() # True if the player is selected for audit
+    corruption_punishment = models.BooleanField(blank=True) # True if punished for corruption
     
     # Decision variable
     contribution_points = models.IntegerField(blank=True)
+
 
 class Message(ExtraModel):
     """
@@ -214,19 +240,35 @@ class Message(ExtraModel):
     text = models.StringField()
     text_unfiltered = models.StringField()
     name = models.StringField(choices=['Player', 'TransferInfo'])
+    
+    def to_dict(self):
+        """
+        Serializes the message instance to a dictionary format.
+
+        Returns:
+            dict: Contains channel name, sender and recipient IDs, text, and message type.
+        """
+        return {
+            'channel': self.channel,
+            'sender': self.sender.id_in_group,
+            'recipient': self.recipient.id_in_group,
+            'text': self.text,
+            'name': self.name,
+        }
 
 
 # FUNCTIONS
 def creating_session(subsession):
     """
-    When session is created:
-    - The player's initial points is stored according to the treatment they are playing and their role
-    - The player's segment and current points are initialized
-    - The group's total points is stored according to the sum of all player's initial points
-    - Asing to the `corruption_audit` player variable a boolean value according to the `audit_probability` session config
+    Initializes key variables when the session is created:
+    - Assigns players' initial points based on their role and treatment
+    - Sets participant fields like segment, treatment round, and session payoff
+    - Randomly assigns audits based on session config
+    - Sets the group's total initial points
+    - Sets the group's multiplier (fixed or random)
     """
     
-    # Retrieve configuration values
+    # Retrieve session-level configuration
     officer_endowment = subsession.session.config['officer_endowment']
     c1_endowment = subsession.session.config['c1_endowment']
     audit_prob = subsession.session.config['audit_probability']
@@ -234,130 +276,140 @@ def creating_session(subsession):
     subsession.group_randomly(fixed_id_in_group=True)
 
     for player in subsession.get_players():
-        # Initializing participants fields
+        # Initialize participant-level fields
         player.participant.treatment_round = 1
         player.participant.segment = 1
         player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
         player.participant.session_payoff = 0
         
-        # Initializing points
-        player.initial_points = C.CITIZEN_ENDOWMENT if player.id_in_group != 4 else officer_endowment
-        player.current_points = player.initial_points
+        # Assign initial points based on role
+        player.initial_points = C.CITIZEN_ENDOWMENT if player.role != C.OFFICER_ROLE else officer_endowment
 
-        # Updating variables by treatments
+         # Heterogeneous endowment for citizen 1 (if applicable)
         if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1:
             player.initial_points = c1_endowment
+
+        player.current_points = player.initial_points
+
+        # Assign multiplier (random or fixed)
         if TREATMENTS[player.participant.treatment].random_multiplier:
             player.group.multiplier = random.choice([1.5, 2.5])
         else:
             player.group.multiplier = player.session.config['multiplier']
+
+        # Determine if player will be audited (if audits are randomized)
         if TREATMENTS[player.participant.treatment].random_audits:
             player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
             print(f'{player.role} will be audit in round {player.round_number}: {player.corruption_audit}')
         
-        # Print first treatment to play
+        # Print current treatment
         if subsession.round_number == 1 and player == subsession.get_players()[0]:
             print(f'Treatment playing: {player.participant.treatment}')
         
-        player.group.total_initial_points += player.initial_points # Update total points per group
+        # Update group's total starting points
+        player.group.total_initial_points += player.initial_points
 
 
-# TODO: convertir a método de Message y actualizar cuando se llama esta función
-def to_dict(msg: Message):
-    return dict(channel=msg.channel, sender=msg.sender.id_in_group, recipient=msg.recipient.id_in_group, text=msg.text, name=msg.name)
-
-
-# TODO: Cambiar public_good_default_raw_gain por public_good_default_gross_gain
-def public_good_default_raw_gain(group):
+def public_good_default_gross_gain(group):
     """
-    Get the equitative resources distribution for each citizen per group, then stores 
-    the value in the `equitative_allocation` group variable.
+    Computes the equitable allocation of public resources for each citizen in the group.
     
-    The formula used is: `(total_contribution * multiplier) / 3`
+    This function:
+    - Excludes the public official
+    - Calculates the total contribution and total allocation
+    - Stores the equal share in `group.equitative_allocation`
+    
+    Formula:
+        (total_contribution × multiplier) / number_of_citizens
     """
     
-    players = [p for p in group.get_players() if p.id_in_group != 4] # Exclude player with id 4 (P.O.)
+    players = [p for p in group.get_players() if p.role != C.OFFICER_ROLE] # Exclude the official
     group.total_contribution = sum(p.field_maybe_none('contribution_points') or 0 for p in players)
     group.total_allocation = group.total_contribution * group.multiplier
-    group.equitative_allocation = round(group.total_allocation / (C.PLAYERS_PER_GROUP - 1), 1) # Round to 1 decimal
+    group.equitative_allocation = round(group.total_allocation / (C.PLAYERS_PER_GROUP - 1), 1)
 
 
 def store_actual_allocation(group):
     """
-    Get the allocation the officer decided for each citizen and verifies if has a 
-    valid value (in case there was a timeout and the values the officer wrote weren't 
-    right).
+    Validates and applies the allocation of public resources decided by the Public Officer.
 
-    - If the total allocation don't sum the total public resources, the function 
-    asings the default allocation to all citizens
-    - If there is at least one missing, the function asigns the remaining public 
-    resources between the citizens that don't have an allocation
-    
-    This funtion should be executed only in treatments when the Public Officer decides 
-    how to distribute the public resources between the citizens.
+    This function:
+    - Checks if the officer's allocations are valid (i.e., they sum to the total public resources).
+    - If all values are present but incorrect, assigns the default equal allocation to all citizens.
+    - If one or more allocations are missing (e.g., due to timeout), distributes the remaining
+      resources among the citizens with missing values.
+
+    This function should be executed **only** in treatments where the Public Officer chooses how
+    to distribute public resources.
     """
     
-    allocations = [group.field_maybe_none('allocation1'), group.field_maybe_none('allocation2'), group.field_maybe_none('allocation3')]
-    players = [p for p in group.get_players() if p.id_in_group != 4] # Get only the citizens
+    # Retrieve officer-defined allocations and filter only citizens
+    allocations = [
+        group.field_maybe_none('allocation1'), 
+        group.field_maybe_none('allocation2'), 
+        group.field_maybe_none('allocation3'),
+    ]
     
-    # Count total allocation and missing allocations
+    citizens = [p for p in group.get_players() if p.role != C.OFFICER_ROLE]
+    
+    # Identify which values are missing
     missing_indices = [i for i, value in enumerate(allocations) if value is None]
     total_allocated = sum(value for value in allocations if value is not None)
+    total_expected = group.total_allocation
 
-    # If all three values exist but do NOT sum to total_allocation
-    if len(missing_indices) == 0 and ((total_allocated - group.total_allocation) > 0.1):
-        print(f"Incorrect total allocation! Given: {total_allocated}, Expected: {group.total_allocation}")
-        for other in players:
-            other.actual_allocation = group.equitative_allocation
-        return # Exit early after correcting values
+    # Case 1: All allocations exist, but sum is incorrect → fallback to default
+    if len(missing_indices) == 0 and abs(total_allocated - total_expected) > 0.1:
+        print(f"Officer allocations incorrect! Given: {total_allocated}, Expected: {total_expected}")
+        for citizen in citizens:
+            citizen.actual_allocation = group.equitative_allocation
+        return
 
-    # Handling Missing Values
-    total_remaining = group.total_allocation - total_allocated
+    # Calculate remaining allocation if there are missing values
+    total_remaining = total_expected - total_allocated
     
+    # Case 2: All 3 allocations are missing → assign equal default
     if len(missing_indices) == 3:
-        # If all 3 are missing, distribute equally
-        allocation_value = group.equitative_allocation
-        for other in players:
-            other.actual_allocation = allocation_value
+        for citizen in citizens:
+            citizen.actual_allocation = group.equitative_allocation
+
+    # Case 3: Two allocations are missing → divide remaining equally
     elif len(missing_indices) == 2:
-        # If 2 are missing, divide remaining equally
         allocation_value = round(total_remaining / 2, 1)
-        for i, other in enumerate(players):
-            if i in missing_indices:
-                other.actual_allocation = allocation_value
-            else:
-                other.actual_allocation = allocations[i]
+        for i, citizen in enumerate(citizens):
+            citizen.actual_allocation = (
+                allocation_value if i in missing_indices else allocations[i]
+            )
+
+    # Case 4: One allocation is missing → assign the remaining to that one
     elif len(missing_indices) == 1:
-        # If 1 is missing, assign remaining points
-        for i, other in enumerate(players):
-            if i == missing_indices[0]:
-                other.actual_allocation = total_remaining
-            else:
-                other.actual_allocation = allocations[i]
+        for i, citizen in enumerate(citizens):
+            citizen.actual_allocation = (
+                total_remaining if i == missing_indices[0] else allocations[i]
+            )
+
+    # Case 5: No allocations are missing and the sum is valid → assign as is
     else:
-        # If none are missing, assign as is
-        for i, other in enumerate(players):
-            other.actual_allocation = allocations[i]
+        for i, citizen in enumerate(citizens):
+            citizen.actual_allocation = allocations[i]
 
 
 def apply_corruption_penalty(group):
     """
-    Determine if citizens engaged in corrupt transactions and applies punishment if necessary.
-    
-    - Citizens (players 1, 2, 3) are flagged if they receive/give transfers to the officer.
-    - A citizen is considered corrupt if:
-        1. Net transfers to the officer are positive (they gave more than what they received).
-        2. Their actual allocation exceeds the equitative allocation by more than 0.1 points.
-    - If a citizen is also audited, store corruption status in `player.corruption_punishment`.
-    - If the officer is audited, check if at least one citizen is corrupt and store result.
+    Determines if citizens engaged in corrupt transactions and applies penalties accordingly.
 
-    This funtion should be executed only in treatment 6, when there are random audits and 
-    punishment for corruption behavior.
+    A citizen is flagged as corrupt if:
+    1. They gave more to the officer than they received.
+    2. Their actual allocation exceeds the equitative allocation by more than 0.1 points.
+
+    Punishments are applied as follows:
+    - If a corrupt citizen is audited, `player.corruption_punishment` is set to True.
+    - If the officer is audited and at least one citizen is corrupt, the officer is punished.
+
+    This function should only be executed in Treatment 6, where audits and penalties apply.
     """
 
-    # Choose an arbitrary player to extract group info
+    # Use player 1 to access shared group/participant info
     p1 = group.get_player_by_id(1)
-
     group_data = {
         'segment': p1.participant.segment,
         'round': p1.participant.treatment_round,
@@ -365,63 +417,61 @@ def apply_corruption_penalty(group):
         'group_id': p1.group_id
     }
 
-    # Retrieve corruption transaction details
+    # Retrieve corruption transaction data from external checker
     corruption_info = check_corruption(group_data)
-    print(f'corruption_info: {corruption_info}')  # Debugging info
+    print(f'Corruption info: {corruption_info}') # Debug print
 
     # Store corruption results separately
-    corruption_results = {}
-    any_citizen_corrupt = False  # Track if any citizen is corrupt
+    any_citizen_corrupt = False # Track whether at least one citizen is corrupt
 
-    # Validate if corruption took place for citizens
     for player in group.get_players():
-        if player.id_in_group != 4:  # Skip officer (player 4)
+        if player.role == C.OFFICER_ROLE:  # Skip the officer for now
+            continue
 
-            # Get corruption values for this player
-            citizen_data = corruption_info.get(player.id_in_group, {'transfers_from_citizen_to_officer': 0, 'transfers_from_officer_to_citizen': 0})
+        # Extract citizen transfer data
+        data = corruption_info.get(player.id_in_group, {
+            'transfers_from_citizen_to_officer': 0, 
+            'transfers_from_officer_to_citizen': 0
+        })
 
-            # Determine if the player is corrupt
-            citizen_bribery = (
-                citizen_data['transfers_from_citizen_to_officer'] 
-                - citizen_data['transfers_from_officer_to_citizen'] > 0
-            )
-            officer_retribution = ((player.actual_allocation - player.group.equitative_allocation) > 0.1)
-            corrupt = citizen_bribery and officer_retribution
+        # Check both bribery and retribution conditions
+        gave_more_than_received = (
+            data['transfers_from_citizen_to_officer'] > data['transfers_from_officer_to_citizen']
+        )
+        got_more_than_equal_share = (
+            player.actual_allocation - player.group.equitative_allocation > 0.1
+        )
 
-            # Store in a separate results dictionary
-            corruption_results[player.id_in_group] = {'corrupt': corrupt}
+        is_corrupt = gave_more_than_received and got_more_than_equal_share
 
-            # Track if at least one citizen is corrupt
-            if corrupt:
-                any_citizen_corrupt = True
+        # If audited and corrupt, apply punishment
+        if player.corruption_audit:
+            player.corruption_punishment = is_corrupt
 
-            # If player is audited, store corruption status in player.corruption_punishment
-            if player.corruption_audit:
-                player.corruption_punishment = corrupt
+        if is_corrupt:
+            any_citizen_corrupt = True
 
-    # Validate if corruption took place for officers
-    funcionario = group.get_player_by_id(4) # TODO: cambiar a inglés
-    if funcionario.corruption_audit:
-        funcionario.corruption_punishment = any_citizen_corrupt
+    # Officer punishment: only if audited and any citizen was corrupt
+    officer = group.get_player_by_id(4)
+    if officer.corruption_audit:
+        officer.corruption_punishment = any_citizen_corrupt
 
 
 # NOTE: revision code desde aquí
 def set_payoffs(player):
     """
-    Set the player's payoffs, which is the sum of the `public_interaction_payoff` and 
-    the `private_interaction_payoff`.
-    - `private_interaction_payoff`: Is the total transfers given minus the total transfers 
-    given
-    - `public_interaction_payoff`: For the citizens, is the initial endowment minus their 
-    contribution to the public project plus the actual allocation they received. If they 
-    made a timeout in the contribution page, they get 0 public payoff. For the public officer, 
-    is only initial endowment. If they made a timeout in the allocation page (if applicable), 
-    they get 0 public payoff.
-    - If they are also playing the audit treatment (T6), and get punished for corruption 
-    behavior, the receive 0 total payoff.
+    Computes and sets the player's total payoff based on public and private interactions.
 
-    :return Public interaction payoff: The actual public payoff, with the timeout punishment applied.
-    :return Private interaction payoff: The actual private payoff, with the timeout punishment applied.
+    Payoff structure:
+    - `private_interaction_payoff`: Total transfers received minus total transfers given.
+    - `public_interaction_payoff`:
+        - For citizens: endowment - contribution + allocation.
+        - For officers: endowment only.
+        - If the player timed out in the relevant stage, this is 0.
+    - If the player is punished for corruption (in T6), total payoff is set to 0.
+
+    Returns:
+        tuple: (public_interaction_payoff, private_interaction_payoff)
     """
     
     total_transfers = total_transfers_per_player({
@@ -436,43 +486,181 @@ def set_payoffs(player):
         - total_transfers.get('transfers_given', 0)
     )
 
-    if player.id_in_group != 4:  # If player is citizen
+    timeout = player.timeout_penalty
+    
+    if player.role != C.OFFICER_ROLE: # Citizen
+        contribution = player.field_maybe_none('contribution_points') or 0
         public_interaction_payoff = (
-            player.initial_points
-            - (player.field_maybe_none('contribution_points') or 0) 
-            + player.actual_allocation
-        ) * (1 - player.timeout_penalty)
-    else:  # If player is Officer
-        public_interaction_payoff = player.initial_points * (1 - player.timeout_penalty)
+            player.initial_points - contribution + player.actual_allocation
+        ) * (1 - timeout)
+    else: # Officer
+        public_interaction_payoff = player.initial_points * (1 - timeout)
 
-    player.payoff = (
-        (public_interaction_payoff + private_interaction_payoff) 
-        * (1 - (player.field_maybe_none('corruption_punishment') or 0))
-    )
+    corruption_penalty = player.field_maybe_none('corruption_punishment') or 0
+    player.payoff = (public_interaction_payoff + private_interaction_payoff) * (1 - corruption_penalty)
 
-    # Get the total payoff at the end of the segment
+    # Accumulate in session-level payoff
     player.participant.session_payoff += player.payoff
 
     return public_interaction_payoff, private_interaction_payoff
 
 
+def handle_contribution(player, contribution_points):
+    """
+    Validates and processes a citizen's contribution to the public project.
+
+    Parameters:
+        player (Player): The player making the contribution.
+        contribution_points (int): The number of points the citizen intends to contribute.
+
+    Returns:
+        dict: A dictionary with:
+            - 'contributionPointsValid' (bool): Whether the contribution is valid.
+            - 'contributionPoints' (int, optional): The valid contribution amount, if applicable.
+            - 'error' (str, optional): An error message if the contribution is invalid.
+    """
+    
+    if player.role == C.OFFICER_ROLE:
+        return {}
+    
+    if not isinstance(contribution_points, int) or math.isnan(contribution_points):
+        return {
+            'contributionPointsValid': False, 
+            'error': "Por favor, ingresa un número válido."
+        }
+    
+    if contribution_points < 0:
+        return {
+            'contributionPointsValid': False, 
+            'error': "No puedes ingresar una cantidad negativa."
+        }
+    
+    if contribution_points > player.current_points:
+        return {
+            'contributionPointsValid': False, 
+            'error': "No puedes contribuir más puntos de los que tienes disponibles."
+        }
+    
+    # Valid contribution
+    player.current_points -= contribution_points
+    player.contribution_points = contribution_points
+    
+    return {
+        'contributionPointsValid': True, 
+        'contributionPoints': contribution_points
+    }
+
+
+def reload_contribution(player):
+    """
+    Return a reload response if the citizen has already submitted a contribution.
+
+    Returns:
+        dict: 
+        - If the player is a citizen and has already contributed:
+            - update (bool): True
+            - contributionPointsReload (bool): True
+            - contributionPoints (int): The contributed amount
+        - Otherwise: An empty dictionary
+    """
+
+    contribution_points = player.field_maybe_none('contribution_points')
+    if player.role != C.OFFICER_ROLE and contribution_points:
+        return {
+            'update': True, 
+            'contributionPointsReload': True, 
+            'contributionPoints': contribution_points,
+        }
+    
+    return {}
+
+
+def new_transaction(player, data):
+    """
+    Create a new transaction record and log its initial status.
+
+    Triggered when the initiator clicks "offer" or "request".
+
+    Args:
+        player (Player): The player initiating the transaction.
+        data (dict): Contains initiatorId, receiverId, action, value.
+
+    Returns:
+        int: The ID of the newly created transaction.
+    """
+
+    group = player.group
+
+    transaction_data = {
+        'session_code': player.session.code,
+        'segment': player.participant.segment,
+        'round': player.participant.treatment_round,
+        'group_id': player.group_id,
+        'initiator_code': group.get_player_by_id(data['initiatorId']).participant.code,
+        'receiver_code': group.get_player_by_id(data['receiverId']).participant.code,
+        'initiator_id': data['initiatorId'],
+        'receiver_id': data['receiverId'],
+        'action': data['action'],
+        'points': data['value'],
+        'initiator_initial_endowment': player.current_points,
+        'receiver_initial_endowment': group.get_player_by_id(data['receiverId']).current_points,
+    }
+
+    transaction_id = insert_row(data=transaction_data, table='transactions')
+
+    insert_row(data={
+        'transaction_id': transaction_id,
+        'status': 'Iniciado',
+    }, table='status')
+
+    return transaction_id
+
+
+def closing_transaction(player, data, status, transaction_id):
+    """
+    Finalizes a transaction by saving its closing status and current balances.
+
+    Triggered when the receiver accepts/rejects the transaction,
+    or when the initiator cancels it.
+
+    Args:
+        player (Player): The player triggering the closure.
+        data (dict): Must include 'initiatorId' and 'receiverId'.
+        status (str): One of 'Aceptado', 'Rechazado', or 'Cancelado'.
+        transaction_id (int): The transaction being closed.
+    """
+    
+    initiator = player.group.get_player_by_id(data['initiatorId'])
+    receiver = player.group.get_player_by_id(data['receiverId'])
+
+    add_balance(data={
+        'transaction_id': transaction_id,
+        'initiator_balance': initiator.current_points,
+        'receiver_balance': receiver.current_points,
+    })
+
+    insert_row(data={
+        'transaction_id': transaction_id,
+        'status': status,
+    }, table='status')
+
+
 def insert_history(group):
     """
-    Inserts a new history row in the history table.
+    Inserts a new row in the history table for each player in the group,
+    recording their endowment, contributions, transfers, payoffs, and penalties.
     """
+
     for player in group.get_players():
-        # Get public and private payoffs
         public_payoff, private_payoff = set_payoffs(player)
 
-        # Retrieve total transfers per player
-        total_transfers = total_transfers_per_player({
+        transfers = total_transfers_per_player({
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'round': player.participant.treatment_round,
             'participant_code': player.participant.code,
         }) 
 
-        # Determine player's endowment
         history_data = {
             'session_code': player.session.code,
             'segment': player.participant.segment,
@@ -480,17 +668,18 @@ def insert_history(group):
             'participant_code': player.participant.code,
             'endowment': player.initial_points,
             'contribution': player.field_maybe_none('contribution_points'),
-            'public_good_raw_gain': player.actual_allocation if player.id_in_group != 4 else None,
+            'public_good_gross_gain': player.actual_allocation if player.id_in_group != 4 else None,
             'public_interaction_payoff': public_payoff,
-            'total_transfers_received': total_transfers.get('transfers_received', 0),
-            'total_transfers_given': total_transfers.get('transfers_given', 0),
+            'total_transfers_received': transfers.get('transfers_received', 0),
+            'total_transfers_given': transfers.get('transfers_given', 0),
             'private_interaction_payoff': private_payoff,
             'payment': float(player.payoff),
             'timeout_penalty': player.timeout_penalty,
-            'corruption_punishment': player.field_maybe_none('corruption_punishment') if player.field_maybe_none('corruption_punishment') is not None else False,
+            'corruption_punishment': player.field_maybe_none('corruption_punishment') or False,
         }
+
         insert_row(data=history_data, table='history')
-    
+
 
 # PAGES
 class Instructions(Page):
@@ -505,10 +694,10 @@ class Instructions(Page):
         fields = []
 
         if player.participant.segment == 1:
-            # Add general questions
+            # General comprehension questions
             fields += ['comp_q1', 'comp_q2', 'comp_q3', 'comp_q4']
 
-        # Add treatment-specific question
+        # Treatment-specific question
         treatment_fields = {
             'BL1': 'comp_bl1',
             'BL2': 'comp_bl2',
@@ -533,6 +722,7 @@ class Instructions(Page):
             'comp_t3': 3, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
         }
 
+        # Identify incorrect answers
         incorrect = {
             field: answer
             for field, answer in values.items()
@@ -542,12 +732,13 @@ class Instructions(Page):
         if incorrect:
             player.num_failed_attempts += 1
 
-            # Load previous attempts if any
+            # Load and append failed attempts
             previous = json.loads(player.field_maybe_none('errors_per_attempt') or '[]')
             previous.append(incorrect)
             player.errors_per_attempt = json.dumps(previous)
-            print(f'num_failed_attempts: {player.num_failed_attempts}')
-            print(f'errors_per_attempt: {player.errors_per_attempt}')
+
+            print(f'Number of failed attempts: {player.num_failed_attempts}')
+            print(f'Errors per attempt: {player.errors_per_attempt}')
 
             return {field: 'Respuesta incorrecta.' for field in incorrect}
 
@@ -562,35 +753,49 @@ class Interaction(Page):
 
     @staticmethod
     def get_form_fields(player):
-        if player.role != C.OFFICER_ROLE: # Display formfield `contribution_points` only to citizens
-            return ['contribution_points']
+        return ['contribution_points'] if player.role != C.OFFICER_ROLE else []
 
     @staticmethod
     def vars_for_template(player):
+        # Identify other players in group
         others = player.get_others_in_group()
-        funcionario = next((other for other in others if other.role == "Funcionario"), None) # Extract 'Funcionario'
-        other_players = [other for other in others if other.role != "Funcionario"] # Extract citizens
-        ordered_others = ([funcionario] if funcionario else []) + other_players # Place 'Funcionario' first
+        officer = next((p for p in others if p.role == "Funcionario"), None)
+        citizens = [p for p in others if p.role != "Funcionario"]
+
+        # Order: officer first (if exists), then other players
+        ordered_others = ([officer] if officer else []) + citizens
 
         # Generate direct chat channels
         others_info = [
             {
                 "id_in_group": other.id_in_group,
                 "role": other.role,
-                "channel": f"{player.participant.segment}{player.participant.treatment_round}{player.group_id}{min(player.id_in_group, other.id_in_group)}{max(player.id_in_group, other.id_in_group)}",
+                "channel": (
+                    f"{player.participant.segment}"
+                    f"{player.participant.treatment_round}"
+                    f"{player.group_id}"
+                    f"{min(player.id_in_group, other.id_in_group)}"
+                    f"{max(player.id_in_group, other.id_in_group)}"
+                ),
             }
             for other in ordered_others
         ]
 
-        # Generate additional citizen-officer chat channels (for citizens only)
+        # Generate additional citizen-officer channels (only shown to citizens)
         additional_chats = []
-        if (TREATMENTS[player.participant.treatment].officer_interactions_public) == False and (player.role != "Funcionario"):
-            other_citizens = [cit for cit in other_players if cit.id_in_group != player.id_in_group]
+        treatment_cfg = TREATMENTS[player.participant.treatment]
+        if treatment_cfg.officer_interactions_public and player.role != "Funcionario":
+            other_citizens = [c for c in citizens if c.id_in_group != player.id_in_group]
             additional_chats = [
                 {
                     "id_in_group": f"{other_citizen.id_in_group}",
                     "role": f"Chat entre {other_citizen.role} y Funcionario",
-                    "channel": f"{player.participant.segment}{player.participant.treatment_round}{player.group_id}{other_citizen.id_in_group}4",
+                    "channel": (
+                        f"{player.participant.segment}"
+                        f"{player.participant.treatment_round}"
+                        f"{player.group_id}"
+                        f"{other_citizen.id_in_group}4"
+                    ),
                 }
                 for other_citizen in other_citizens
             ]
@@ -602,132 +807,50 @@ class Interaction(Page):
             'participant_code': player.participant.code,
         })
 
-        # Instructions variables
+        # Instruction timing variables
         num_treatments = len(player.session.config['treatment_order'])
         num_rounds = player.session.config['num_rounds']
         tot_num_rounds = num_treatments * num_rounds
-        avg_round_time = 4
-        tot_session_time = tot_num_rounds * avg_round_time
-        if tot_session_time < 60:
+
+        avg_round_time = 4 # minutes per round
+        total_minutes = tot_num_rounds * avg_round_time
+
+        if total_minutes < 60:
+            tot_session_time = total_minutes
             time_unit = 'minutos'
         else:
-            tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
+            tot_session_time = round(total_minutes / 60, 1)
             time_unit = 'horas'
 
-        return dict(
+        return {
             # Interaction variables
-            others=others_info,
-            history=history,
-            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
-            officer_interactions_public=TREATMENTS[player.participant.treatment].officer_interactions_public,
-            chat_only_officer=player.session.config['chat_only_officer'],
-            additional_channels=additional_chats if TREATMENTS[player.participant.treatment].officer_interactions_public else [],
+            'others': others_info,
+            'history': history,
+            'private_interaction': treatment_cfg.private_interaction,
+            'officer_interactions_public': treatment_cfg.officer_interactions_public,
+            'chat_only_officer': player.session.config['chat_only_officer'],
+            'additional_channels': additional_chats if treatment_cfg.officer_interactions_public else [],
+            
             # Instructions variables
-            num_treatments=num_treatments,
-            num_rounds=num_rounds,
-            tot_num_rounds=tot_num_rounds,
-            tot_session_time=tot_session_time,
-            time_unit=time_unit,
-        )
+            'num_treatments': num_treatments,
+            'num_rounds': num_rounds,
+            'tot_num_rounds': tot_num_rounds,
+            'tot_session_time': tot_session_time,
+            'time_unit': time_unit,
+        }
 
     @staticmethod
-    def js_vars(player): # Sendign the sequential_decision session config to the frontend
-        return dict(
-            secuential_decision=player.session.config['sequential_decision'],
-            officer_interactions_public=TREATMENTS[player.participant.treatment].officer_interactions_public,
-            player_role=player.role,
-            my_id=player.id_in_group,
-            other_ids=[p.id_in_group for p in player.get_others_in_group()]
-        )
+    def js_vars(player):
+        return {
+            'secuential_decision': player.session.config['sequential_decision'],
+            'officer_interactions_public': TREATMENTS[player.participant.treatment].officer_interactions_public,
+            'player_role': player.role,
+            'my_id': player.id_in_group,
+            'other_ids': [p.id_in_group for p in player.get_others_in_group()],
+        }
 
     @staticmethod
     def live_method(player, data):
-
-        def handle_contribution(contribution_points):
-            """
-            Validate and process contribution points.
-
-            :param contribution_points: The points the citizen contributed to the public project.
-            :return: Return a dictionary with two arguments when the points are valid: `contributionPointsValid`, a Boolean that indicates the points are valid, and `contributionPoints`, which stores the valid points the citizen decided to contribute to the public project.
-            """
-            if player.role != C.OFFICER_ROLE:
-                if not isinstance(contribution_points, int) or math.isnan(contribution_points):
-                    return dict(contributionPointsValid=False, error="Por favor, ingresa un número válido.")
-                if contribution_points < 0:
-                    return dict(contributionPointsValid=False, error="No puedes ingresar una cantidad negativa.")
-                if contribution_points > player.current_points:
-                    return dict(contributionPointsValid=False, error="No puedes contribuir más puntos de los que tienes disponibles.")
-                
-                # If valid, process contribution
-                player.current_points -= contribution_points
-                player.contribution_points = contribution_points
-                return dict(contributionPointsValid=True, contributionPoints=contribution_points)
-
-        def reload_contribution():
-            """
-            Handle reloading the page if the player has already contributed
-
-            :return: Returns a dictionary with three arguments when the player has contributed: `update', which indicates that the player has reloaded the page, `contributionPointsReload', which indicates that the player has already contributed to the project, and `contributionPoints', which indicates the points the player has sent. If the player has no contribution, then the return value is an empty dictionary.
-            """
-            contribution_points = player.field_maybe_none('contribution_points')
-            if player.role != C.OFFICER_ROLE and contribution_points:
-                return dict(update=True, contributionPointsReload=True, contributionPoints=contribution_points)
-            return {}
-        
-        def new_transaction():
-            """
-            Log a new transaction in the transactions table and its status in the status table.
-            Activates when the initiator clicks "offer" or "request".
-
-            :return Transaction ID: 
-            """
-            transaction_data = {
-                'session_code': player.session.code,
-                'segment': player.participant.segment,
-                'round': player.participant.treatment_round,
-                'group_id': player.group_id,
-                'initiator_code': player.group.get_player_by_id(data['initiatorId']).participant.code,
-                'receiver_code': player.group.get_player_by_id(data['receiverId']).participant.code,
-                'initiator_id': data['initiatorId'],
-                'receiver_id': data['receiverId'],
-                'action': data['action'],
-                'points': data['value'],
-                'initiator_initial_endowment': player.current_points,
-                'receiver_initial_endowment': player.group.get_player_by_id(data['receiverId']).current_points,
-            }
-
-            # Save the transaction and get the transaction ID
-            transaction_id = insert_row(data=transaction_data, table='transactions')
-
-            status_data = {
-                'transaction_id': transaction_id,
-                'status': 'Iniciado',
-            }
-            insert_row(data=status_data, table='status')
-
-            return transaction_id
-
-        def closing_transaction(status, transaction_id):
-            """
-            Log the clausure of a transaction in the status table and update the current points in transactions table.
-            Activates when the receiver clicks "yes" or "no", or the initiator cancels the transaction.
-
-            :param status: The latest transaction's status (acepted, declined or canceled)
-            :param transaction_id: The ID of the transaction
-            """
-            balance_data = {
-                'transaction_id': transaction_id,
-                'initiator_balance': player.group.get_player_by_id(data['initiatorId']).current_points,
-                'receiver_balance': player.group.get_player_by_id(data['receiverId']).current_points,
-            }
-            add_balance(data=balance_data)
-
-            status_data = {
-                'transaction_id': transaction_id,
-                'status': status,
-            }
-            insert_row(data=status_data, table='status')
-
         data_type = data.get('type')
         group = player.group
         my_id = player.id_in_group
@@ -738,11 +861,11 @@ class Interaction(Page):
 
         # Contribution to the shared project
         if data_type == 'contributionPoints':
-            return {my_id: handle_contribution(value)}
+            return {my_id: handle_contribution(player, value)}
         
         # Initialize transaction between participants (offer or request)
         elif data_type == 'initiatingTransaction':
-            transaction_id = new_transaction()
+            transaction_id = new_transaction(player, data)
 
             print(f'action: {action}')
 
@@ -770,7 +893,7 @@ class Interaction(Page):
                             'myId': initiator_id, 
                             'otherId': receiver_id, 
                             'transactionId':transaction_id,
-                            'chat': [to_dict(msg)], # Chat variable
+                            'chat': [msg.to_dict()], # Chat variable
                         },
                         receiver_id: {
                             'offerPoints': True, 
@@ -780,7 +903,7 @@ class Interaction(Page):
                             'myId': receiver_id, 
                             'otherId': initiator_id, 
                             'transactionId': transaction_id,
-                            'chat': [to_dict(msg)], # Chat variable
+                            'chat': [msg.to_dict()], # Chat variable
 
                         },
                     }
@@ -803,7 +926,7 @@ class Interaction(Page):
                                 'myId': initiator_id, 
                                 'otherId': receiver_id, 
                                 'transactionId': transaction_id,
-                                'chat': [to_dict(msg)], # Chat variable
+                                'chat': [msg.to_dict()], # Chat variable
                             },
                             receiver_id: {
                                 'requestPoints': True, 
@@ -813,7 +936,7 @@ class Interaction(Page):
                                 'myId': receiver_id, 
                                 'otherId': initiator_id, 
                                 'transactionId': transaction_id,
-                                'chat': [to_dict(msg)], # Chat variable
+                                'chat': [msg.to_dict()], # Chat variable
                             },
                         }
                 else:
@@ -840,7 +963,7 @@ class Interaction(Page):
             print(f'status: {status}')
             print(f'transaction_id: {transaction_id}')
 
-            closing_transaction(status, transaction_id)
+            closing_transaction(player, data, status, transaction_id)
 
             channel = f'{min(initiator_id, receiver_id)}{max(initiator_id, receiver_id)}'
             action_label = 'oferta' if action == 'Ofrece' else 'solicitud'
@@ -862,8 +985,8 @@ class Interaction(Page):
 
             if status == 'Cancelado':
                 return {
-                    initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [to_dict(msg)]},
-                    receiver_id: {'cancelAction': True, 'otherId': initiator_id, 'chat': [to_dict(msg)]},
+                    initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [msg.to_dict()]},
+                    receiver_id: {'cancelAction': True, 'otherId': initiator_id, 'chat': [msg.to_dict()]},
                 }    
 
             elif status == 'Rechazado':
@@ -887,7 +1010,7 @@ class Interaction(Page):
                         'transactions': filter_transactions_i, 
                         'otherId': receiver_id, 
                         'reload': False,
-                        'chat': [to_dict(msg)],
+                        'chat': [msg.to_dict()],
                     },
                     receiver_id: {
                         'update': True, 
@@ -895,7 +1018,7 @@ class Interaction(Page):
                         'transactions': filter_transactions_r,
                         'otherId': initiator_id, 
                         'reload': False,
-                        'chat': [to_dict(msg)],
+                        'chat': [msg.to_dict()],
                     },
                 }
             
@@ -934,7 +1057,7 @@ class Interaction(Page):
                         'otherId': initiator_id, 
                         'reload': False, 
                         'update': True,
-                        'chat': [to_dict(msg)],
+                        'chat': [msg.to_dict()],
                     },
                     initiator_id: {
                         'updateTransactions': True, 
@@ -942,7 +1065,7 @@ class Interaction(Page):
                         'otherId': receiver_id, 
                         'reload': False, 
                         'update':True,
-                        'chat': [to_dict(msg)],
+                        'chat': [msg.to_dict()],
                     }
                 }
         
@@ -963,9 +1086,9 @@ class Interaction(Page):
                 'session_code': player.session.code,
             })
 
-            reload = reload_contribution()
+            reload = reload_contribution(player)
 
-            # If the last transaction is still in process, send offer/request buttons again and filtered transactions
+            # If the last transaction is still in progress, resend offer/request with updated transactions
             if last_transaction:
                 transaction_id = last_transaction['transactionId']
                 initiator_id = last_transaction['initiatorId']
@@ -973,60 +1096,65 @@ class Interaction(Page):
                 action = last_transaction['action']
                 value = last_transaction['value']
 
-                # Construct common response data
+                # Common fields to return to both participants
                 response_data = {
                     'updateTransactions': True,
-                    'transactions': transactions_data,  # Sending filtered transactions
+                    'transactions': transactions_data,
                     'update': True,
-                    'transactionId': transaction_id
+                    'transactionId': transaction_id,
                 }
 
+                is_initiator = player.id_in_group == initiator_id
+                is_receiver = player.id_in_group == receiver_id
+                other_id = receiver_id if is_initiator else initiator_id
+
                 if action == 'Ofrece':
-                    reload.update(dict(
-                            offerPoints=True,
-                            initiator=player.id_in_group == initiator_id,
-                            receiver=player.id_in_group == receiver_id,
-                            offerValue=value,
-                            myId=player.id_in_group,
-                            otherId=receiver_id if player.id_in_group == initiator_id else initiator_id,
-                            **response_data  # Merging transaction data
-                        ))
+                    reload.update({
+                            'offerPoints': True,
+                            'initiator': is_initiator,
+                            'receiver': is_receiver,
+                            'offerValue': value,
+                            'myId': player.id_in_group,
+                            'otherId': other_id,
+                            **response_data
+                        })
                     return {
                         player.id_in_group: reload,
-                        receiver_id: dict(
-                            offerPoints=True,
-                            initiator=False,
-                            receiver=True,
-                            offerValue=value,
-                            myId=receiver_id,
-                            otherId=initiator_id,
-                            **response_data  # Merging transaction data
-                        )
+                        receiver_id: {
+                            'offerPoints': True,
+                            'initiator': False,
+                            'receiver': True,
+                            'offerValue': value,
+                            'myId': receiver_id,
+                            'otherId': initiator_id,
+                            **response_data
+                        }
                     }
                 elif action == 'Solicita':
-                    reload.update(dict(
-                            requestPoints=True,
-                            initiator=player.id_in_group == initiator_id,
-                            receiver=player.id_in_group == receiver_id,
-                            requestValue=value,
-                            myId=player.id_in_group,
-                            otherId=receiver_id if player.id_in_group == initiator_id else initiator_id,
-                            **response_data  # Merging transaction data
-                        ))
+                    reload.update({
+                            'requestPoints': True,
+                            'initiator': is_initiator,
+                            'receiver': is_receiver,
+                            'requestValue': value,
+                            'myId': player.id_in_group,
+                            'otherId': other_id,
+                            **response_data
+                        })
                     return {
                         player.id_in_group: reload,
-                        receiver_id: dict(
-                            requestPoints=True,
-                            initiator=False,
-                            receiver=True,
-                            requestValue=value,
-                            myId=receiver_id,
-                            otherId=initiator_id,
-                            **response_data  # Merging transaction data
-                        )
+                        receiver_id: {
+                            'requestPoints': True,
+                            'initiator': False,
+                            'receiver': True,
+                            'requestValue': value,
+                            'myId': receiver_id,
+                            'otherId': initiator_id,
+                            **response_data
+                        }
                     }
 
-            if transactions_data: # If it is not empty
+            # If there are transactions, just send an update with those
+            if transactions_data:
                 reload.update({
                     'updateTransactions':True, 
                     'transactions':transactions_data, 
@@ -1080,22 +1208,23 @@ class Interaction(Page):
             )
 
             return {
-                my_id: [to_dict(msg)],
-                recipient_id: [to_dict(msg)]
+                my_id: [msg.to_dict()],
+                recipient_id: [msg.to_dict()]
             }
         
-        return {
-            my_id: [
-                to_dict(msg)
-                for msg in Message.filter(group=group)
-                if msg.sender and msg.recipient and my_id in [msg.sender.id_in_group, msg.recipient.id_in_group]
-            ]
-        }
-
+        # Return all messages where the player is either the sender or recipient
+        messages = [
+            msg.to_dict()
+            for msg in Message.filter(group=group)
+            if msg.sender and msg.recipient
+            and my_id in [msg.sender.id_in_group, msg.recipient.id_in_group]
+        ]
+        
+        return {my_id: messages}
 
     @staticmethod
     def before_next_page(player, timeout_happened):
-        if timeout_happened and player.id_in_group != 4: # Apply timeout penalty only to citizens
+        if timeout_happened and player.role != C.OFFICER_ROLE:
             player.timeout_penalty = True 
 
 
@@ -1111,16 +1240,18 @@ class SecondWaitPage(WaitPage):
             'participant_code': player.participant.code,
         })
 
-        return dict(
-            segment=player.participant.segment,
-            history=history,
-            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
-            random_audits=TREATMENTS[player.participant.treatment].random_audits,
-        )
+        treatment_cfg = TREATMENTS[player.participant.treatment]
+
+        return {
+            'segment': player.participant.segment,
+            'history': history,
+            'private_interaction': treatment_cfg.private_interaction,
+            'random_audits': treatment_cfg.random_audits,
+        }
     
     @staticmethod
     def after_all_players_arrive(group):
-        public_good_default_raw_gain(group)
+        public_good_default_gross_gain(group)
 
 
 class ResourceAllocation(Page):
@@ -1130,71 +1261,68 @@ class ResourceAllocation(Page):
 
     @staticmethod
     def is_displayed(player):
-        if TREATMENTS[player.participant.treatment].resource_allocation == True:
-            return player.id_in_group == 4
+        return (
+            TREATMENTS[player.participant.treatment].resource_allocation
+            and player.id_in_group == 4
+        )
 
     @staticmethod
     def js_vars(player):
-        return dict(total_allocation=player.group.total_allocation)
+        return {'total_allocation': player.group.total_allocation}
 
     @staticmethod
     def vars_for_template(player):
-
         history = filter_history({
             'session_code': player.session.code,
             'segment': player.participant.segment,
             'participant_code': player.participant.code,
         }) 
 
-        # Instructions variables
+        # Instruction timing variables
         num_treatments = len(player.session.config['treatment_order'])
         num_rounds = player.session.config['num_rounds']
         tot_num_rounds = num_treatments * num_rounds
         avg_round_time = 4
         tot_session_time = tot_num_rounds * avg_round_time
+        
         if tot_session_time < 60:
             time_unit = 'minutos'
         else:
             tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
             time_unit = 'horas'
 
-        return dict(
-            # Page varibles
-            history=history,
-            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
-            # Instructions variables
-            num_treatments=num_treatments,
-            num_rounds=num_rounds,
-            tot_num_rounds=tot_num_rounds,
-            tot_session_time=tot_session_time,
-            time_unit=time_unit,
-        )
+        return {
+            'history': history,
+            'private_interaction': TREATMENTS[player.participant.treatment].private_interaction,
+            'num_treatments': num_treatments,
+            'num_rounds': num_rounds,
+            'tot_num_rounds': tot_num_rounds,
+            'tot_session_time': tot_session_time,
+            'time_unit': time_unit,
+        }
     
     @staticmethod
     def live_method(player, data):
-        print(f'Received data: {data}')  # Debugging output
+        print(f'Received data: {data}') # Debugging
 
-        # Ensure 'data' is valid
         if not isinstance(data, dict) or 'value' not in data:
             print("Error: 'value' key missing in received data")
-            return  # Prevent further execution
-
-        calculator_history_data = {
-            'session_code': player.session.code,
-            'segment': getattr(player.participant, 'segment', 'Unknown'),  # Prevent attribute error
-            'round': player.participant.treatment_round,
-            'participant_code': player.participant.code,
-            'operation': data.get('value', ''),  # Ensure this exists
-        }
+            return
 
         try:
-            insert_row(data=calculator_history_data, table='calculator_history')
+            insert_row(data={
+                'session_code': player.session.code,
+                'segment': player.participant.segment,
+                'round': player.participant.treatment_round,
+                'participant_code': player.participant.code,
+                'operation': data.get('value', ''),
+            }, table='calculator_history')
         except Exception as e:
-            print(f"Error inserting calc history: {e}")  # Log error
+            print(f"Error inserting calculator history: {e}")
     
     @staticmethod
     def before_next_page(player, timeout_happened):
-        player.timeout_penalty = True if timeout_happened else False
+        player.timeout_penalty = timeout_happened
     
 
 class ThirdWaitPage(WaitPage):
@@ -1209,12 +1337,12 @@ class ThirdWaitPage(WaitPage):
             'participant_code': player.participant.code,
         })
 
-        return dict(
-            segment=player.participant.segment,
-            history=history,
-            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
-            random_audits=TREATMENTS[player.participant.treatment].random_audits,
-        )
+        return {
+            'segment': player.participant.segment,
+            'history': history,
+            'private_interaction': TREATMENTS[player.participant.treatment].private_interaction,
+            'random_audits': TREATMENTS[player.participant.treatment].random_audits,
+        }
     
     @staticmethod
     def after_all_players_arrive(group):
@@ -1237,29 +1365,44 @@ class Results(Page):
             'participant_code': player.participant.code,
         })
 
-        return dict(
-            segment=player.participant.segment,
-            history=history,
-            private_interaction=TREATMENTS[player.participant.treatment].private_interaction,
-            random_audits=TREATMENTS[player.participant.treatment].random_audits,
-            corruption_audit=player.field_maybe_none('corruption_audit'),
-        )
+        treatment_cfg = TREATMENTS[player.participant.treatment]
+
+        return {
+            'segment': player.participant.segment,
+            'history': history,
+            'private_interaction': treatment_cfg.private_interaction,
+            'random_audits': treatment_cfg.random_audits,
+            'corruption_audit': player.field_maybe_none('corruption_audit'),
+        }
     
     @staticmethod
     def before_next_page(player, timeout_happened):
-        """
-        Ending the last round of the segment, update segment value
-        """
-        if (player.participant.treatment_round * player.participant.segment) == C.NUM_ROUNDS:
+        round_number = player.participant.treatment_round
+        segment = player.participant.segment
+        total_rounds = C.NUM_ROUNDS
+        rounds_per_segment = player.session.config['num_rounds']
+
+        # If we're at the final round of the final segment, do nothing
+        if round_number * segment == total_rounds:
             return
-        if (player.participant.treatment_round % player.session.config['num_rounds']) == 0:
+        
+        # If at the end of a segment, increment segment and reset treatment round
+        if round_number % rounds_per_segment == 0:
             player.participant.segment += 1
             player.participant.treatment_round = 1
             player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
         else:
             player.participant.treatment_round += 1
         
-        print(f"treatment_round: {player.participant.treatment_round}")
+        print(f"Next treatment round: {player.participant.treatment_round}")
 
 
-page_sequence = [Instructions, FirstWaitPage, Interaction, SecondWaitPage, ResourceAllocation, ThirdWaitPage, Results]
+page_sequence = [
+    Instructions,           # General instructions and comprehension check
+    FirstWaitPage,          # Wait for all to finish instructions
+    Interaction,            # Public contribution and private interaction
+    SecondWaitPage,         # Wait before allocation
+    ResourceAllocation,     # Officer allocates (if treatment)
+    ThirdWaitPage,          # Apply audits (if treatment) or penalties
+    Results                 # Display outcomes
+]
