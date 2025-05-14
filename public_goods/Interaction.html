@@ -33,9 +33,11 @@
                         <p id="points-info">
                             Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b> para distribuir entre tu cuenta y el proyecto del grupo.
                         </p>
-                        <p>
-                            El multiplicador es <b>{{ group.multiplier }}.</b>
-                        </p>
+                        {{ if participant.treatment not in ['T4'] }}
+                            <p>
+                                El multiplicador es <b>{{ group.multiplier }}.</b>
+                            </p>
+                        {{ endif }}
                         <p>
                             Puntos a contribuir al proyecto del grupo:
                         </p>

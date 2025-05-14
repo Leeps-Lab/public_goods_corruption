@@ -32,7 +32,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 6 # NOTE: change if neccesary (round per treatment * num of treatments)
+    NUM_ROUNDS = 3 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -285,17 +285,11 @@ def creating_session(subsession):
         # Assign initial points based on role
         player.initial_points = C.CITIZEN_ENDOWMENT if player.role != C.OFFICER_ROLE else officer_endowment
 
-         # Heterogeneous endowment for citizen 1 (if applicable)
+        # Heterogeneous endowment for citizen 1 (if applicable)
         if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1:
             player.initial_points = c1_endowment
 
         player.current_points = player.initial_points
-
-        # Assign multiplier (random or fixed)
-        if TREATMENTS[player.participant.treatment].random_multiplier:
-            player.group.multiplier = random.choice([1.5, 2.5])
-        else:
-            player.group.multiplier = player.session.config['multiplier']
 
         # Determine if player will be audited (if audits are randomized)
         if TREATMENTS[player.participant.treatment].random_audits:
@@ -306,8 +300,9 @@ def creating_session(subsession):
         if subsession.round_number == 1 and player == subsession.get_players()[0]:
             print(f'Treatment playing: {player.participant.treatment}')
         
-        # Update group's total starting points
+        # Initialize group-level fields
         player.group.total_initial_points += player.initial_points
+        player.group.multiplier = player.session.config['multiplier']
 
 
 def public_good_default_gross_gain(group):
@@ -744,7 +739,12 @@ class Instructions(Page):
 
 
 class FirstWaitPage(WaitPage):
-    pass
+
+    @staticmethod
+    def after_all_players_arrive(group):
+        player = group.get_players()[0]
+        if TREATMENTS[player.participant.treatment].random_multiplier:
+            group.multiplier = random.choice([1.5, 2.5])
 
 
 class Interaction(Page):

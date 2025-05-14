@@ -6,7 +6,12 @@
     <li>
         Los participantes reciben su dotación inicial:
         <ol type="a">
-            <li>Cada ciudadano recibe <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
+            {{ if participant.treatment in ['T3'] }}
+                <li>El ciudadano 1 recibe <b>{{ session.config.c1_endowment }} puntos</b>.</li>
+                <li>Los ciudadanos 2 y 3 reciben <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
+            {{ else }}
+                <li>Cada ciudadano recibe <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
+            {{ endif }}
             <li>El funcionario recibe <b>{{ session.config.officer_endowment }} puntos</b>.</li>
         </ol>
     </li>
@@ -28,7 +33,12 @@
         Luego, cada ciudadano debe decidir cuánto de su dotación, desde <b>0 a {{ C.CITIZEN_ENDOWMENT }}</b>, contribuye al proyecto del grupo.
     </li>
     <li>
-        Después de que todos los ciudadanos contribuyen al proyecto del grupo, la computadora suma las contribuciones y multiplica dicha suma por <b>{{ group.multiplier }}</b>:
+        Después de que todos los ciudadanos contribuyen al proyecto del grupo, la computadora suma las contribuciones y multiplica dicha suma por 
+        {{ if participant.treatment in ['T4'] }}
+            un multiplicador aleatorio, cuyo valor será 1,5 o 2,5:
+        {{ else }}
+            <b>{{ group.multiplier }}</b>:
+        {{ endif }}
         <div class="math-box">
             Recursos públicos totales = Contribución total × Multiplicador
         </div>
@@ -75,29 +85,72 @@
                 <div class="example-box">
                     <b>Ejemplo 1 (Contribución mínima y recursos públicos asignados equitativamente):</b><br>
                     Todos los ciudadanos contribuyen 0 puntos.<br>
-                    Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
-                    El funcionario reparte <b>0 puntos</b> a cada ciudadano<br>
-                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
+                    {{ if participant.treatment in ['T4'] }}
+                        El valor del multiplicador aleatorio es <b>1,5</b>.<br>
+                        Recursos públicos totales = (0 + 0 + 0) × 1,5 = <b>0</b><br>
+                    {{ else }}
+                        Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
+                    {{ endif }}
+                    El funcionario reparte <b>0 puntos</b> a cada ciudadano.<br>
+                    {{ if participant.treatment in ['T3'] }}
+                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 0 + 0 = <b>120 puntos</b><br>
+                        Pago de los ciudadanos 2 y 3 = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
+                    {{ else }}
+                        Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
+                    {{ endif }}
                 </div>
                 
                 <!-- Example 2 -->
                 <div class="example-box">
                     <b>Ejemplo 2 (Contribución máxima y recursos públicos asignados equitativamente):</b><br>
-                    Todos los ciudadanos contribuyen 100 puntos.<br>
-                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                    El funcionario reparte <b>200 puntos</b> a cada ciudadano<br>
-                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 200 = <b>200 puntos</b>
+                    {{ if participant.treatment in ['T3'] }}
+                        El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
+                        Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
+                        El funcionario reparte <b>213,3 puntos</b> a cada ciudadano.<br>
+                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 120 + 213,3 = <b>213,3 puntos</b><br>
+                        Pago de los ciudadanos 2 y 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 213,3 = <b>213,3 puntos</b>
+                    {{ else }}
+                        Todos los ciudadanos contribuyen 100 puntos.<br>
+                        {{ if participant.treatment in ['T4'] }}
+                            El valor del multiplicador aleatorio es <b>1,5</b>.<br>
+                            Recursos públicos totales = (100 + 100 + 100) × 1,5 = <b>450</b><br>
+                            El funcionario reparte <b>150 puntos</b> a cada ciudadano.<br>
+                            Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 150 = <b>150 puntos</b>
+                        {{ else }}
+                            Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
+                            El funcionario reparte <b>200 puntos</b> a cada ciudadano.<br>
+                            Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 200 = <b>200 puntos</b>
+                        {{ endif }}
+                    {{ endif }}
                 </div>
 
                 <!-- Example 3 -->
-                <div class="example-box">
+                 <div class="example-box">
                     <b>Ejemplo 3 (Contribución máxima y recursos públicos asignados desigualmente):</b><br>
-                    Todos los ciudadanos contribuyen 100 puntos.<br>
-                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                    El funcionario reparte <b>50 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>250 puntos</b> al ciudadano 3<br>
-                    Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 50 = <b>50 puntos</b><br>
-                    Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
-                    Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
+                    {{ if participant.treatment in ['T3'] }}
+                        El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
+                        Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
+                        El funcionario reparte <b>90 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>280 puntos</b> al ciudadano 3.<br>
+                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 120 + 90 = <b>90 puntos</b><br>
+                        Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
+                        Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
+                    {{ else }}
+                        Todos los ciudadanos contribuyen 100 puntos.<br>
+                        {{ if participant.treatment in ['T4'] }}
+                            El valor del multiplicador aleatorio es <b>2,5</b>.<br>
+                            Recursos públicos totales = (100 + 100 + 100) × 2,5 = <b>750</b><br>
+                            El funcionario reparte <b>65 puntos</b> al ciudadano 1, <b>375 puntos</b> al ciudadano 2 y <b>310 puntos</b> al ciudadano 3.<br>
+                            Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 65 = <b>65 puntos</b><br>
+                            Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 375= <b>375 puntos</b><br>
+                            Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 310 = <b>310 puntos</b><br>
+                        {{ else }}
+                            Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
+                            El funcionario reparte <b>50 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>250 puntos</b> al ciudadano 3.<br>
+                            Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 50 = <b>50 puntos</b><br>
+                            Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
+                            Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
+                        {{ endif }}
+                    {{ endif }}
                 </div>
             {{ endif }}
         </li>
