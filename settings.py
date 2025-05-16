@@ -18,7 +18,9 @@ SESSION_CONFIGS = [
         exchange_rate=20, # Default exchange rate bewteen experimental points and soles
         c1_endowment=120, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
-        sequential_decision=False, # True: first interaction, then contribution | False: both at same time
+        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
+        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
+        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
         chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
 ]

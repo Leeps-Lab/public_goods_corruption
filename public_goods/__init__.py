@@ -739,7 +739,6 @@ class Instructions(Page):
 
 
 class FirstWaitPage(WaitPage):
-
     @staticmethod
     def after_all_players_arrive(group):
         player = group.get_players()[0]
@@ -748,7 +747,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 60 * 3
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -843,6 +842,8 @@ class Interaction(Page):
     def js_vars(player):
         return {
             'secuential_decision': player.session.config['sequential_decision'],
+            'private_interaction_duration': player.session.config['private_interaction_duration'],
+            'public_interaction_activation': player.session.config['public_interaction_activation'],
             'officer_interactions_public': TREATMENTS[player.participant.treatment].officer_interactions_public,
             'player_role': player.role,
             'my_id': player.id_in_group,
@@ -1255,7 +1256,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    # timeout_seconds = 60 * 1.5
+    timeout_seconds = 60 * 1.5
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
@@ -1355,7 +1356,7 @@ class ThirdWaitPage(WaitPage):
 
 
 class Results(Page):
-    # timeout_seconds = 20
+    timeout_seconds = 20
 
     @staticmethod
     def vars_for_template(player):
