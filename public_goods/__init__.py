@@ -5,6 +5,8 @@ import random
 from random import choices
 from unidecode import unidecode  # type: ignore
 from spanlp.palabrota import Palabrota  # type: ignore
+from spanlp.domain.countries import Country # type: ignore
+from spanlp.domain.strategies import JaccardIndex # type: ignore
 
 # Local utilities
 from sql_utils import (
@@ -452,7 +454,6 @@ def apply_corruption_penalty(group):
         officer.corruption_punishment = any_citizen_corrupt
 
 
-# NOTE: revision code desde aquí
 def set_payoffs(player):
     """
     Computes and sets the player's total payoff based on public and private interactions.
@@ -502,7 +503,8 @@ def set_payoffs(player):
 
 def handle_contribution(player, contribution_points):
     """
-    Validates and processes a citizen's contribution to the public project.
+    Validates and processes a citizen's contribution to the public project, and sends
+    a validation message to the frontend.
 
     Parameters:
         player (Player): The player making the contribution.
@@ -570,6 +572,7 @@ def reload_contribution(player):
     return {}
 
 
+# TODO: añadir que una transacción es una fila en la tabla de transactions
 def new_transaction(player, data):
     """
     Create a new transaction record and log its initial status.
@@ -747,7 +750,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    timeout_seconds = 60 * 3
+    # timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -1170,9 +1173,9 @@ class Interaction(Page):
             
             return {player.id_in_group: reload}
         
+        # Update chat
         elif 'text' in data and 'recipient' in data:
             recipient_id = data['recipient']
-
             channel = f'{min(my_id, recipient_id)}{max(my_id, recipient_id)}'
 
             print(f'recipient_id: {recipient_id}')
@@ -1181,27 +1184,31 @@ class Interaction(Page):
             print(f'group.get_player_by_id(recipient_id): {group.get_player_by_id(recipient_id)}')
             
             text_unfiltered = data['text']
-            ascii_text = unidecode(text_unfiltered)
+            ascii_text = unidecode(text_unfiltered.lower())
 
-            palabrota = Palabrota()
+            jaccard = JaccardIndex(threshold=0.8, normalize=False, n_gram=2)
+            palabrota = Palabrota(
+                censor_char="*", 
+                countries=[Country.PERU, Country.EL_SALVADOR], 
+                distance_metric=jaccard
+            )
 
-            if palabrota.contains_palabrota(ascii_text):
-                # Split both texts into words
-                original_words = text_unfiltered.split()
-                ascii_words = ascii_text.split()
+            # Manual slang censor
+            custom_slang = {"tmr", "tmre", "pta", "ptm", "ctm", "chch", "chcha"}
+            words = ascii_text.split()
+            pre_censored_words = [
+                "".join("*" for _ in word) if word in custom_slang else word
+                for word in words
+            ]
+            pre_censored_text = " ".join(pre_censored_words)
 
-                censored_output = []
-
-                for original_word, ascii_word in zip(original_words, ascii_words):
-                    if palabrota.contains_palabrota(ascii_word):
-                        # Replace the original word with censored version (same length, using symbols)
-                        censored_output.append(''.join(['*' for _ in original_word]))
-                    else:
-                        censored_output.append(original_word)
-
-                text_filtered = ' '.join(censored_output)
+            # Apply palabrota
+            if len(ascii_text.strip()) < 2:
+                text_filtered = ascii_text  # too short to process, allow it as-is
             else:
-                text_filtered = text_unfiltered
+                text_filtered = palabrota.censor(pre_censored_text)
+
+            print(f"Filtered: {text_filtered}")
 
             msg = Message.create(
                 group=group,

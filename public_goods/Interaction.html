@@ -169,7 +169,7 @@
                             {{ endfor }}
                         </div>
                     
-                    <!-- Participants chat wiht everyone -->
+                    <!-- Participants chat with everyone -->
                     {{ else }}
                         <div class="chat-container row p-5">
                             {{ for other in others }}
@@ -271,7 +271,6 @@
                     {{ endif}}
 
                     <!-- Transactions and balance -->
-                    <!-- TODO: que el header sea con fondo blanco, no transparente -->
                     <div class="row p-5">
                         <h5 class="text-center">Balance de transacciones</h5>
                         <div id="transactionsContainer">
@@ -316,6 +315,7 @@
         let sequentialDecisionFlag = js_vars.secuential_decision;
         let my_id = {{ player.id_in_group }};
         let other_ids = [{% for p in player.get_others_in_group %}{{ p.id_in_group }}{% endfor %}];
+        let hasOngoingTransaction = false;
 
         const ID_PREFIXES = {
             offerButton: 'id_offerButton_',
@@ -376,6 +376,9 @@
                     'receiverId': otherId
                 });
             }
+
+            hasOngoingTransaction = true;
+            console.log("Transaction started:", hasOngoingTransaction);
         }
 
         function closingTransaction(status, myId, otherId, transactionId) {
@@ -395,10 +398,19 @@
                 'receiverId': (status === 'Cancelado') ? otherId : myId,
                 'transactionId': transactionId
             });
+
+            hasOngoingTransaction = false;
+            console.log("Transaction closed:", hasOngoingTransaction);
         }
         
         function disableLeftEnableRight() {
             document.querySelectorAll(".col-5 input, .col-5 button").forEach(el => el.disabled = true);
+            
+            if (hasOngoingTransaction) {
+                console.log("Right side enable skipped: transaction active");
+                return;
+            }
+
             document.querySelectorAll(".chat-container input, .chat-container button").forEach(el => el.disabled = false);
         }
 
@@ -493,6 +505,7 @@
             if (data.offerPoints) {
                 const elements = getElements(data.otherId);
                 toggleInputs(elements, true);
+                hasOngoingTransaction = true;
 
                 if (data.initiator) {
                     elements.offerInput.value = "";
@@ -534,6 +547,7 @@
             if (data.requestPoints) {
                 const elements = getElements(data.otherId);
                 toggleInputs(elements, true);
+                hasOngoingTransaction = true;
 
                 if (data.initiator) {
                     elements.offerInput.value = "";
@@ -594,7 +608,7 @@
 
                 if (data.updateTransactions) {
                     if (data.reload === false) {
-                        console.log("able buttons transactions");
+                        console.log("enable buttons transactions");
                         let offerButton = document.getElementById('id_offerButton_' + data.otherId);
                         let offerInput = document.getElementById('id_offerInput_' + data.otherId);
                         let requestButton = document.getElementById('id_requestButton_' + data.otherId);
@@ -692,11 +706,6 @@
             // If session configs the sequential decision is True
             if (js_vars.secuential_decision) {
                 waitForTimerContent((remainingTime) => {
-                    if (!sequentialDecisionFlag) {
-                        enableBothSides();
-                        return;
-                    }
-
                     const isCitizen = js_vars.player_role !== "Funcionario";
 
                     const privateInteractionDuration = js_vars.private_interaction_duration;
