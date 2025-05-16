@@ -964,8 +964,6 @@ class Interaction(Page):
             print(f'status: {status}')
             print(f'transaction_id: {transaction_id}')
 
-            closing_transaction(player, data, status, transaction_id)
-
             channel = f'{min(initiator_id, receiver_id)}{max(initiator_id, receiver_id)}'
             action_label = 'oferta' if action == 'Ofrece' else 'solicitud'
             if status == 'Cancelado':
@@ -985,12 +983,15 @@ class Interaction(Page):
             )
 
             if status == 'Cancelado':
+                closing_transaction(player, data, status, transaction_id)
                 return {
                     initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [msg.to_dict()]},
                     receiver_id: {'cancelAction': True, 'otherId': initiator_id, 'chat': [msg.to_dict()]},
                 }    
 
             elif status == 'Rechazado':
+                closing_transaction(player, data, status, transaction_id)
+
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
                     'round': initiator.participant.treatment_round,
@@ -1038,6 +1039,7 @@ class Interaction(Page):
                             'initiator': False
                         }
                     }
+                closing_transaction(player, data, status, transaction_id)
 
                 filter_transactions_i = filter_transactions({
                     'participant_code': initiator.participant.code,
@@ -1051,6 +1053,9 @@ class Interaction(Page):
                     'segment': receiver.participant.segment,
                     'session_code': receiver.session.code,
                 })
+                print(f'filter_transactions_i: {filter_transactions_i}')
+                print(f'filter_transactions_r: {filter_transactions_r}')
+
                 return {
                     receiver_id: {
                         'updateTransactions': True, 

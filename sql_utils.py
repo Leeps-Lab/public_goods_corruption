@@ -515,7 +515,7 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
         result = cur.fetchone()
 
         if result:
-            transaction_id, initiator_id, receiver_id, action, points = result
+            transaction_id, initiator_id, receiver_id, action, points, _ = result
             print(f"Last open transaction: {result}")
             return {
                 'transactionId': transaction_id,
