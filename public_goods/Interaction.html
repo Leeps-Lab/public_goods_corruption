@@ -1,10 +1,14 @@
 {{ extends "../_templates/global/Page.html" }}
 
+{{ block styles }}
+    <link rel="stylesheet" href="{% static 'global/global.css' %}">
+{{ endblock }}
+
 {{ block content }}
 
-    <div class="container" style="padding-bottom: 20px;">
+    <div class="container">
         <!-- Header Row -->
-        <div class="row px-5 pb-5 pt-0">
+        <div class="row page-header-info">
             <div class="col-4 text-center"><b>Bloque:</b> {{ participant.segment }}</div>
             <div class="col-4 text-center"><b>Ronda:</b> {{ participant.treatment_round }}</div>
             <div class="col-4 text-center"><b>Rol:</b> {{ player.role }}</div>
@@ -78,12 +82,11 @@
                     right-column">
                     <!-- Chats and send/request buttons -->
                     {{ if chat_only_officer and player.id_in_group != 4}}
-                        <div class="chat-container row p-5">
+                        <div class="chat-container row">
                             <!-- Show only the first chat from others (Officer) -->
                             <div class="col" style="max-width: 400px;">
-                                <div class="row" style="margin-bottom: 30px;">
+                                <div class="row mb-4">
                                     <p class="text-center"><b>Chat con {{ others.0.role }}</b></p>
-                                    <!-- {{ chat nickname=player.role channel=others.0.channel }} -->
                                     <div id="chat_messages_{{ others.0.id_in_group }}" class="chat-box"></div>
                                     <div class="chat-input-container">
                                         <input 
@@ -171,11 +174,11 @@
                     
                     <!-- Participants chat with everyone -->
                     {{ else }}
-                        <div class="chat-container row p-5">
+                        <div class="chat-container row">
                             {{ for other in others }}
                                 <div class="col">
                                     <!-- Chat -->
-                                    <div class="row" style="margin-bottom: 30px;">
+                                    <div class="row mb-4">
                                         <p class="text-center"><b>Chat con {{ other.role }}</b></p>
                                         <div id="chat_messages_{{ other.id_in_group }}" class="chat-box"></div>
                                         <div class="chat-input-container">
@@ -271,7 +274,7 @@
                     {{ endif}}
 
                     <!-- Transactions and balance -->
-                    <div class="row p-5">
+                    <div class="row transaction-section">
                         <h5 class="text-center">Balance de transacciones</h5>
                         <div id="transactionsContainer">
                             <table class="table">
@@ -290,29 +293,38 @@
                             </table>
                         </div>
                     </div>
+
                 </div>
             {{ endif }}
+            
+            <!-- Next Button -->
+            <div style="border-top: solid #808080; padding-top: 14px;">
+                {{ if player.id_in_group == 4}}
+                    {{ next_button }}
+                {{ else }}
+                    <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">
+                        Siguiente
+                    </button>
+                {{ endif }}
+            </div>
 
             <!-- History Section -->
-            <div class="row px-5 pb-3 pt-0" style="border-top: solid #808080;">
+            <div class="row px-5 pb-3 pt-0">
                 <h4 class="text-center mt-4" style="padding-top: 24px;">Historia</h4>
                 <br>
                 {{ include '../_templates/global/history.html' }}
             </div>
+
         </div>
 
         <!-- Include block and general instructions -->
         {{ include_sibling 'instructions_buttons.html' }}
-    </div>
     
-    {{ if player.id_in_group == 4}}
-        <br>{{ next_button }}
-    {{ else }}
-        <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">Siguiente</button>
-    {{ endif }}
+    </div>
 
     <script>
         let sequentialDecisionFlag = js_vars.secuential_decision;
+        let privateInteractionFlag = js_vars.private_interaction;
         let my_id = {{ player.id_in_group }};
         let other_ids = [{% for p in player.get_others_in_group %}{{ p.id_in_group }}{% endfor %}];
         let hasOngoingTransaction = false;
@@ -704,7 +716,7 @@
             liveSend({});
 
             // If session configs the sequential decision is True
-            if (js_vars.secuential_decision) {
+            if (sequentialDecisionFlag && privateInteractionFlag) {
                 waitForTimerContent((remainingTime) => {
                     const isCitizen = js_vars.player_role !== "Funcionario";
 
@@ -734,10 +746,10 @@
                         }, 5000);
                     }
 
-                    // Step 1: Immediately, right side enabled, left side disabled
+                    // Right side enabled, left side disabled
                     disableLeftEnableRight();
 
-                    // Step 2: After publicInteractionActivation seconds, enable left
+                    // After publicInteractionActivation seconds, enable left
                     if (remainingTime < leftSideActivationThreshold) {
                         enableLeft();
                     } else {
@@ -747,7 +759,7 @@
                         }, delay * 1000);
                     }
 
-                    // Optional alert after left side activates
+                    // Alert after left side activates
                     if (timeUntilAlert <= 0) {
                         showAlert('Ya puedes decidir cuánto contribuir al proyecto del grupo.', "alert-info");
                     } else {
@@ -756,7 +768,7 @@
                         }, timeUntilAlert * 1000);
                     }
 
-                    // Step 3: After privateInteractionDuration, disable right side
+                    // After privateInteractionDuration, disable right side
                     if (remainingTime <= 0) {
                         disableRightSide();
                     } else {

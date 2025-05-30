@@ -34,7 +34,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 3 # NOTE: change if neccesary (round per treatment * num of treatments)
+    NUM_ROUNDS = 12 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -750,7 +750,7 @@ class FirstWaitPage(WaitPage):
 
 
 class Interaction(Page):
-    # timeout_seconds = 60 * 3
+    timeout_seconds = 60 * 3
     form_model = 'player'
 
     @staticmethod
@@ -847,6 +847,7 @@ class Interaction(Page):
             'secuential_decision': player.session.config['sequential_decision'],
             'private_interaction_duration': player.session.config['private_interaction_duration'],
             'public_interaction_activation': player.session.config['public_interaction_activation'],
+            'private_interaction': TREATMENTS[player.participant.treatment].private_interaction,
             'officer_interactions_public': TREATMENTS[player.participant.treatment].officer_interactions_public,
             'player_role': player.role,
             'my_id': player.id_in_group,

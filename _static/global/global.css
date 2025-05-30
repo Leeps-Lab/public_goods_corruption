@@ -19,3 +19,103 @@
     line-height: 1.5;
     color: #333;
 }
+
+/* 1. Interaction layout */
+.page-header-info {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+}
+
+.main-content-row {
+    border-top: solid #808080;
+    padding-bottom: 20px;
+}
+
+/* 1.1 Public interaction layout */
+
+
+/* 1.2 Private interaction layout */
+
+/* 1.2.1. Chat Styles */  
+.chat-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding-top: 1.5rem;
+    padding-right: 2rem;
+    padding-left: 2rem;
+}
+
+.chat-box {
+    height: 200px;
+    width: 100%;
+    border: 1px solid lightgrey;
+    border-radius: 0.5rem;
+    margin-bottom: 10px;
+    padding: 10px;
+    overflow: auto;
+    font-size: 0.95rem;
+}
+    
+.chat-input-container {
+    display: flex;
+    gap: 5px;
+    width: 100%;
+    font-size: 0.95rem;
+}
+
+.chat-input {
+    flex: 1;
+    width: calc(100% - 60px);
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.chat-send {
+    background: #6c757d;
+    color: white;
+    border: none;
+    width: 55px;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.selfText {
+    background: lightgray;
+    display: inline-block;
+    position: relative;
+    left: 100%;
+    transform: translateX(-100%);
+    margin-bottom: 5px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 20px;
+    max-width: 80%;
+}
+
+.otherText {
+    background: #38A1F3;
+    color: white;
+    left: 0;
+    display: inline-block;
+    margin-bottom: 5px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 20px;
+    max-width: 80%;
+}
+
+.transferInfoText {
+    text-align: center;
+    color: black;
+    font-style: italic;}
+
+/* 1.2.2. Chat Styles */  
+.transaction-section {
+    padding: 1.5rem 2rem; /* Top/Bottom 1.5rem, Left/Right 2rem */
+}
+
+#transactionsContainer {
+    max-height: 200px; /* Adjust as needed */
+    overflow-y: auto;
+    font-size: 0.875rem; /* Smaller font (14px) */
+}
