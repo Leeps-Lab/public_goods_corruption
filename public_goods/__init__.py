@@ -56,15 +56,15 @@ class Group(BaseGroup):
     # Decision variables: For treatments where Officer decides the allocation
     allocation1 = models.FloatField( # Allocation for Citizen 1
         blank=True, 
-        label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 1?'
+        label='¿Cuál es la cantidad de recursos que quieres asignar al Ciudadano 1?'
     )
     allocation2 = models.FloatField( # Allocation for Citizen 2
         blank=True, 
-        label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 2?'
+        label='¿Cuál es la cantidad de recursos que quieres asignar al Ciudadano 2?'
     )
     allocation3 = models.FloatField( # Allocation for Citizen 3
         blank=True, 
-        label='¿Cuál es la cantidad de recursos que quieres distribuir al Ciudadano 3?'
+        label='¿Cuál es la cantidad de recursos que quieres asignar al Ciudadano 3?'
     )
 
 

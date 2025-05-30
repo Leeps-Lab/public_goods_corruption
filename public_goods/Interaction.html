@@ -715,11 +715,11 @@
             liveSend({'type': 'reloadPage'});
             liveSend({});
 
-            // If session configs the sequential decision is True
-            if (sequentialDecisionFlag && privateInteractionFlag) {
-                waitForTimerContent((remainingTime) => {
-                    const isCitizen = js_vars.player_role !== "Funcionario";
+            const isCitizen = js_vars.player_role !== "Funcionario";
 
+            // If the sequential decision and private interaction are True
+            if (sequentialDecisionFlag && privateInteractionFlag && isCitizen) {
+                waitForTimerContent((remainingTime) => {
                     const privateInteractionDuration = js_vars.private_interaction_duration;
                     const publicInteractionActivation = js_vars.public_interaction_activation;
                     const leftSideActivationThreshold = privateInteractionDuration - publicInteractionActivation;

@@ -88,7 +88,7 @@
 
                 <!-- Example 1 -->
                 <div class="example-box">
-                    <b>Ejemplo 1 (Contribución mínima y recursos públicos asignados equitativamente):</b><br>
+                    <b>Ejemplo 1 (Contribución mínima):</b><br>
                     Todos los ciudadanos contribuyen 0 puntos.<br>
                     {{ if participant.treatment in ['T4'] }}
                         El valor del multiplicador aleatorio es <b>1,5</b>.<br>
@@ -107,7 +107,7 @@
                 
                 <!-- Example 2 -->
                 <div class="example-box">
-                    <b>Ejemplo 2 (Contribución máxima y recursos públicos asignados equitativamente):</b><br>
+                    <b>Ejemplo 2 (Contribución máxima y asignación de recursos general):</b><br>
                     {{ if participant.treatment in ['T3'] }}
                         El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
                         Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
@@ -131,13 +131,13 @@
 
                 <!-- Example 3 -->
                  <div class="example-box">
-                    <b>Ejemplo 3 (Contribución máxima y recursos públicos asignados desigualmente):</b><br>
+                    <b>Ejemplo 3 (Contribución máxima y asignación de recursos selectivo):</b><br>
                     {{ if participant.treatment in ['T3'] }}
                         El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
                         Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
                         El funcionario reparte <b>90 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>280 puntos</b> al ciudadano 3.<br>
                         Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 120 + 90 = <b>90 puntos</b><br>
-                        Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
+                        Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300 = <b>300 puntos</b><br>
                         Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
                     {{ else }}
                         Todos los ciudadanos contribuyen 100 puntos.<br>
