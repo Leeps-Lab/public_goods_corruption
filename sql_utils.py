@@ -94,6 +94,7 @@ def create_tables(db_path=DB_PATH):
                 participant_code TEXT NOT NULL,
                 endowment INTEGER NOT NULL,
                 contribution INTEGER,
+                total_public_goods FLOAT,
                 public_good_gross_gain FLOAT,
                 public_interaction_payoff FLOAT NOT NULL,
                 total_transfers_received INTEGER NOT NULL,
@@ -408,7 +409,8 @@ def filter_history(data, db_path=DB_PATH):
                 round, 
                 participant_code, 
                 endowment, 
-                contribution, 
+                contribution,
+                total_public_goods,
                 public_good_gross_gain, 
                 total_transfers_received, 
                 total_transfers_given, 
@@ -439,14 +441,15 @@ def filter_history(data, db_path=DB_PATH):
                 "Participant": row[2],
                 "Endowment": row[3],
                 "Contribution": row[4] or 0,
-                "PublicGoodRawGain": row[5],
-                "TotalTransfersReceived": row[6],
-                "TotalTransfersGiven": row[7],
-                "PublicInteractionPayoff": row[8],
-                "PrivateInteractionPayoff": row[9],
-                "Payment": row[10],
-                "Timeout": row[11],
-                "Audited": row[12]
+                "TotalPublicGoods": row[5], 
+                "PublicGoodGrossGain": row[6],
+                "TotalTransfersReceived": row[7],
+                "TotalTransfersGiven": row[8],
+                "PublicInteractionPayoff": row[9],
+                "PrivateInteractionPayoff": row[10],
+                "Payment": row[11],
+                "Timeout": row[12],
+                "Audited": row[13]
             }
             for row in results
         ]

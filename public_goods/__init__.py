@@ -666,6 +666,7 @@ def insert_history(group):
             'participant_code': player.participant.code,
             'endowment': player.initial_points,
             'contribution': player.field_maybe_none('contribution_points'),
+            'total_public_goods': player.group.total_allocation,
             'public_good_gross_gain': player.actual_allocation if player.id_in_group != 4 else None,
             'public_interaction_payoff': public_payoff,
             'total_transfers_received': transfers.get('transfers_received', 0),

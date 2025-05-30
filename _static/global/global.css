@@ -10,7 +10,7 @@
 
 .math-box {
     background-color: #f4f4f4;
-    border-left: 4px solid #4B40E0; /* Subtle accent for math */
+    border-left: 4px solid #4B40E0;
     padding: 10px 15px;
     margin: 12px 0;
     text-align: center;
@@ -111,11 +111,11 @@
 
 /* 1.2.2. Chat Styles */  
 .transaction-section {
-    padding: 1.5rem 2rem; /* Top/Bottom 1.5rem, Left/Right 2rem */
+    padding: 1.5rem 2rem; /* Top/Bottom, Left/Right */
 }
 
 #transactionsContainer {
-    max-height: 200px; /* Adjust as needed */
+    max-height: 200px;
     overflow-y: auto;
-    font-size: 0.875rem; /* Smaller font (14px) */
+    font-size: 0.875rem;
 }
