@@ -34,7 +34,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 12 # NOTE: change if neccesary (round per treatment * num of treatments)
+    NUM_ROUNDS = 10 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -159,12 +159,12 @@ class Player(BasePlayer):
 
     # Comprehension question for T3
     comp_t3 = models.IntegerField(
-        label="¿Cuántos puntos recibe el ciudadano 1 al inicio de cada ronda?",
+        label="¿Cuál es la dotación inicial del ciudadano 1 en cada ronda?",
         choices=[
-            [1, '50 puntos'],
-            [2, '100 puntos'],
-            [3, '120 puntos'], # Correct
-            [4, '140 puntos'],
+            [1, '100 puntos'],
+            [2, '120 puntos'],
+            [3, '140 puntos'],
+            [4, '150 puntos'], # Correct
         ], 
         widget=widgets.RadioSelect
     )
@@ -267,7 +267,7 @@ def creating_session(subsession):
     - Sets participant fields like segment, treatment round, and session payoff
     - Randomly assigns audits based on session config
     - Sets the group's total initial points
-    - Sets the group's multiplier (fixed or random)
+    - Sets the group's multiplier (fixed)
     """
     
     # Retrieve session-level configuration
@@ -718,7 +718,7 @@ class Instructions(Page):
         solutions = {
             'comp_q1': 3, 'comp_q2': 2, 'comp_q3': 4, 'comp_q4': 2,
             'comp_bl1': 3, 'comp_bl2': 1, 'comp_t1': 2, 'comp_t2': 1,
-            'comp_t3': 3, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
+            'comp_t3': 4, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
         }
 
         # Identify incorrect answers
@@ -746,8 +746,9 @@ class FirstWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
         player = group.get_players()[0]
+        # Sets random multiplier
         if TREATMENTS[player.participant.treatment].random_multiplier:
-            group.multiplier = random.choice([1.5, 2.5])
+            group.multiplier = random.choices([1.5, 2.5], weights=[1, 2])[0]
 
 
 class Interaction(Page):

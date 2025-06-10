@@ -22,7 +22,7 @@
     }
     
     .info-icon:hover::after {
-        content: "Si ves un monto en rojo, es porque no se envió tu decisión a tiempo y se aplicó una penalización.";
+        content: attr(data-tooltip);
         position: absolute;
         bottom: 125%;
         left: 50%;
@@ -42,7 +42,7 @@
 
 <div>
     <div class="row">
-        <table class="table">
+        <table class="table" style="font-size: 0.875rem;">
             <thead>
                 <tr>
                     <th rowspan="2">Bloque</th>
@@ -88,6 +88,7 @@
                         </th>
                         <th>
                             Recursos públicos totales
+                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador">i</span>
                             <br>
                             <span class="note-number">(3)</span>
                         </th>
@@ -98,12 +99,13 @@
                     {{ else }}
                         <th>
                             Recursos públicos totales
+                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador">i</span>
                             <br>
                             <span class="note-number">(2)</span>
                         </th>
                     {{ endif }}
                     <th class="public-end">Pago de la interacción pública
-                        <span class="info-icon">i</span>
+                        <span class="info-icon" data-tooltip="Si ves un monto en rojo, es porque no se envió tu decisión a tiempo y se aplicó una penalización.">i</span>
                         <br>
                         {{ if player.id_in_group != 4 }}
                             <span class="note-number">(5) = (1) - (2) + (4)</span>
