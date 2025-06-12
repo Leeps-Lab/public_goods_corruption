@@ -34,7 +34,7 @@ create_tables()
 class C(BaseConstants):
     NAME_IN_URL = 'interaccion'
     PLAYERS_PER_GROUP = 4
-    NUM_ROUNDS = 10 # NOTE: change if neccesary (round per treatment * num of treatments)
+    NUM_ROUNDS = 18 # NOTE: change if neccesary (round per treatment * num of treatments)
     CITIZEN_ENDOWMENT = 100 # Defaul initial endowment for citizens
     CITIZEN1_ROLE = 'Ciudadano 1'
     CITIZEN2_ROLE = 'Ciudadano 2'
@@ -271,8 +271,6 @@ def creating_session(subsession):
     """
     
     # Retrieve session-level configuration
-    officer_endowment = subsession.session.config['officer_endowment']
-    c1_endowment = subsession.session.config['c1_endowment']
     audit_prob = subsession.session.config['audit_probability']
 
     subsession.group_randomly(fixed_id_in_group=True)
@@ -284,15 +282,6 @@ def creating_session(subsession):
         player.participant.treatment = player.session.config['treatment_order'][player.participant.segment - 1]
         player.participant.session_payoff = 0
         
-        # Assign initial points based on role
-        player.initial_points = C.CITIZEN_ENDOWMENT if player.role != C.OFFICER_ROLE else officer_endowment
-
-        # Heterogeneous endowment for citizen 1 (if applicable)
-        if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1:
-            player.initial_points = c1_endowment
-
-        player.current_points = player.initial_points
-
         # Determine if player will be audited (if audits are randomized)
         if TREATMENTS[player.participant.treatment].random_audits:
             player.corruption_audit = choices([True, False], weights=[audit_prob, 1 - audit_prob])[0]
@@ -303,7 +292,6 @@ def creating_session(subsession):
             print(f'Treatment playing: {player.participant.treatment}')
         
         # Initialize group-level fields
-        player.group.total_initial_points += player.initial_points
         player.group.multiplier = player.session.config['multiplier']
 
 
@@ -745,11 +733,26 @@ class Instructions(Page):
 class FirstWaitPage(WaitPage):
     @staticmethod
     def after_all_players_arrive(group):
+        players = group.get_players()
         player = group.get_players()[0]
+        officer_endowment = group.subsession.session.config['officer_endowment']
+        c1_endowment = group.subsession.session.config['c1_endowment']
         # Sets random multiplier
         if TREATMENTS[player.participant.treatment].random_multiplier:
             group.multiplier = random.choices([1.5, 2.5], weights=[1, 2])[0]
+        
+        for player in players:
+            # Assign initial points based on role
+            player.initial_points = C.CITIZEN_ENDOWMENT if player.role != C.OFFICER_ROLE else officer_endowment
 
+            # Heterogeneous endowment for citizen 1 (if applicable)
+            if TREATMENTS[player.participant.treatment].heterogenous_citizens and player.id_in_group == 1:
+                player.initial_points = c1_endowment
+
+            player.current_points = player.initial_points
+
+            # Initialize group-level fields
+            group.total_initial_points += player.initial_points
 
 class Interaction(Page):
     timeout_seconds = 60 * 3
