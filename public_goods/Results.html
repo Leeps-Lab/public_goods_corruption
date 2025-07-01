@@ -1,0 +1,47 @@
+{{ extends "../_templates/global/Page.html" }}
+
+{{ block styles }}
+    <link rel="stylesheet" href="{% static 'global/global.css' %}">
+{{ endblock }}
+
+{{ block content }}
+
+    <div class="container">
+        <!-- Header Row -->
+        <div class="row page-header-info">
+            <div class="col-4 text-center"><b>Bloque:</b> {{ player.participant.segment }}</div>
+            <div class="col-4 text-center"><b>Ronda:</b> {{ player.participant.treatment_round }}</div>
+            <div class="col-4 text-center"><b>Rol:</b> {{ player.role }}</div>
+        </div>
+
+        <div class="row main-content-row">
+            <!-- Audit Content -->
+            {% if random_audits and corruption_audit %}
+                <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
+                    <h5>Fuiste auditado</h5><br>
+
+                    {% if player.corruption_punishment %}
+                        <p style="color: #D72638; font-weight: bold;"> 
+                            Se detectó una conducta corrupta. Se te aplicó una penalidad del 100% de tu pago de esta ronda.
+                        </p>
+                    {% else %}
+                        <p style="color: #2E8B57; font-weight: bold;">
+                            No se detectó ninguna conducta corrupta.
+                        </p>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            <!-- History Section -->
+            <h4 class="text-center" style="margin-top: 2rem;">Este es el resultado de la ronda</h4>
+            <br>
+            {{ include '../_templates/global/history.html' }} 
+        </div>    
+    </div>
+    
+    <!-- Next Button -->
+    <div style="border-top: solid #808080; padding-top: 14px;">
+        {{ next_button }}
+    </div>
+
+{{ endblock }}
