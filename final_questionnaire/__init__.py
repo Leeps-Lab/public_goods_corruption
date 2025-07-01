@@ -1,8 +1,5 @@
 from otree.api import *
 
-# TODO: Agregar cuestionario demográfico después de FinalQuestionnaire
-# Inlcuye: Edad, género, carrera, ciclo, distrito de residencia
-
 class C(BaseConstants):
     NAME_IN_URL = 'cuestionario_final'
     PLAYERS_PER_GROUP = None
