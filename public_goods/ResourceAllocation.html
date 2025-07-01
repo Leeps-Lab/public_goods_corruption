@@ -1,5 +1,9 @@
 {{ extends "../_templates/global/Page.html" }}
 
+{{ block styles }}
+    <link rel="stylesheet" href="{% static 'global/global.css' %}">
+{{ endblock }}
+
 {{ block content }}
 
     <div class="otree-form-errors alert alert-danger">      
@@ -8,9 +12,9 @@
 
     <div class="container" style="padding-bottom: 20px;">
         <!-- Header Row -->
-        <div class="row px-5 pb-5 pt-0">
-            <div class="col-4 text-center"><b>Bloque:</b> {{ segment }}</div>
-            <div class="col-4 text-center"><b>Ronda:</b> {{ player.round_number }}</div>
+        <div class="row page-header-info">
+            <div class="col-4 text-center"><b>Bloque:</b> {{ participant.segment }}</div>
+            <div class="col-4 text-center"><b>Ronda:</b> {{ participant.treatment_round }}</div>
             <div class="col-4 text-center"><b>Rol:</b> {{ player.role }}</div>
         </div>
 
@@ -39,8 +43,13 @@
                 </div>
             </div>
 
+            <!-- Next Button -->
+            <div style="border-top: solid #808080; padding-top: 14px;">
+                <button id="next_button" type="button" class="btn btn-primary" onclick="verifyAllocation()">Siguiente</button>
+            </div>
+
             <!-- History Section -->
-            <div class="row px-5 pb-3 pt-0" style="border-top: solid #808080;">
+            <div class="row px-5 pb-3 pt-0">
                 <h4 class="text-center mt-4" style="padding-top: 24px;">Historia</h4>
                 <br>
                 {{ include '../_templates/global/history.html' }}
@@ -52,8 +61,6 @@
         
     </div>
     
-    <button id="next_button" type="button" class="btn btn-primary" onclick="verifyAllocation()">Siguiente</button>
-
     <script>
         let calcOperation = []; // Store calculations in an array
 

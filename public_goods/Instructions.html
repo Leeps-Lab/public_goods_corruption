@@ -1,0 +1,35 @@
+{{ block styles }}
+    <link rel="stylesheet" href="{% static 'global/global.css' %}">
+{{ endblock }}
+
+{{ block title }}
+    Instrucciones
+{{ endblock }}
+
+{{ block content }}
+
+    <style>
+        ol > li {
+            margin-top: 10px;
+        }
+        ol[type="a"] > li {
+            margin-top: 8px;
+        }
+    </style>
+
+    <p>{{ include_sibling 'instructions_body.html' }}</p><br>
+
+    <p>
+        Antes de empezar, responde
+        {{ if participant.segment == 1 }}
+            las siguientes preguntas:
+        {{ else }}
+            la siguiente pregunta:
+        {{ endif }}
+    </p>
+
+    {{ formfields }}
+     
+    {{ next_button }}
+    
+{{ endblock }}
