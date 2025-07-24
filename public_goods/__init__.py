@@ -473,11 +473,14 @@ def set_payoffs(player):
     timeout = player.timeout_penalty
     
     if player.role != C.OFFICER_ROLE: # Citizen
-        contribution = player.field_maybe_none('contribution_points') or 0
-        public_interaction_payoff = (
-            player.initial_points - contribution + player.actual_allocation
-        ) * (1 - timeout)
-    else: # Officer
+        if timeout and player.field_maybe_none('contribution_points') is None:
+            public_interaction_payoff = 0
+        else:
+            contribution = player.field_maybe_none('contribution_points') or 0
+            public_interaction_payoff = (
+                player.initial_points - contribution + player.actual_allocation
+            )
+    else:
         public_interaction_payoff = player.initial_points * (1 - timeout)
 
     corruption_penalty = player.field_maybe_none('corruption_punishment') or 0
@@ -1243,7 +1246,7 @@ class Interaction(Page):
 
     @staticmethod
     def before_next_page(player, timeout_happened):
-        if timeout_happened and player.role != C.OFFICER_ROLE:
+        if timeout_happened and (player.role != C.OFFICER_ROLE) and (player.field_maybe_none('contribution_points') is None):
             player.timeout_penalty = True 
 
 

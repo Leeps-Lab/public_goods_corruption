@@ -33,7 +33,6 @@
                     <p>Tu rol es el de <b>funcionario</b>.</p>
                     <p>El multiplicador es <b>{{ group.multiplier }}</b></p>
                     <p>Tienes <b><span id="points-value">{{ player.current_points }}</span> puntos</b>.</p>
-                    <p>El multiplicador es <b>{{ group.multiplier }}</b></p>
                 {{ else }}
                     <p>Tu rol es el de <b>ciudadano {{ player.id_in_group }}</b>.</p>
                     <div id="beforeContribution">
@@ -305,10 +304,12 @@
             <!-- Next Button -->
             <div style="border-top: solid #808080; padding-top: 14px;">
                 {{ if player.id_in_group == 4}}
-                    {{ next_button }}
+                    <button class="btn btn-success">
+                        Siguiente página &rarr;
+                    </button>
                 {{ else }}
-                    <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">
-                        Siguiente
+                    <button id="next_button" type="button" class="btn btn-success" onclick="verifyContribution()">
+                        Siguiente página &rarr;
                     </button>
                 {{ endif }}
             </div>

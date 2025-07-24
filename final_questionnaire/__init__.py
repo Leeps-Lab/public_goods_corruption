@@ -43,17 +43,24 @@ class Player(BasePlayer):
     )
 
     # Final Questionnaire
-    understanding = models.LongStringField(
+    feedback_issues = models.LongStringField(
         blank=True,
-        label='¿Qué crees que no estuvo claro de las instrucciones?',
+        label='¿Hubo algo que no entendiste o te generó dudas durante la sesión? Por favor, sé lo más específico posible.',
     )
-    doubts = models.LongStringField(
+    feedback_suggestions = models.LongStringField(
         blank=True,
-        label='¿Qué dudas tuviste durante la sesión?',
+        label='¿Tienes alguna sugerencia para mejorar las instrucciones o la experiencia del juego?',
     )
-    suggestions = models.LongStringField(
-        blank=True,
-        label='¿Qué sugerencias tienes para mejorar la claridad de las instrucciones o la experiencia del juego?',
+    chat_analysis_expectation = models.IntegerField(
+        choices=[
+            [1, 'Nada probable'],
+            [2, 'Poco probable'],
+            [3, 'Medianamente probable'],
+            [4, 'Muy probable'],
+            [5, 'Totalmente seguro'],
+        ],
+        label='¿Qué tan probable crees que es que los investigadores analicen lo que se escribió en los chats?',
+        widget=widgets.RadioSelect,
     )
 
 
@@ -64,7 +71,7 @@ class Demographics(Page):
 
 class FinalQuestionnaire(Page):
     form_model = 'player'
-    form_fields = ['understanding', 'doubts', 'suggestions']
+    form_fields = ['feedback_issues', 'feedback_suggestions', 'chat_analysis_expectation']
 
 
 page_sequence = [Demographics, FinalQuestionnaire]

@@ -15,7 +15,7 @@ SESSION_CONFIGS = [
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
         participation_fee=7.50, # Default participation fee
-        exchange_rate=20, # Default exchange rate bewteen experimental points and soles
+        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
         c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
         private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
@@ -51,7 +51,6 @@ ROOMS = [
 ]
 
 ADMIN_USERNAME = 'admin'
-# for security, best to set admin password in an environment variable
 ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
 
 DEMO_PAGE_INTRO_HTML = """
