@@ -7,10 +7,10 @@ load_dotenv()
 SESSION_CONFIGS = [
     dict(
         name='public_goods',
-        display_name='public_goods',
+        display_name='public_goods_all_treatments',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
-        treatment_order=['BL2', 'T2', 'T3'],
-        num_rounds=6, # NOTE: change num of rounds per treatment
+        treatment_order=['BL1', 'BL2', 'T1', 'T2', 'T3', 'T4'],
+        num_rounds=2, # NOTE: change num of rounds per treatment
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
