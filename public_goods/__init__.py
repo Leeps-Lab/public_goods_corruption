@@ -269,11 +269,15 @@ def creating_session(subsession):
     - Sets the group's total initial points
     - Sets the group's multiplier (fixed)
     """
-    
+    if subsession.round_number == 1:
+        pass
+    elif subsession.round_number > 1 and ((subsession.round_number - 1) % subsession.session.config['num_rounds'] == 0):
+        subsession.group_randomly(fixed_id_in_group=True)
+    else:
+        subsession.group_like_round(subsession.round_number - 1)
+
     # Retrieve session-level configuration
     audit_prob = subsession.session.config['audit_probability']
-
-    subsession.group_randomly(fixed_id_in_group=True)
 
     for player in subsession.get_players():
         # Initialize participant-level fields
