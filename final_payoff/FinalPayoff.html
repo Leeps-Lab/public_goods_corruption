@@ -1,26 +1,110 @@
 {{ block title }}
-    Pago
+    Resumen de tu pago final
 {{ endblock }}
 
 {{ block content }}
-    
-    <p>Obtuviste en promedio {{ mean_points }}, que equivalen a {{ additional_fee }}.</p>
-    <p>El tipo de cambio es S/1 por cada 20 puntos.</p>
-    <br>
-    <h5>Tu pago final es:</h5>
-    <table class="payment-table">
-        <tr>
-            <td style="padding-right: 20px;">Pago fijo:</td>
-            <td style="text-align: right;"><b>{{ participation_fee }}</b></td>
-        </tr>
-        <tr>
-            <td style="padding-right: 20px;">Pago adicional:</td>
-            <td style="text-align: right;"><b>{{ additional_fee }}</b></td>
-        </tr>
-        <tr>
-            <td style="padding-right: 20px;"><b>Total:</b></td>
-            <td style="text-align: right;"><b>{{ total_payoff }}</b></td>
-        </tr>
-    </table>
-    
+    <style>
+        .pay-container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e6e6e6;
+            border-radius: 14px;
+            padding: 32px 36px 28px;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #1f2933;
+        }
+        .pay-header {
+            margin-bottom: 14px;
+        }
+        .pay-subtle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .summary-box {
+            background: #f9fafb;
+            border: 1px solid #edf0f3;
+            border-radius: 12px;
+            padding: 14px 14px 0;
+            margin-bottom: 18px;
+        }
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .payment-table td {
+            padding: 6px 0;
+            font-size: 14px;
+        }
+        .payment-table td:nth-child(2) {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .payment-table .total-row td {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+            font-weight: 600;
+        }
+        .pay-form-box {
+            margin-top: 16px;
+            background: #f9fafb;
+            border: 1px solid #edf0f3;
+            border-radius: 10px;
+            padding: 12px 14px 10px;
+        }
+        .pay-form-box h5 {
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .pay-link {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 14px;
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .pay-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+
+    <div class="pay-container">
+        <div class="pay-header">
+            <p style="margin-bottom: 0;">Durante el experimento ganaste en promedio <b>{{ mean_points }}</b> puntos por ronda.</p>
+            <p class="pay-subtle">Tipo de cambio: S/ 1 por cada {{ session.config.exchange_rate }} puntos.</p>
+        </div>
+
+        <div class="summary-box">
+            <table class="payment-table">
+                <tr>
+                    <td>Pago fijo por participación</td>
+                    <td>{{ participation_fee }}</td>
+                </tr>
+                <tr>
+                    <td>Pago adicional por puntos obtenidos</td>
+                    <td>{{ additional_fee }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>Total a recibir</td>
+                    <td>{{ total_payoff }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="pay-form-box">
+            <h5 style="color: #dc2626; margin-bottom: 8px;">Importante: Para recibir tu pago</h5>
+            <p style="font-size: 14px; color: #1f2933; margin-bottom: 8px; font-weight: 500;">
+                <strong>Debes completar el siguiente formulario con tus datos bancarios.</strong>
+            </p>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
+                Sin este formulario no podremos procesar tu pago. Por favor, complétalo ahora:
+            </p>
+            <!-- Reemplaza el # por el enlace real -->
+            <a class="pay-link" href="https://forms.gle/wVr1FR1U816mvYpd6" target="_blank" rel="noopener" style="font-size: 15px; font-weight: 600; background: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 4px;">
+                📋 Completar formulario de pago →
+            </a>
+        </div>
+    </div>
 {{ endblock }}
