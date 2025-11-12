@@ -81,7 +81,7 @@ ROOMS = [
     dict(
         name='e2labup',
         display_name="E²LabUP Session",
-        # participant_label_file='_rooms/e2labup.txt',
+        participant_label_file='_rooms/e2labup-room.txt',
     ),
     dict(name='live_demo', display_name='Room for live demo (no participant labels)'),
 ]
