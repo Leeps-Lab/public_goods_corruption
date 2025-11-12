@@ -14,15 +14,15 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     # Demographics
     age = models.IntegerField(
-        label='¿Cuál es tu edad?',
+        label='*¿Cuál es tu edad?',
         min=18,
     )
     gender = models.StringField(
-        label='¿Cuál es tu género?',
+        label='*¿Cuál es tu género?',
         choices=['Masculino', 'Femenino', 'Otro', 'Prefiero no contestar'],
     )
     zone_residence = models.StringField(
-        label='¿Cuál es tu zona de residencia?',
+        label='*¿Cuál es tu zona de residencia?',
         choices=[
             'Zona 1: Puente Piedra, Comas, Carabayllo',
             'Zona 2: Independencia, Los Olivos, San Martín de Porras',
@@ -41,15 +41,15 @@ class Player(BasePlayer):
         label='¿En qué universidad estudias?',
         choices=[
             'Universidad del Pacífico',
-            # 'Pontificia Universidad Católica del Perú (PUCP)',
+            'Pontificia Universidad Católica del Perú (PUCP)',
             'Universidad Nacional Mayor de San Marcos (UNMSM)',
-            # 'Universidad de Lima',
-            # 'Universidad San Ignacio de Loyola (USIL)',
-            # 'Universidad Peruana de Ciencias Aplicadas (UPC)',
-            # 'Universidad Nacional de Ingeniería (UNI)',
-            # 'Universidad Nacional Agraria La Molina (UNALM)',
+            'Universidad de Lima',
+            'Universidad San Ignacio de Loyola (USIL)',
+            'Universidad Peruana de Ciencias Aplicadas (UPC)',
+            'Universidad Nacional de Ingeniería (UNI)',
+            'Universidad Nacional Agraria La Molina (UNALM)',
             'Universidad de Piura (UDEP)',
-            # 'Universidad ESAN',
+            'Universidad ESAN',
             'Otra',
         ],
     )
@@ -94,10 +94,11 @@ class Player(BasePlayer):
         ],
     )
     previous_experiments = models.IntegerField(
-        label='¿Has participado en experimentos económicos o de comportamiento anteriormente?',
+        label='*¿Has participado en experimentos económicos o de comportamiento anteriormente?',
         choices=[
             [0, 'No, esta es mi primera vez'],
-            [1, 'Sí, ya he participado anteriormente']
+            [1, 'Sí, ya he participado anteriormente'],
+            [2, 'No recuerdo']
         ],
         widget=widgets.RadioSelect,
     )
@@ -111,7 +112,7 @@ class Player(BasePlayer):
             [4, 'Bastante'],
             [5, 'Mucho'],
         ],
-        label='¿Cuánto confías en los funcionarios públicos en general?',
+        label='*¿Cuánto confías en los funcionarios públicos en general?',
         widget=widgets.RadioSelect,
     )
     trust_government = models.IntegerField(
@@ -122,7 +123,7 @@ class Player(BasePlayer):
             [4, 'Bastante'],
             [5, 'Mucho'],
         ],
-        label='¿Cuánto confías en las instituciones del gobierno?',
+        label='*¿Cuánto confías en las instituciones públicas?',
         widget=widgets.RadioSelect,
     )
     fairness_importance = models.IntegerField(
@@ -133,7 +134,7 @@ class Player(BasePlayer):
             [4, 'Muy importante'],
             [5, 'Extremadamente importante'],
         ],
-        label='¿Qué tan importante es para ti que los recursos públicos se distribuyan de manera justa?',
+        label='*¿Qué tan importante es para ti que los recursos públicos se distribuyan de manera justa?',
         widget=widgets.RadioSelect,
     )
 
@@ -146,7 +147,7 @@ class Player(BasePlayer):
             [4, 'Muy claras'],
             [5, 'Completamente claras'],
         ],
-        label='¿Qué tan claras fueron las instrucciones del experimento?',
+        label='*¿Qué tan claras fueron las instrucciones del experimento?',
         widget=widgets.RadioSelect,
     )
     feedback_issues = models.LongStringField(
@@ -156,17 +157,6 @@ class Player(BasePlayer):
     feedback_suggestions = models.LongStringField(
         blank=True,
         label='¿Tienes alguna sugerencia para mejorar el experimento? (Por ejemplo: instrucciones, interfaz, duración, etc.)',
-    )
-    chat_analysis_expectation = models.IntegerField(
-        choices=[
-            [1, 'Nada probable'],
-            [2, 'Poco probable'],
-            [3, 'Medianamente probable'],
-            [4, 'Muy probable'],
-            [5, 'Totalmente seguro'],
-        ],
-        label='¿Qué tan probable crees que es que los investigadores analicen lo que se escribió en los chats?',
-        widget=widgets.RadioSelect,
     )
 
 
@@ -192,7 +182,6 @@ class FinalQuestionnaire(Page):
         'instructions_clarity',
         'feedback_issues',
         'feedback_suggestions',
-        'chat_analysis_expectation',
     ]
 
 

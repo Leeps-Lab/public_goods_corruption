@@ -72,7 +72,7 @@
 
     <div class="pay-container">
         <div class="pay-header">
-            <p style="margin-bottom: 0;">Durante el experimento ganaste en promedio <b>{{ mean_points }}</b> puntos por ronda.</p>
+            <p style="margin-bottom: 0;">Durante el experimento ganaste en promedio <b>{{ mean_points }}</b> por ronda.</p>
             <p class="pay-subtle">Tipo de cambio: S/ 1 por cada {{ session.config.exchange_rate }} puntos.</p>
         </div>
 
@@ -83,7 +83,7 @@
                     <td>{{ participation_fee }}</td>
                 </tr>
                 <tr>
-                    <td>Pago adicional por puntos obtenidos</td>
+                    <td>Pago adicional por puntos obtenidos (en promedio de las rondas)</td>
                     <td>{{ additional_fee }}</td>
                 </tr>
                 <tr class="total-row">
@@ -95,16 +95,50 @@
 
         <div class="pay-form-box">
             <h5 style="color: #dc2626; margin-bottom: 8px;">Importante: Para recibir tu pago</h5>
-            <p style="font-size: 14px; color: #1f2933; margin-bottom: 8px; font-weight: 500;">
+            <p style="font-size: 14px; color: #1f2933; margin-bottom: 12px; font-weight: 500;">
                 <strong>Debes completar el siguiente formulario con tus datos bancarios.</strong>
             </p>
-            <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
-                Sin este formulario no podremos procesar tu pago. Por favor, complétalo ahora:
+
+            <!-- Participant Code Section -->
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #92400e; font-weight: 600;">
+                    1. Primero, copia tu código de participante:
+                </p>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <code id="participant-code" style="background: white; padding: 8px 12px; border-radius: 6px; font-size: 16px; font-weight: bold; color: #1f2933; letter-spacing: 0.5px; flex: 1; border: 1px solid #d1d5db;">{{ participant_code }}</code>
+                    <button onclick="copyCode()" id="copy-btn" style="background: #f59e0b; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap;">
+                        📋 Copiar
+                    </button>
+                </div>
+            </div>
+
+            <p style="font-size: 13px; color: #1f2933; margin-bottom: 12px; font-weight: 500;">
+                2. Luego, ingresa este código en el formulario de pago junto con tus datos bancarios:
             </p>
-            <!-- Reemplaza el # por el enlace real -->
-            <a class="pay-link" href="https://forms.gle/wVr1FR1U816mvYpd6" target="_blank" rel="noopener" style="font-size: 15px; font-weight: 600; background: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 4px;">
-                📋 Completar formulario de pago →
+
+            <a class="pay-link" href="https://forms.gle/wVr1FR1U816mvYpd6" target="_blank" rel="noopener" style="font-size: 15px; font-weight: 600; background: #2563eb; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 0;">
+                🔗 Abrir formulario de pago →
             </a>
+
+            <p style="font-size: 12px; color: #6b7280; margin-top: 12px; margin-bottom: 0;">
+                Sin tu código de participante no podremos procesar tu pago correctamente.
+            </p>
         </div>
     </div>
+
+    <script>
+    function copyCode() {
+        const code = document.getElementById('participant-code').textContent;
+        const btn = document.getElementById('copy-btn');
+
+        navigator.clipboard.writeText(code).then(function() {
+            btn.textContent = '✓ Copiado';
+            btn.style.background = '#10b981';
+            setTimeout(function() {
+                btn.textContent = '📋 Copiar';
+                btn.style.background = '#f59e0b';
+            }, 2000);
+        });
+    }
+    </script>
 {{ endblock }}

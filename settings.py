@@ -14,7 +14,7 @@ SESSION_CONFIGS = [
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
-        participation_fee=7.50, # Default participation fee
+        # participation_fee=12.00, # Default participation fee
         exchange_rate=10, # Default exchange rate bewteen experimental points and soles
         c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
@@ -32,7 +32,25 @@ SESSION_CONFIGS = [
         num_demo_participants=4,
         multiplier=2, # Default multiplier value when it is not random
         officer_endowment=140, # Default endowment for P.O.
-        participation_fee=7.50, # Default participation fee
+        # participation_fee=12.00, # Default participation fee
+        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
+        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
+        audit_probability=0.2, # Default detection probability of corruption action (T6)
+        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
+        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
+        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
+        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
+    ),
+    dict(
+        name='public_goods2',
+        display_name='Public Goods T2 y T1',
+        app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
+        treatment_order=['T2', 'T1'],
+        num_rounds=6, # NOTE: change num of rounds per treatment
+        num_demo_participants=4,
+        multiplier=2, # Default multiplier value when it is not random
+        officer_endowment=140, # Default endowment for P.O.
+        # participation_fee=12.00, # Default participation fee
         exchange_rate=10, # Default exchange rate bewteen experimental points and soles
         c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
         audit_probability=0.2, # Default detection probability of corruption action (T6)
@@ -45,7 +63,7 @@ SESSION_CONFIGS = [
 
 
 SESSION_CONFIG_DEFAULTS = dict(
-    real_world_currency_per_point=1.00, participation_fee=0.00, doc=""
+    real_world_currency_per_point=1.00, participation_fee=12.00, doc=""
 )
 
 PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'treatment', 'session_payoff']
