@@ -1,16 +1,88 @@
 {{ block title }}
-    Cuestionario final
+    Cuestionario
 {{ endblock }}
 
 {{ block content }}
-    
-    <p>
-        Gracias por participar de esta sesión. A continuación, te pedimos por favor responder este breve formulario.
-    </p>
-    <br>
+    <style>
+        .questionnaire-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2933;
+            margin: 28px 0 16px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section-header:first-of-type {
+            margin-top: 8px;
+        }
+        .intro-text {
+            color: #4b5563;
+            font-size: 14px;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        .otree-form-errors {
+            margin-top: 4px;
+        }
+    </style>
 
-    {{ formfields }}
-    
-    {{ next_button }}
-    
+    <div class="questionnaire-container">
+        <p class="intro-text">
+            Gracias por participar. A continuación, responde las siguientes preguntas.
+            <br><small style="color: #6b7280;">Los campos marcados con * son obligatorios.</small>
+        </p>
+
+        <div class="section-header">Información general</div>
+        {{ formfield 'age' }}
+        {{ formfield 'gender' }}
+        {{ formfield 'zone_residence' }}
+
+        <div class="section-header">Información académica</div>
+        {{ formfield 'attended_university' }}
+        {{ formfield 'university' }}
+        {{ formfield 'degree' }}
+        {{ formfield 'year_of_study' }}
+
+        <div class="section-header">Experiencia y perspectivas</div>
+        {{ formfield 'previous_experiments' }}
+        {{ formfield 'trust_public_officials' }}
+        {{ formfield 'trust_government' }}
+        {{ formfield 'fairness_importance' }}
+
+        <div class="section-header">Reflexiones sobre el experimento</div>
+        {{ formfield 'strategy_used' }}
+        {{ formfield 'positive_aspects' }}
+        {{ formfield 'negative_aspects' }}
+        {{ formfield 'public_sector_opinion' }}
+
+        {{ next_button }}
+    </div>
 {{ endblock }}

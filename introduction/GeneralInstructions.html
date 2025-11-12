@@ -26,17 +26,20 @@
     {{ next_button }}
 
     <script>
-        function isMobile() {
-            const toMatch = [
-                /Android/i,
-                /iPhone/i,
-                /iPad/i,
-            ];
-    
-            return toMatch.some((item) => navigator.userAgent.match(item));
+        function isMobilePhone() {
+            const userAgent = navigator.userAgent;
+
+            // Check if it's an iPhone (but not iPad)
+            const isIPhone = /iPhone/i.test(userAgent);
+
+            // Check if it's an Android phone (but not Android tablet)
+            // Android tablets typically don't have "Mobile" in the user agent
+            const isAndroidPhone = /Android/i.test(userAgent) && /Mobile/i.test(userAgent);
+
+            return isIPhone || isAndroidPhone;
         }
-    
-        forminputs.is_mobile.value = isMobile() ? 1 : 0;
+
+        forminputs.is_mobile.value = isMobilePhone() ? 1 : 0;
     </script>
     
 {{ endblock }}

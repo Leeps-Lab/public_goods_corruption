@@ -25,7 +25,7 @@ class FinalPayoff(Page):
         player.additional_fee = float(player.participant.session_payoff) / (20 * player.session.config['exchange_rate'])
 
         return dict(
-            participant_code=player.participant.code,
+            participant_label=player.participant.label,
             mean_points=player.participant.session_payoff / 20,
             participation_fee=format_currency(player.session.config['participation_fee']),
             additional_fee=format_currency(player.additional_fee),

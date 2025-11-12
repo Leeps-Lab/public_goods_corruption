@@ -37,8 +37,17 @@ class Player(BasePlayer):
             'Fuera de Lima',
         ],
     )
+    attended_university = models.BooleanField(
+        label='*¿Estudias o estudiaste en la universidad?',
+        choices=[
+            [True, 'Sí'],
+            [False, 'No'],
+        ],
+        widget=widgets.RadioSelect,
+    )
     university = models.StringField(
-        label='¿En qué universidad estudias?',
+        blank=True,
+        label='Si estás o fuiste a la universidad, ¿a cuál asististe?',
         choices=[
             'Universidad del Pacífico',
             'Pontificia Universidad Católica del Perú (PUCP)',
@@ -54,7 +63,8 @@ class Player(BasePlayer):
         ],
     )
     degree = models.StringField(
-        label='¿Cuál es tu carrera?',
+        blank=True,
+        label='Si estás o fuiste a la universidad, ¿cuál es o fue tu carrera?',
         choices=[
             'Administración',
             'Contabilidad',
@@ -82,7 +92,8 @@ class Player(BasePlayer):
         ],
     )
     year_of_study = models.StringField(
-        label='¿En qué año de estudios te encuentras?',
+        blank=True,
+        label='Si estás o fuiste a la universidad, ¿en qué año de estudios te encuentras?',
         choices=[
             'Primer año',
             'Segundo año',
@@ -138,6 +149,24 @@ class Player(BasePlayer):
         widget=widgets.RadioSelect,
     )
 
+    # Experience and Strategy
+    strategy_used = models.LongStringField(
+        blank=True,
+        label='¿Qué estrategia usaste durante el experimento?',
+    )
+    positive_aspects = models.LongStringField(
+        blank=True,
+        label='¿Qué aspectos positivos rescatas de esta interacción?',
+    )
+    negative_aspects = models.LongStringField(
+        blank=True,
+        label='¿Qué aspectos negativos rescatas de esta interacción?',
+    )
+    public_sector_opinion = models.LongStringField(
+        blank=True,
+        label='¿Cómo crees que debería funcionar el sector público?',
+    )
+
     # Final Questionnaire
     instructions_clarity = models.IntegerField(
         choices=[
@@ -167,6 +196,7 @@ class Demographics(Page):
         'age',
         'gender',
         'zone_residence',
+        'attended_university',
         'university',
         'degree',
         'year_of_study',
@@ -174,6 +204,10 @@ class Demographics(Page):
         'trust_public_officials',
         'trust_government',
         'fairness_importance',
+        'strategy_used',
+        'positive_aspects',
+        'negative_aspects',
+        'public_sector_opinion',
     ]
 
 class FinalQuestionnaire(Page):
