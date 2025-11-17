@@ -85,6 +85,7 @@ class Player(BasePlayer):
             'Ingeniería Electrónica',
             'Ingeniería Mecánica',
             'Arquitectura',
+            'Biología',
             'Medicina',
             'Enfermería',
             'Educación',
@@ -93,7 +94,7 @@ class Player(BasePlayer):
     )
     year_of_study = models.StringField(
         blank=True,
-        label='Si estás o fuiste a la universidad, ¿en qué año de estudios te encuentras?',
+        label='Si asistes o asististe a la universidad, indica tu año de estudios (si ya terminaste, marca "Egresado"):',
         choices=[
             'Primer año',
             'Segundo año',

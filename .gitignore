@@ -19,3 +19,4 @@ merge.ps1
 *.pem
 CLAUDE.md
 ucsc-exp-key.pem
+data
