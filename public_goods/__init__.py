@@ -6,7 +6,7 @@ from random import choices
 from unidecode import unidecode  # type: ignore
 from spanlp.palabrota import Palabrota  # type: ignore
 from spanlp.domain.countries import Country # type: ignore
-from spanlp.domain.strategies import JaccardIndex # type: ignore
+from spanlp.domain.strategies import CosineSimilarity # type: ignore
 
 # Local utilities
 from sql_utils import (
@@ -236,7 +236,7 @@ class Message(ExtraModel):
     - 'TransferInfo': system-generated message when a transfer is made.
     """
     group = models.Link(Group)
-    channel = models.CharField(max_length=255)
+    channel = models.StringField(max_length=255)
     sender = models.Link(Player)
     recipient = models.Link(Player)
     text = models.StringField()
@@ -1040,6 +1040,7 @@ class Interaction(Page):
                     },
                 }
             
+            # TODO: Chequear por qué no llega warning de no aceptar puntos cuando no te alcanza
             elif status == 'Aceptado':
                 # Apply the transaction
                 if action == 'Ofrece':
@@ -1199,11 +1200,10 @@ class Interaction(Page):
             text_unfiltered = data['text']
             ascii_text = unidecode(text_unfiltered.lower())
 
-            jaccard = JaccardIndex(threshold=0.8, normalize=False, n_gram=2)
             palabrota = Palabrota(
                 censor_char="*", 
                 countries=[Country.PERU, Country.EL_SALVADOR], 
-                distance_metric=jaccard
+                distance_metric=CosineSimilarity()
             )
 
             # Manual slang censor
@@ -1215,11 +1215,8 @@ class Interaction(Page):
             ]
             pre_censored_text = " ".join(pre_censored_words)
 
-            # Apply palabrota
-            if len(ascii_text.strip()) < 2:
-                text_filtered = ascii_text  # too short to process, allow it as-is
-            else:
-                text_filtered = palabrota.censor(pre_censored_text)
+            #  Apply palabrota
+            text_filtered = palabrota.censor(pre_censored_text)
 
             print(f"Filtered: {text_filtered}")
 
@@ -1281,7 +1278,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60 * 1.5
+    timeout_seconds = 60 + 30
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
