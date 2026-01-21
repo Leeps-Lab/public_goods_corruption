@@ -36,6 +36,7 @@ def connect_to_db(db_path=DB_PATH):
         return conn, cur
     except psycopg2.Error as e:
         print(f"Error connecting to PostgreSQL database: {e}")
+        print("DATABASE_URL environment variable is not set: NONENONENONENONE: ", db_path)
         return None, None
     
 
