@@ -25,7 +25,8 @@ def connect_to_db(db_path=DB_PATH):
     Returns:
         tuple: (connection, cursor) if successful; otherwise (None, None).
     """
-
+    if db_path is None:
+        print("DATABASE_URL environment variable is not set: NONENONENONENONE")
     try:
         conn = psycopg2.connect(db_path)
         cur = conn.cursor()
