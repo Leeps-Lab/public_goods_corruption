@@ -2,8 +2,8 @@
 import os
 import json
 from dotenv import load_dotenv  # type: ignore
+import psycopg2  # type: ignore
 from psycopg2 import sql  # type: ignore
-from django.db import connection, transaction
 
 load_dotenv()
 
@@ -23,91 +23,137 @@ _ID_COLUMN_MAP = {
 }
 
 
-def _set_search_path(cur):
-    """Ensure we are using the intended schema for the session."""
-    cur.execute("SET search_path TO game_data, public;")
+def get_db_path():
+    """Obtain DATABASE_URL at runtime and validate."""
+    db_path = os.environ.get("DATABASE_URL")
+    if not db_path:
+        raise RuntimeError("DATABASE_URL environment variable is not set or empty")
+    return db_path
+
+
+def _debug_print_prefix():
+    """Return a short debug prefix with PID for logs."""
+    return f"[DB PID={os.getpid()}]"
+
+
+def connect_to_db(db_path=None):
+    """
+    Establish a new connection to PostgreSQL and set search_path to game_data.
+    Returns (conn, cur) or (None, None) on failure.
+    """
+    try:
+        if db_path is None:
+            db_path = get_db_path()
+    except Exception as e:
+        print(_debug_print_prefix(), "Error obtaining DATABASE_URL:", e)
+        return None, None
+
+    # Debug: show a repr of db_path (safe for debugging; remove in prod if secret concerns)
+    print(_debug_print_prefix(), "Connecting using db_path:", repr(db_path))
+
+    try:
+        conn = psycopg2.connect(db_path)
+        cur = conn.cursor()
+        # Set search path for this session/connection
+        cur.execute("SET search_path TO game_data, public;")
+        conn.commit()
+        print(_debug_print_prefix(), "Connected to PostgreSQL and set search path to 'game_data'.")
+        return conn, cur
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Error connecting to PostgreSQL database:", e)
+        return None, None
 
 
 def create_tables(db_path=None):
     """
     Create required tables inside the 'game_data' schema.
-    Uses Django's DB connection and transaction management.
+    Uses short-lived connection via psycopg2.
     """
-    print(f"[DB] create_tables PID={os.getpid()}")
-    with transaction.atomic():
-        with connection.cursor() as cur:
-            _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return
 
-            # Create schema if not exists
-            cur.execute('CREATE SCHEMA IF NOT EXISTS game_data')
+        cur.execute('CREATE SCHEMA IF NOT EXISTS game_data')
 
-            # Transactions table
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS game_data.transactions (
-                    transaction_id SERIAL PRIMARY KEY,
-                    session_code TEXT NOT NULL,
-                    segment INTEGER NOT NULL,
-                    round INTEGER NOT NULL,
-                    group_id INTEGER NOT NULL,
-                    initiator_code TEXT NOT NULL,
-                    receiver_code TEXT NOT NULL,
-                    initiator_id INTEGER NOT NULL,
-                    receiver_id INTEGER NOT NULL,
-                    action TEXT NOT NULL,
-                    points INTEGER NOT NULL,
-                    initiator_initial_endowment INTEGER,
-                    receiver_initial_endowment INTEGER,
-                    initiator_balance INTEGER,
-                    receiver_balance INTEGER
-                );
-            ''')
+        # Transactions table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_data.transactions (
+                transaction_id SERIAL PRIMARY KEY,
+                session_code TEXT NOT NULL,
+                segment INTEGER NOT NULL,
+                round INTEGER NOT NULL,
+                group_id INTEGER NOT NULL,
+                initiator_code TEXT NOT NULL,
+                receiver_code TEXT NOT NULL,
+                initiator_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                points INTEGER NOT NULL,
+                initiator_initial_endowment INTEGER,
+                receiver_initial_endowment INTEGER,
+                initiator_balance INTEGER,
+                receiver_balance INTEGER
+            );
+        ''')
 
-            # Status table
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS game_data.status (
-                    status_id SERIAL PRIMARY KEY,
-                    transaction_id INTEGER NOT NULL REFERENCES game_data.transactions(transaction_id),
-                    status TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
+        # Status table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_data.status (
+                status_id SERIAL PRIMARY KEY,
+                transaction_id INTEGER NOT NULL REFERENCES game_data.transactions(transaction_id),
+                status TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
 
-            # History table
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS game_data.history (
-                    id SERIAL PRIMARY KEY,
-                    session_code TEXT NOT NULL,
-                    segment INTEGER NOT NULL,
-                    round INTEGER NOT NULL,
-                    participant_code TEXT NOT NULL,
-                    endowment INTEGER NOT NULL,
-                    contribution INTEGER,
-                    total_public_goods FLOAT,
-                    public_good_gross_gain FLOAT,
-                    public_interaction_payoff FLOAT NOT NULL,
-                    total_transfers_received INTEGER NOT NULL,
-                    total_transfers_given INTEGER NOT NULL,
-                    private_interaction_payoff INTEGER NOT NULL,
-                    payment FLOAT NOT NULL,
-                    timeout_penalty BOOLEAN NOT NULL,
-                    corruption_punishment BOOLEAN NOT NULL
-                );
-            ''')
+        # History table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_data.history (
+                id SERIAL PRIMARY KEY,
+                session_code TEXT NOT NULL,
+                segment INTEGER NOT NULL,
+                round INTEGER NOT NULL,
+                participant_code TEXT NOT NULL,
+                endowment INTEGER NOT NULL,
+                contribution INTEGER,
+                total_public_goods FLOAT,
+                public_good_gross_gain FLOAT,
+                public_interaction_payoff FLOAT NOT NULL,
+                total_transfers_received INTEGER NOT NULL,
+                total_transfers_given INTEGER NOT NULL,
+                private_interaction_payoff INTEGER NOT NULL,
+                payment FLOAT NOT NULL,
+                timeout_penalty BOOLEAN NOT NULL,
+                corruption_punishment BOOLEAN NOT NULL
+            );
+        ''')
 
-            # Calculator history table
-            cur.execute('''
-                CREATE TABLE IF NOT EXISTS game_data.calculator_history (
-                    id SERIAL PRIMARY KEY,
-                    session_code TEXT NOT NULL,
-                    segment INTEGER NOT NULL,
-                    round INTEGER NOT NULL,
-                    participant_code TEXT NOT NULL,
-                    operation TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            ''')
+        # Calculator history table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_data.calculator_history (
+                id SERIAL PRIMARY KEY,
+                session_code TEXT NOT NULL,
+                segment INTEGER NOT NULL,
+                round INTEGER NOT NULL,
+                participant_code TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
 
-    print("[DB] Tables created (or already existed) inside 'game_data' schema.")
+        conn.commit()
+        print(_debug_print_prefix(), "Tables created successfully inside 'game_data' schema.")
+    except Exception as e:
+        print(_debug_print_prefix(), "Error creating tables:", e)
+        if conn:
+            conn.rollback()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def insert_row(data, table, db_path=None):
@@ -118,68 +164,110 @@ def insert_row(data, table, db_path=None):
     if table not in _ALLOWED_TABLES:
         raise ValueError(f"Invalid table name: {table}")
 
-    id_column = _ID_COLUMN_MAP.get(table, "id")
+    if not data:
+        raise ValueError("Data dictionary is empty")
 
-    print(f"[DB] insert_row PID={os.getpid()} table={table}")
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return None
 
-    # Build SQL with safe identifiers for table/columns and placeholders for values
-    columns = list(data.keys())
-    values = list(data.values())
+        id_column = _ID_COLUMN_MAP.get(table, "id")
+        columns = list(data.keys())
+        values = list(data.values())
 
-    query = sql.SQL("""
-        INSERT INTO game_data.{table} ({columns})
-        VALUES ({values})
-        RETURNING {id_column}
-    """).format(
-        table=sql.Identifier(table),
-        columns=sql.SQL(', ').join(map(sql.Identifier, columns)),
-        values=sql.SQL(', ').join(sql.Placeholder() * len(columns)),
-        id_column=sql.Identifier(id_column),
-    )
+        query = sql.SQL("""
+            INSERT INTO game_data.{table} ({columns})
+            VALUES ({values})
+            RETURNING {id_column}
+        """).format(
+            table=sql.Identifier(table),
+            columns=sql.SQL(', ').join(map(sql.Identifier, columns)),
+            values=sql.SQL(', ').join(sql.Placeholder() for _ in columns),
+            id_column=sql.Identifier(id_column)
+        )
 
-    with transaction.atomic():
-        with connection.cursor() as cur:
-            _set_search_path(cur)
-            cur.execute(query, values)
-            try:
-                inserted_id = cur.fetchone()[0]
-            except Exception:
-                inserted_id = None
+        cur.execute(query, values)
+        try:
+            inserted_id = cur.fetchone()[0]
+        except Exception:
+            inserted_id = None
 
-    if inserted_id is not None:
-        print(f"[DB] Row inserted into '{table}' with ID {inserted_id}")
-    else:
-        print(f"[DB] Row inserted into '{table}' (no id returned)")
+        conn.commit()
 
-    return inserted_id
+        if inserted_id is not None:
+            print(_debug_print_prefix(), f"Row inserted into '{table}' with ID {inserted_id}")
+        else:
+            print(_debug_print_prefix(), f"Row inserted into '{table}' (no id returned)")
+
+        return inserted_id
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), f"Database error while inserting into '{table}': {e}")
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def get_points(transaction_id, db_path=None):
     """
     Retrieve the number of points for a given transaction ID.
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return None
+
         cur.execute(
             "SELECT points FROM game_data.transactions WHERE transaction_id = %s",
             (transaction_id,)
         )
-        row = cur.fetchone()
-        return row[0] if row else None
+        result = cur.fetchone()
+        return result[0] if result else None
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in get_points:", e)
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def get_action(transaction_id, db_path=None):
     """
     Retrieve the action for a given transaction ID.
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return None
+
         cur.execute(
             "SELECT action FROM game_data.transactions WHERE transaction_id = %s",
             (transaction_id,)
         )
-        row = cur.fetchone()
-        return row[0] if row else None
+        result = cur.fetchone()
+        return result[0] if result else None
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in get_action:", e)
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def add_balance(data, db_path=None):
@@ -187,28 +275,47 @@ def add_balance(data, db_path=None):
     Update initiator and receiver balances in transactions.
     Expects data to contain 'transaction_id', 'initiator_balance', 'receiver_balance'.
     """
-    with transaction.atomic():
-        with connection.cursor() as cur:
-            _set_search_path(cur)
-            cur.execute("""
-                UPDATE game_data.transactions
-                SET initiator_balance = %s, receiver_balance = %s
-                WHERE transaction_id = %s
-            """, (
-                data['initiator_balance'],
-                data['receiver_balance'],
-                data['transaction_id']
-            ))
-    print(f"[DB] Balance updated for transaction {data.get('transaction_id')}")
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return False
+
+        cur.execute("""
+            UPDATE game_data.transactions
+            SET initiator_balance = %s, receiver_balance = %s
+            WHERE transaction_id = %s
+        """, (
+            data['initiator_balance'],
+            data['receiver_balance'],
+            data['transaction_id']
+        ))
+
+        conn.commit()
+        print(_debug_print_prefix(), f"Balance updated for transaction {data.get('transaction_id')}")
+        return True
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error while updating balance:", e)
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def filter_transactions(data, db_path=None):
     """
-    Returns a list of transactions for participant_code / round / segment / session_code,
-    mapping role ids to role names using role_mapping.
+    Return list of mapped transactions for a given participant/round/segment/session.
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return []
+
         query = """
             SELECT
                 t.initiator_id,
@@ -229,29 +336,44 @@ def filter_transactions(data, db_path=None):
               AND t.session_code = %(session_code)s
               AND s.status IN ('Aceptado', 'Rechazado')
         """
+
         cur.execute(query, data)
         results = cur.fetchall()
 
-    transactions = [
-        {
-            "Jugador": role_mapping.get(str(row[0]), f"Jugador {row[0]}"),
-            "Acción": row[1],
-            "A": role_mapping.get(str(row[2]), f"Jugador {row[2]}"),
-            "Puntos": row[3],
-            "¿Se aceptó?": row[5],
-            "Balance": row[4],
-        }
-        for row in results
-    ]
-    return transactions
+        transactions = [
+            {
+                "Jugador": role_mapping.get(str(row[0]), f"Jugador {row[0]}"),
+                "Acción": row[1],
+                "A": role_mapping.get(str(row[2]), f"Jugador {row[2]}"),
+                "Puntos": row[3],
+                "¿Se aceptó?": row[5],
+                "Balance": row[4],
+            }
+            for row in results
+        ]
+        return transactions
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in filter_transactions:", e)
+        if conn:
+            conn.rollback()
+        return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def filter_history(data, db_path=None):
     """
-    Retrieve full round-by-round history for a participant.
+    Retrieve participant history rows.
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return []
+
         query = """
             SELECT 
                 segment, round, participant_code, endowment, contribution,
@@ -272,33 +394,47 @@ def filter_history(data, db_path=None):
         ))
         results = cur.fetchall()
 
-    return [
-        {
-            "Segment": row[0],
-            "Round": row[1],
-            "Participant": row[2],
-            "Endowment": row[3],
-            "Contribution": row[4] or 0,
-            "TotalPublicGoods": row[5],
-            "PublicGoodGrossGain": row[6],
-            "TotalTransfersReceived": row[7],
-            "TotalTransfersGiven": row[8],
-            "PublicInteractionPayoff": row[9],
-            "PrivateInteractionPayoff": row[10],
-            "Payment": row[11],
-            "Timeout": row[12],
-            "Audited": row[13]
-        }
-        for row in results
-    ]
+        return [
+            {
+                "Segment": row[0],
+                "Round": row[1],
+                "Participant": row[2],
+                "Endowment": row[3],
+                "Contribution": row[4] or 0,
+                "TotalPublicGoods": row[5],
+                "PublicGoodGrossGain": row[6],
+                "TotalTransfersReceived": row[7],
+                "TotalTransfersGiven": row[8],
+                "PublicInteractionPayoff": row[9],
+                "PrivateInteractionPayoff": row[10],
+                "Payment": row[11],
+                "Timeout": row[12],
+                "Audited": row[13]
+            }
+            for row in results
+        ]
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in filter_history:", e)
+        if conn:
+            conn.rollback()
+        return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def get_last_transaction_status(participant_code, treatment_round, segment, session_code, db_path=None):
     """
-    Retrieves the latest transaction for a participant if its latest status is 'Iniciado'.
+    Retrieve latest open transaction for participant (status 'Iniciado').
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return None
+
         query = """
             SELECT 
                 t.transaction_id,
@@ -326,24 +462,38 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
         cur.execute(query, (participant_code, participant_code, session_code, treatment_round, segment))
         result = cur.fetchone()
 
-    if result:
-        transaction_id, initiator_id, receiver_id, action, points, _ = result
-        return {
-            'transactionId': transaction_id,
-            'initiatorId': initiator_id,
-            'receiverId': receiver_id,
-            'action': action,
-            'value': points
-        }
-    return None
+        if result:
+            transaction_id, initiator_id, receiver_id, action, points, _ = result
+            return {
+                'transactionId': transaction_id,
+                'initiatorId': initiator_id,
+                'receiverId': receiver_id,
+                'action': action,
+                'value': points
+            }
+        return None
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in get_last_transaction_status:", e)
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def total_transfers_per_player(data, db_path=None):
     """
-    Retrieves total transfers received and given by a participant in a round/segment/session.
+    Compute total transfers received and given by a participant in a round/segment/session.
     """
-    with connection.cursor() as cur:
-        _set_search_path(cur)
+    conn = cur = None
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return {'transfers_received': 0, 'transfers_given': 0}
+
         query = """
             SELECT 
                 COALESCE(SUM(
@@ -378,17 +528,27 @@ def total_transfers_per_player(data, db_path=None):
             data.get('session_code', '')
         ))
         row = cur.fetchone()
-
-    return {
-        'transfers_received': row[0] or 0,
-        'transfers_given': row[1] or 0
-    }
+        return {
+            'transfers_received': row[0] or 0,
+            'transfers_given': row[1] or 0
+        }
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in total_transfers_per_player:", e)
+        if conn:
+            conn.rollback()
+        return {'transfers_received': 0, 'transfers_given': 0}
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def check_corruption(data, db_path=None):
     """
     Identify potentially corrupt transfers between citizens and the officer (player 4).
     """
+    conn = cur = None
     CITIZENS = [1, 2, 3]
     OFFICER = 4
 
@@ -414,9 +574,11 @@ def check_corruption(data, db_path=None):
             (t.initiator_id = 4 AND t.receiver_id IN (1,2,3))
           )
     """
+    try:
+        conn, cur = connect_to_db(db_path)
+        if not conn:
+            return {'error': 'Database connection failed'}
 
-    with connection.cursor() as cur:
-        _set_search_path(cur)
         cur.execute(query, (
             data['segment'],
             data['round'],
@@ -425,16 +587,26 @@ def check_corruption(data, db_path=None):
         ))
         rows = cur.fetchall()
 
-    for initiator_id, receiver_id, action, points in rows:
-        if initiator_id in CITIZENS and receiver_id == OFFICER:
-            if action == 'Ofrece':
-                corruption_data[initiator_id]['transfers_from_citizen_to_officer'] += points
-            elif action == 'Solicita':
-                corruption_data[initiator_id]['transfers_from_officer_to_citizen'] += points
-        elif initiator_id == OFFICER and receiver_id in CITIZENS:
-            if action == 'Ofrece':
-                corruption_data[receiver_id]['transfers_from_officer_to_citizen'] += points
-            elif action == 'Solicita':
-                corruption_data[receiver_id]['transfers_from_citizen_to_officer'] += points
+        for initiator_id, receiver_id, action, points in rows:
+            if initiator_id in CITIZENS and receiver_id == OFFICER:
+                if action == 'Ofrece':
+                    corruption_data[initiator_id]['transfers_from_citizen_to_officer'] += points
+                elif action == 'Solicita':
+                    corruption_data[initiator_id]['transfers_from_officer_to_citizen'] += points
+            elif initiator_id == OFFICER and receiver_id in CITIZENS:
+                if action == 'Ofrece':
+                    corruption_data[receiver_id]['transfers_from_officer_to_citizen'] += points
+                elif action == 'Solicita':
+                    corruption_data[receiver_id]['transfers_from_citizen_to_officer'] += points
 
-    return corruption_data
+        return corruption_data
+    except psycopg2.Error as e:
+        print(_debug_print_prefix(), "Database error in check_corruption:", e)
+        if conn:
+            conn.rollback()
+        return {'error': str(e)}
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
