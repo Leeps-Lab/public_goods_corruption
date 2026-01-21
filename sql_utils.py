@@ -7,6 +7,16 @@ from psycopg2 import sql  # type: ignore
 
 load_dotenv()
 
+
+print("=== DEBUG ENV ===")
+print("DATABASE_URL:", repr(os.environ.get("DATABASE_URL")))
+print("OTREE_PRODUCTION:", os.environ.get("OTREE_PRODUCTION"))
+print("=================")
+import logging
+
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+
 # Load role translations from translation.json
 with open("translation.json", "r", encoding="utf-8") as f:
     translations = json.load(f)
