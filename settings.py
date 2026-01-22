@@ -1,18 +1,8 @@
 from os import environ
 from dotenv import load_dotenv # type: ignore
-import dj_database_url
 
 load_dotenv()
 
-
-# Configuración de base de datos PARA OTREE
-DATABASES = {
-    'default': dj_database_url.config(
-        default=environ.get('DATABASE_URL'),
-        conn_max_age=600,
-        ssl_require=False
-    )
-}
 
 SESSION_CONFIGS = [
     dict(

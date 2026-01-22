@@ -29,7 +29,7 @@ def connect_to_db(db_path=DB_PATH):
     try:
         conn = psycopg2.connect(db_path)
         cur = conn.cursor()
-        cur.execute("SET search_path TO game_data, game_data;")
+        cur.execute("SET search_path TO game_data, public;")
         conn.commit()
         print("Connected to PostgreSQL and set search path to 'game_data'.")
         return conn, cur
