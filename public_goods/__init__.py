@@ -1,4 +1,4 @@
-from otree.api import * 
+from otree.api import *  # type: ignore
 import json
 import math
 import random
