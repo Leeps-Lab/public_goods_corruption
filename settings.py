@@ -60,7 +60,7 @@ SESSION_CONFIGS = [
         chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
-        name='public_goods2',
+        name='public_goods3',
         display_name='Public Goods T2 y BL1',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T2', 'BL1'],
@@ -78,7 +78,7 @@ SESSION_CONFIGS = [
         chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
-        name='public_goods2',
+        name='public_goods4',
         display_name='Public Goods BL1 y T2',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'T2'],
@@ -96,7 +96,7 @@ SESSION_CONFIGS = [
         chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
-        name='public_goods2',
+        name='public_goods5',
         display_name='Public Goods T2 y BL2',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T2', 'BL2'],
@@ -114,7 +114,7 @@ SESSION_CONFIGS = [
         chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
-        name='public_goods2',
+        name='public_goods6',
         display_name='Public Goods BL2 y T2',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL2', 'T2'],
