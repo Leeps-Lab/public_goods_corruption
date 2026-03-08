@@ -348,8 +348,18 @@ USE_POINTS = True
 
 ROOMS = [
     dict(
-        name='e2labup',
-        display_name="E²LabUP Session",
+        name='e2labup1',
+        display_name="E²LabUP Session 1",
+        participant_label_file='_rooms/e2labup-room.txt',
+    ),
+    dict(
+        name='e2labup2',
+        display_name="E²LabUP Session 2",
+        participant_label_file='_rooms/e2labup-room.txt',
+    ),
+    dict(
+        name='e2labup3',
+        display_name="E²LabUP Session 3",
         participant_label_file='_rooms/e2labup-room.txt',
     ),
     dict(name='live_demo', display_name='Room for live demo (no participant labels)'),
