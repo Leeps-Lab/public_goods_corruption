@@ -75,9 +75,9 @@ class Player(BasePlayer):
         choices=[
             [1, '50 puntos'],
             [2, '100 puntos'],
-            [3, '140 puntos'], # Correct 
-            [4, '0 puntos'],
-        ], 
+            [3, '140 puntos'],
+            [4, '0 puntos'], # Correct
+        ],
         widget=widgets.RadioSelect
     )
     comp_q2 = models.IntegerField(
@@ -705,13 +705,13 @@ class Instructions(Page):
         treatment = player.participant.treatment
         if treatment in treatment_fields:
             fields.append(treatment_fields[treatment])
-        
+
         return fields
-    
+
     @staticmethod
     def error_message(player, values):
         solutions = {
-            'comp_q1': 3, 'comp_q2': 2, 'comp_q3': 4, 'comp_q4': 2,
+            'comp_q1': 4, 'comp_q2': 2, 'comp_q3': 4, 'comp_q4': 2,
             'comp_bl1': 3, 'comp_bl2': 1, 'comp_t1': 2, 'comp_t2': 1,
             'comp_t3': 4, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
         }
