@@ -11,15 +11,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'BL2', 'T1', 'T2', 'T3', 'T4'],
         num_rounds=2, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods1',
@@ -27,15 +18,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T1', 'T2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods2',
@@ -43,15 +25,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T2', 'T1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods3',
@@ -59,15 +32,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T2', 'BL1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods4',
@@ -75,15 +39,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'T2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods5',
@@ -91,15 +46,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T2', 'BL2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods6',
@@ -107,15 +53,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL2', 'T2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods7',
@@ -123,15 +60,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T3', 'T1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods8',
@@ -139,15 +67,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T1', 'T3'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods9',
@@ -155,15 +74,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T3', 'BL1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods10',
@@ -171,15 +81,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'T3'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods11',
@@ -187,15 +88,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T3', 'BL2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods12',
@@ -203,15 +95,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL2', 'T3'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods13',
@@ -219,15 +102,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T4', 'T1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods14',
@@ -235,15 +109,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T1', 'T4'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods15',
@@ -251,15 +116,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T4', 'BL1'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods16',
@@ -267,15 +123,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL1', 'T4'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods17',
@@ -283,15 +130,6 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['T4', 'BL2'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
     dict(
         name='public_goods18',
@@ -299,24 +137,24 @@ SESSION_CONFIGS = [
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
         treatment_order=['BL2', 'T4'],
         num_rounds=6, # NOTE: change num of rounds per treatment
-        num_demo_participants=4,
-        multiplier=2, # Default multiplier value when it is not random
-        exchange_rate=10, # Default exchange rate bewteen experimental points and soles
-        c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
-        audit_probability=0.2, # Default detection probability of corruption action (T6)
-        private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
-        public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
-        sequential_decision=True, # True: first interaction, then contribution | False: both at same time
-        chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
     ),
 ]
 
 
 SESSION_CONFIG_DEFAULTS = dict(
-    real_world_currency_per_point=1.00, 
-    participation_fee=12.00, 
+    real_world_currency_per_point=1.00,
+    participation_fee=12.00,
     officer_endowment=0, # Default endowment for P.O.
-    doc=""
+    doc="",
+    num_demo_participants=4,
+    multiplier=2, # Default multiplier value when it is not random
+    exchange_rate=10, # Default exchange rate bewteen experimental points and soles
+    c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
+    audit_probability=0.2, # Default detection probability of corruption action (T6)
+    private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
+    public_interaction_activation=60, # Default time for activate public interaction: 60 seconds
+    sequential_decision=True, # True: first interaction, then contribution | False: both at same time
+    chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
 )
 
 PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'treatment', 'session_payoff']
