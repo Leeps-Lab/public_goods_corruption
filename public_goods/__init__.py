@@ -918,7 +918,7 @@ class Interaction(Page):
                 sender=group.get_player_by_id(initiator_id),
                 recipient=group.get_player_by_id(receiver_id),
                 channel=channel,
-                text=f'{player.role} {action_label} {value} {unit_label}.',
+                text=f'El {player.role} {action_label} {value} {unit_label}.',
                 name='TransferInfo',
             )
 
@@ -1042,7 +1042,7 @@ class Interaction(Page):
                     sender=group.get_player_by_id(initiator_id),
                     recipient=group.get_player_by_id(receiver_id),
                     channel=channel,
-                    text=f'{receiver.role} no tenía suficientes puntos disponibles para completar la {action_label}.',
+                    text=f'El {receiver.role} no tenía suficientes puntos disponibles para completar la {action_label}.',
                     name='TransferInfo',
                 )
 
@@ -1094,7 +1094,7 @@ class Interaction(Page):
                 sender=group.get_player_by_id(initiator_id),
                 recipient=group.get_player_by_id(receiver_id),
                 channel=channel,
-                text=f'{player.role} {status_label} la {action_label}.',
+                text=f'El {player.role} {status_label} la {action_label}.',
                 name='TransferInfo',
             )
 
