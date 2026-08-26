@@ -199,7 +199,17 @@ class Player(BasePlayer):
         choices=[
             [1, 'Sí'], # Correct
             [2, 'No'],
-        ], 
+        ],
+        widget=widgets.RadioSelect
+    )
+
+    # Comprehension question for treatments with private interaction (T1, T2, T3, T4, T6, T7)
+    comp_private_payoff = models.IntegerField(
+        label="Los puntos que envías o recibes en la interacción privada, ¿afectan tu pago final de la ronda?",
+        choices=[
+            [1, 'Sí, se suman o restan directamente de mi pago total'], # Correct
+            [2, 'No, mi pago solo depende de la interacción pública'],
+        ],
         widget=widgets.RadioSelect
     )
 
@@ -218,6 +228,11 @@ class Player(BasePlayer):
     # Game variables
     initial_points = models.IntegerField() # Endowment received at the start of each round
     current_points = models.IntegerField() # Current point balance after actions
+    reserved_points = models.IntegerField(initial=0) # current_points minus still-pending Ofrece commitments;
+    # this is what new offers are checked against, so a player can never offer more than they can truly cover.
+    # Kept in lockstep with current_points on every OTHER balance change (contribution, receiving points,
+    # paying an accepted Solicita) so it stays accurate; only settlement of one's own reserved Ofrece
+    # leaves it untouched, since that amount was already subtracted from it at initiation time.
     actual_allocation = models.FloatField() # Amount the citizen actually received
     timeout_penalty = models.BooleanField(initial=False) # True if the player timed out during a decision
     corruption_audit = models.BooleanField() # True if the player is selected for audit
@@ -527,14 +542,15 @@ def handle_contribution(player, contribution_points):
             'error': "No puedes ingresar una cantidad negativa."
         }
     
-    if contribution_points > player.current_points:
+    if contribution_points > player.reserved_points:
         return {
-            'contributionPointsValid': False, 
+            'contributionPointsValid': False,
             'error': "No puedes contribuir más puntos de los que tienes disponibles."
         }
-    
+
     # Valid contribution
     player.current_points -= contribution_points
+    player.reserved_points -= contribution_points
     player.contribution_points = contribution_points
     
     return {
@@ -706,6 +722,11 @@ class Instructions(Page):
         if treatment in treatment_fields:
             fields.append(treatment_fields[treatment])
 
+        # Treatments with a private interaction channel also get a question
+        # checking that participants know private transfers affect their payoff.
+        if treatment in ['T1', 'T2', 'T3', 'T4', 'T6', 'T7']:
+            fields.append('comp_private_payoff')
+
         return fields
 
     @staticmethod
@@ -714,6 +735,7 @@ class Instructions(Page):
             'comp_q1': 4, 'comp_q2': 2, 'comp_q3': 4, 'comp_q4': 2,
             'comp_bl1': 3, 'comp_bl2': 1, 'comp_t1': 2, 'comp_t2': 1,
             'comp_t3': 4, 'comp_t4': 4, 'comp_t6': 2, 'comp_t7': 1,
+            'comp_private_payoff': 1,
         }
 
         # Identify incorrect answers
@@ -757,6 +779,7 @@ class FirstWaitPage(WaitPage):
                 player.initial_points = c1_endowment
 
             player.current_points = player.initial_points
+            player.reserved_points = player.initial_points
 
             # Initialize group-level fields
             group.total_initial_points += player.initial_points
@@ -900,7 +923,10 @@ class Interaction(Page):
             )
 
             if 'Ofrece' in action:
-                if value <= player.current_points:
+                if value <= player.reserved_points:
+                    # Reserve the offered amount immediately so a second, independent
+                    # offer can't be initiated against points already promised here.
+                    player.reserved_points -= value
                     return {
                         initiator_id: {
                             'offerPoints': True, 
@@ -925,9 +951,17 @@ class Interaction(Page):
                         },
                     }
                 else:
+                    # Close out the transaction row that new_transaction() already
+                    # created (status 'Iniciado') — otherwise it's left permanently
+                    # "open" in the database, and get_last_transaction_status() (used
+                    # to restore pending offers on page reload) would resurrect this
+                    # dead offer on the receiver's screen even though it was never
+                    # actually sent to them.
+                    closing_transaction(player, data, 'Fallido', transaction_id)
                     return {
                         initiator_id: {
-                            'offerPoints': False, 
+                            'offerPoints': False,
+                            'otherId': receiver_id,
                             'error': "No puedes ofrecer más puntos de los que tienes disponibles."
                         }
                     }
@@ -957,12 +991,16 @@ class Interaction(Page):
                             },
                         }
                 else:
+                    # Same reasoning as the 'Ofrece' branch above: close out the
+                    # 'Iniciado' transaction row so it can't be resurrected later by
+                    # get_last_transaction_status() on a page reload.
+                    closing_transaction(player, data, 'Fallido', transaction_id)
                     return {
                         initiator_id: {
-                            'requestPoints': False, 
+                            'requestPoints': False,
                             'initiator': True
                         }
-                    } 
+                    }
         
         # Close transaction between participants (accept or cancel)
         elif data_type == 'closingTransaction':
@@ -982,13 +1020,75 @@ class Interaction(Page):
 
             channel = f'{min(initiator_id, receiver_id)}{max(initiator_id, receiver_id)}'
             action_label = 'oferta' if action == 'Ofrece' else 'solicitud'
+
+            # 'Solicita' has no reservation of its own (the payer, the receiver, never
+            # proactively committed to anything), so it still needs a live check here:
+            # the receiver is the one clicking, checking their own balance at the exact
+            # moment they decide, so there's no staleness window to guard against. But
+            # the check must be against reserved_points, not current_points: current_points
+            # can include points the receiver has already promised away via their own
+            # pending Ofrece, and paying out of that would silently break that other
+            # commitment later. Checked here, before the generic status message below,
+            # so the stored chat text reflects what actually happened rather than
+            # unconditionally saying "aceptó".
+            if status == 'Aceptado' and action == 'Solicita' and points > receiver.reserved_points:
+                # Distinct status from 'Rechazado' so this auto-fail (a system block,
+                # not a deliberate rejection by the other player) can be told apart in
+                # the data.
+                closing_transaction(player, data, 'Fallido', transaction_id)
+
+                msg = Message.create(
+                    group=group,
+                    sender=group.get_player_by_id(initiator_id),
+                    recipient=group.get_player_by_id(receiver_id),
+                    channel=channel,
+                    text=f'{receiver.role} no tenía suficientes puntos disponibles para completar la {action_label}.',
+                    name='TransferInfo',
+                )
+
+                filter_transactions_i = filter_transactions({
+                    'participant_code': initiator.participant.code,
+                    'round': initiator.participant.treatment_round,
+                    'segment': initiator.participant.segment,
+                    'session_code': initiator.session.code,
+                })
+                filter_transactions_r = filter_transactions({
+                    'participant_code': receiver.participant.code,
+                    'round': receiver.participant.treatment_round,
+                    'segment': receiver.participant.segment,
+                    'session_code': receiver.session.code,
+                })
+
+                return {
+                    # The payer sees a popup: it's their own balance, directly actionable.
+                    receiver_id: {
+                        'updateTransactions': True,
+                        'transactions': filter_transactions_r,
+                        'otherId': initiator_id,
+                        'reload': False,
+                        'update': True,
+                        'error': 'No tienes suficientes puntos disponibles.',
+                        'chat': [msg.to_dict()],
+                    },
+                    # The other party only sees it land in the shared chat/table, same
+                    # as a rejection would — no popup, since it isn't their own account.
+                    initiator_id: {
+                        'updateTransactions': True,
+                        'transactions': filter_transactions_i,
+                        'otherId': receiver_id,
+                        'reload': False,
+                        'update': True,
+                        'chat': [msg.to_dict()],
+                    },
+                }
+
             if status == 'Cancelado':
                 status_label = 'canceló'
             elif status == 'Rechazado':
                 status_label = 'rechazó'
             else:
                 status_label = 'aceptó'
-            
+
             msg = Message.create(
                 group=group,
                 sender=group.get_player_by_id(initiator_id),
@@ -999,6 +1099,9 @@ class Interaction(Page):
             )
 
             if status == 'Cancelado':
+                if action == 'Ofrece':
+                    # Release the reservation held since initiation.
+                    initiator.reserved_points += points
                 closing_transaction(player, data, status, transaction_id)
                 return {
                     initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [msg.to_dict()]},
@@ -1006,6 +1109,9 @@ class Interaction(Page):
                 }    
 
             elif status == 'Rechazado':
+                if action == 'Ofrece':
+                    # Release the reservation held since initiation.
+                    initiator.reserved_points += points
                 closing_transaction(player, data, status, transaction_id)
 
                 filter_transactions_i = filter_transactions({
@@ -1040,22 +1146,26 @@ class Interaction(Page):
                     },
                 }
             
-            # TODO: Chequear por qué no llega warning de no aceptar puntos cuando no te alcanza
             elif status == 'Aceptado':
-                # Apply the transaction
+                # The insufficient-funds case (action == 'Solicita' and the receiver can't
+                # cover it) is already handled above, before the generic message block, so
+                # by this point either action == 'Ofrece' (always safe, reserved at
+                # initiation) or action == 'Solicita' with enough reserved_points to pay.
+
+                # Apply the transaction. reserved_points is mirrored on every change
+                # that ISN'T the settlement of one's own reserved Ofrece, so it always
+                # reflects true availability net of pending Ofrece commitments.
                 if action == 'Ofrece':
                     initiator.current_points -= points
+                    # initiator.reserved_points: unchanged, already reserved at initiation.
                     receiver.current_points += points
+                    receiver.reserved_points += points
                 else: # Solicita
-                    if points <= receiver.current_points:
-                        initiator.current_points += points
-                        receiver.current_points -= points
-                    else:
-                        return {receiver: {
-                            'requestPoints':False, 
-                            'initiator': False
-                        }
-                    }
+                    initiator.current_points += points
+                    initiator.reserved_points += points
+                    receiver.current_points -= points
+                    receiver.reserved_points -= points
+
                 closing_transaction(player, data, status, transaction_id)
 
                 filter_transactions_i = filter_transactions({

@@ -34,6 +34,8 @@
             <li>Ofreciendo o solicitando puntos de manera privada. Las transferencias solo se realizan si la otra parte hace click en “Aceptar”.</li>
         </ol>
         El funcionario puede interactuar con todos los ciudadanos simultáneamente.
+        <br>
+        <b>Importante:</b> los puntos que envíes o recibas en esta interacción privada se suman o restan directamente de tu <b>pago total</b> de la ronda, además de lo que ganes en la interacción pública.
     </li>
     <li>
         <b>Interacción Pública</b>: 
@@ -67,10 +69,14 @@
         <li>
             Para cada ciudadano, el pago se calcula de la siguiente forma:
             {{ if participant.treatment in ['BL1', 'T1'] }}
-                <div class="math-box">        
-                    Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 )
-                </div>   
-                
+                <div class="math-box">
+                    {{ if participant.treatment == 'T1' }}
+                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 ) + Pago de la interacción privada
+                    {{ else }}
+                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 )
+                    {{ endif }}
+                </div>
+
                 <!-- Example 1 -->
                 <div class="example-box">
                     <b>Ejemplo 1 (Contribución mínima):</b><br>
@@ -78,17 +84,32 @@
                     Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
                     Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + (0 / 3) = <b>100 puntos</b>
                 </div>
-                
+
                 <!-- Example 2 -->
                 <div class="example-box">
                     <b>Ejemplo 2 (Contribución máxima):</b><br>
                     Todos los ciudadanos contribuyen 100 puntos.<br>
                     Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
                     Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + (600 / 3) = <b>200 puntos</b>
-                </div>             
+                </div>
+
+                {{ if participant.treatment == 'T1' }}
+                <!-- Example 3: private interaction effect -->
+                <div class="example-box">
+                    <b>Ejemplo 3 (efecto de la interacción privada):</b><br>
+                    Supongamos que, como en el Ejemplo 2, tu pago de la interacción pública es 200 puntos.<br>
+                    Durante la interacción privada, enviaste 30 puntos al funcionario y no recibiste nada a cambio.<br>
+                    Pago de la interacción privada = 0 - 30 = <b>-30 puntos</b><br>
+                    Pago total = 200 + (-30) = <b>170 puntos</b>
+                </div>
+                {{ endif }}
             {{ else }}
-                <div class="math-box">  
-                    Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
+                <div class="math-box">
+                    {{ if participant.treatment in ['T2', 'T3', 'T4', 'T6', 'T7'] }}
+                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario + Pago de la interacción privada
+                    {{ else }}
+                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
+                    {{ endif }}
                 </div>
 
                 <!-- Example 1 -->
@@ -162,10 +183,40 @@
                         {{ endif }}
                     {{ endif }}
                 </div>
+
+                {{ if participant.treatment in ['T2', 'T3', 'T4', 'T6', 'T7'] }}
+                <!-- Example 4: private interaction effect -->
+                <div class="example-box">
+                    <b>Ejemplo 4 (efecto de la interacción privada):</b><br>
+                    Supongamos que tu pago de la interacción pública en esta ronda fue 200 puntos.<br>
+                    Durante la interacción privada, enviaste 30 puntos al funcionario y no recibiste nada a cambio.<br>
+                    Pago de la interacción privada = 0 - 30 = <b>-30 puntos</b><br>
+                    Pago total = 200 + (-30) = <b>170 puntos</b>
+                </div>
+                {{ endif }}
             {{ endif }}
         </li>
         <li>
-            El pago del funcionario será igual a su dotación inicial.
+            {{ if participant.treatment in ['T1', 'T2', 'T3', 'T4', 'T6', 'T7'] }}
+                El funcionario no recibe dotación inicial ({{ session.config.officer_endowment }} puntos). Su pago depende completamente de la interacción privada:
+                <div class="math-box">
+                    Pago del funcionario = Puntos privados recibidos - Puntos privados enviados
+                </div>
+
+                <!-- Example: officer payoff, both directions -->
+                <div class="example-box">
+                    <b>Ejemplo (el funcionario recibe más de lo que envía):</b><br>
+                    El funcionario recibe 60 puntos de un ciudadano y envía 20 puntos a otro.<br>
+                    Pago del funcionario = 60 - 20 = <b>40 puntos</b>
+                </div>
+                <div class="example-box">
+                    <b>Ejemplo (el funcionario envía más de lo que recibe):</b><br>
+                    El funcionario recibe 20 puntos de un ciudadano y envía 50 puntos a otro.<br>
+                    Pago del funcionario = 20 - 50 = <b>-30 puntos</b>
+                </div>
+            {{ else }}
+                El funcionario no recibe dotación inicial ({{ session.config.officer_endowment }} puntos) y no puede interactuar de forma privada con los ciudadanos en este bloque, por lo que su pago será <b>0 puntos</b>.
+            {{ endif }}
         </li>
     </ol>
 </ol>

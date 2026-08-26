@@ -558,6 +558,10 @@
             // Handle invalid offer points
             if (data.offerPoints === false) {
                 alert(data.error);
+                const offerInput = document.getElementById(ID_PREFIXES.offerInput + data.otherId);
+                if (offerInput) {
+                    offerInput.value = "";
+                }
                 return;
             }
 
@@ -625,6 +629,10 @@
                 }
 
                 if (data.updateTransactions) {
+                    if (data.error) {
+                        alert(data.error);
+                    }
+
                     if (data.reload === false) {
                         console.log("enable buttons transactions");
                         let offerButton = document.getElementById('id_offerButton_' + data.otherId);
