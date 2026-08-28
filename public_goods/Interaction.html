@@ -36,8 +36,8 @@
                 {{ else }}
                     <p>Tu rol es el de <b>ciudadano {{ player.id_in_group }}</b>.</p>
                     <p id="points-info">
-                        Tienes <b><span id="points-value">{{ player.reserved_points }}</span> puntos</b> para
-                        distribuir entre tu cuenta y el proyecto del grupo.
+                        Tienes <b><span id="points-value">{{ player.reserved_points }}</span> puntos</b><span id="points-info-suffix"> para
+                        distribuir entre tu cuenta y el proyecto del grupo.</span>
                     </p>
                     <div id="beforeContribution">
                         {{ if participant.treatment in ['T4'] }}
@@ -53,21 +53,19 @@
                             Puntos a contribuir al proyecto del grupo:
                         </p>
                         <div class="d-flex">
-                            <input 
-                                id="id_contribution_points" 
-                                type="number" 
-                                name="contribution_points" 
-                                class="form-control" 
+                            <input
+                                id="id_contribution_points"
+                                type="number"
+                                class="form-control"
                                 style="flex: 1;">
-                            <button 
-                                id="send_to_b_button" 
-                                type="button" 
-                                class="btn btn-primary" 
+                            <button
+                                id="send_to_b_button"
+                                type="button"
+                                class="btn btn-primary"
                                 onclick="sendContribution()">
                                 Enviar puntos
                             </button>
                         </div>
-                        {{ formfield_errors 'contribution_points' }}
                     </div>
                     <!-- Display message after contribution -->
                     <div id="afterContribution" style="display: none;">
@@ -343,6 +341,25 @@
             afterAction: 'id_afterAction_'
         };
 
+        // Get related DOM elements by `otherId`
+        function getElements(otherId) {
+            return {
+                offerButton: document.getElementById(ID_PREFIXES.offerButton + otherId),
+                offerInput: document.getElementById(ID_PREFIXES.offerInput + otherId),
+                requestButton: document.getElementById(ID_PREFIXES.requestButton + otherId),
+                requestInput: document.getElementById(ID_PREFIXES.requestInput + otherId),
+                afterAction: document.getElementById(ID_PREFIXES.afterAction + otherId),
+            };
+        }
+
+        // Disable/enable inputs and buttons
+        function toggleInputs(elements, disabled) {
+            elements.offerButton.disabled = disabled;
+            elements.offerInput.disabled = disabled;
+            elements.requestButton.disabled = disabled;
+            elements.requestInput.disabled = disabled;
+        }
+
         function sendMsg(recipient) {
             let chat_input = document.getElementById(`chat_input_${recipient}`);
             let text = chat_input.value.trim();
@@ -400,20 +417,27 @@
 
             if (!Number.isInteger(inputValue) || isNaN(inputValue)) {
                 alert("Por favor, ingresa una cantidad válida.");
+                return;
             } else if (inputValue < 0) {
                 alert("No puedes ingresar una cantidad negativa.");
-            } else {
-                liveSend({
-                    'type': 'initiatingTransaction',
-                    'action': action,
-                    'value': inputValue,
-                    'initiatorId': playerId,
-                    'receiverId': otherId
-                });
+                return;
             }
 
+            // Lock immediately, before the server round-trip, so a double-click
+            // can't fire a second offer/request against the same otherId while
+            // the first is still in flight. toggleInputs(..., false) re-enables
+            // on rejection (below) or is left disabled by the normal accepted
+            // offerPoints/requestPoints handling in liveRecv.
+            toggleInputs(getElements(otherId), true);
             hasOngoingTransaction = true;
-            console.log("Transaction started:", hasOngoingTransaction);
+
+            liveSend({
+                'type': 'initiatingTransaction',
+                'action': action,
+                'value': inputValue,
+                'initiatorId': playerId,
+                'receiverId': otherId
+            });
         }
 
         function closingTransaction(status, myId, otherId, transactionId) {
@@ -497,6 +521,13 @@
                 beforeContribution.style.display = "none";
                 afterContribution.style.display = "block";
                 afterContribution.innerHTML = `<p>Has contribuido con ${points} puntos al proyecto del grupo.</p>`;
+
+                // "Tienes X puntos para distribuir..." no longer makes sense once the
+                // decision is made — collapse it to "Tienes X puntos."
+                const pointsInfoSuffix = document.getElementById("points-info-suffix");
+                if (pointsInfoSuffix) {
+                    pointsInfoSuffix.textContent = ".";
+                }
             };
 
             // The server is the source of truth for how many points this player has
@@ -518,25 +549,6 @@
                 return;
             }
             
-
-            // Helper function to get related DOM elements by `otherId`
-            function getElements(otherId) {
-                return {
-                    offerButton: document.getElementById(ID_PREFIXES.offerButton + otherId),
-                    offerInput: document.getElementById(ID_PREFIXES.offerInput + otherId),
-                    requestButton: document.getElementById(ID_PREFIXES.requestButton + otherId),
-                    requestInput: document.getElementById(ID_PREFIXES.requestInput + otherId),
-                    afterAction: document.getElementById(ID_PREFIXES.afterAction + otherId),
-                };
-            }
-
-            // Helper function to disable/enable inputs and buttons
-            function toggleInputs(elements, disabled) {
-                elements.offerButton.disabled = disabled;
-                elements.offerInput.disabled = disabled;
-                elements.requestButton.disabled = disabled;
-                elements.requestInput.disabled = disabled;
-            }
 
             // Helper function to update `afterAction` content
             function updateAfterAction(elements, display, content = '') {
@@ -583,10 +595,10 @@
             // Handle invalid offer points
             if (data.offerPoints === false) {
                 alert(data.error);
-                const offerInput = document.getElementById(ID_PREFIXES.offerInput + data.otherId);
-                if (offerInput) {
-                    offerInput.value = "";
-                }
+                const elements = getElements(data.otherId);
+                toggleInputs(elements, false);
+                elements.offerInput.value = "";
+                hasOngoingTransaction = false;
                 return;
             }
 
@@ -633,6 +645,10 @@
                     ? "No puedes solicitar más puntos de los que hay en tu grupo."
                     : "No puedes aceptar el monto solicitado dado que excede el total de puntos que tienes.";
                 alert(message);
+                const elements = getElements(data.otherId);
+                toggleInputs(elements, false);
+                elements.requestInput.value = "";
+                hasOngoingTransaction = false;
                 return;
             }
 

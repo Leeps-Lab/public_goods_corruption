@@ -780,7 +780,12 @@ class Interaction(Page):
 
     @staticmethod
     def get_form_fields(player):
-        return ['contribution_points'] if player.role != C.OFFICER_ROLE else []
+        # contribution_points is committed directly by handle_contribution() via
+        # live_method, not through the page's own form submission — the input
+        # that would back this field is never kept in sync with that committed
+        # value (blank on reload), so declaring it here would let a plain form
+        # submit silently overwrite the real value with blank/None.
+        return []
 
     @staticmethod
     def vars_for_template(player):
@@ -989,7 +994,8 @@ class Interaction(Page):
                     return {
                         initiator_id: {
                             'requestPoints': False,
-                            'initiator': True
+                            'initiator': True,
+                            'otherId': receiver_id,
                         }
                     }
         
