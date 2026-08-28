@@ -1401,7 +1401,7 @@ class SecondWaitPage(WaitPage):
 
 
 class ResourceAllocation(Page):
-    timeout_seconds = 60 + 30
+    timeout_seconds = 60 * 2
     form_model = 'group'
     form_fields = ['allocation1', 'allocation2', 'allocation3']
 
