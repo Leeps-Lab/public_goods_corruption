@@ -18,7 +18,6 @@ from sql_utils import (
     filter_transactions,
     filter_history,
     get_last_transaction_status,
-    total_transfers_per_player,
     check_corruption,
 )
 from treatment_config_loader import load_treatments_from_excel
@@ -233,6 +232,11 @@ class Player(BasePlayer):
     # Kept in lockstep with current_points on every OTHER balance change (contribution, receiving points,
     # paying an accepted Solicita) so it stays accurate; only settlement of one's own reserved Ofrece
     # leaves it untouched, since that amount was already subtracted from it at initiation time.
+    round_transfers_received = models.IntegerField(initial=0) # Total points received via accepted private
+    # transactions this round. Tracked live here (instead of re-derived from a separate SQL query at
+    # round-end) so set_payoffs()/insert_history() never depend on a fresh database connection succeeding.
+    round_transfers_given = models.IntegerField(initial=0) # Total points given via accepted private
+    # transactions this round. See round_transfers_received.
     actual_allocation = models.FloatField() # Amount the citizen actually received
     timeout_penalty = models.BooleanField(initial=False) # True if the player timed out during a decision
     corruption_audit = models.BooleanField() # True if the player is selected for audit
@@ -477,16 +481,8 @@ def set_payoffs(player):
         tuple: (public_interaction_payoff, private_interaction_payoff)
     """
     
-    total_transfers = total_transfers_per_player({
-        'session_code': player.session.code,
-        'segment': player.participant.segment,
-        'round': player.participant.treatment_round,
-        'participant_code': player.participant.code,
-    }) 
-
     private_interaction_payoff = (
-        total_transfers.get('transfers_received', 0)
-        - total_transfers.get('transfers_given', 0)
+        player.round_transfers_received - player.round_transfers_given
     )
 
     timeout = player.timeout_penalty
@@ -554,8 +550,9 @@ def handle_contribution(player, contribution_points):
     player.contribution_points = contribution_points
     
     return {
-        'contributionPointsValid': True, 
-        'contributionPoints': contribution_points
+        'contributionPointsValid': True,
+        'contributionPoints': contribution_points,
+        'reservedPoints': player.reserved_points,
     }
 
 
@@ -663,13 +660,6 @@ def insert_history(group):
     for player in group.get_players():
         public_payoff, private_payoff = set_payoffs(player)
 
-        transfers = total_transfers_per_player({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'round': player.participant.treatment_round,
-            'participant_code': player.participant.code,
-        }) 
-
         history_data = {
             'session_code': player.session.code,
             'segment': player.participant.segment,
@@ -680,8 +670,8 @@ def insert_history(group):
             'total_public_goods': player.group.total_allocation,
             'public_good_gross_gain': player.actual_allocation if player.id_in_group != 4 else None,
             'public_interaction_payoff': public_payoff,
-            'total_transfers_received': transfers.get('transfers_received', 0),
-            'total_transfers_given': transfers.get('transfers_given', 0),
+            'total_transfers_received': player.round_transfers_received,
+            'total_transfers_given': player.round_transfers_given,
             'private_interaction_payoff': private_payoff,
             'payment': float(player.payoff),
             'timeout_penalty': player.timeout_penalty,
@@ -929,14 +919,15 @@ class Interaction(Page):
                     player.reserved_points -= value
                     return {
                         initiator_id: {
-                            'offerPoints': True, 
-                            'initiator': True, 
-                            'receiver': False, 
-                            'offerValue': value, 
-                            'myId': initiator_id, 
-                            'otherId': receiver_id, 
+                            'offerPoints': True,
+                            'initiator': True,
+                            'receiver': False,
+                            'offerValue': value,
+                            'myId': initiator_id,
+                            'otherId': receiver_id,
                             'transactionId':transaction_id,
                             'chat': [msg.to_dict()], # Chat variable
+                            'reservedPoints': player.reserved_points,
                         },
                         receiver_id: {
                             'offerPoints': True, 
@@ -1104,9 +1095,14 @@ class Interaction(Page):
                     initiator.reserved_points += points
                 closing_transaction(player, data, status, transaction_id)
                 return {
-                    initiator_id: {'cancelAction': True, 'otherId': receiver_id, 'chat': [msg.to_dict()]},
+                    initiator_id: {
+                        'cancelAction': True,
+                        'otherId': receiver_id,
+                        'chat': [msg.to_dict()],
+                        'reservedPoints': initiator.reserved_points,
+                    },
                     receiver_id: {'cancelAction': True, 'otherId': initiator_id, 'chat': [msg.to_dict()]},
-                }    
+                }
 
             elif status == 'Rechazado':
                 if action == 'Ofrece':
@@ -1129,23 +1125,25 @@ class Interaction(Page):
 
                 return {
                     initiator_id: {
-                        'update': True, 
-                        'updateTransactions': True, 
-                        'transactions': filter_transactions_i, 
-                        'otherId': receiver_id, 
+                        'update': True,
+                        'updateTransactions': True,
+                        'transactions': filter_transactions_i,
+                        'otherId': receiver_id,
                         'reload': False,
                         'chat': [msg.to_dict()],
+                        'reservedPoints': initiator.reserved_points,
                     },
                     receiver_id: {
-                        'update': True, 
-                        'updateTransactions': True, 
+                        'update': True,
+                        'updateTransactions': True,
                         'transactions': filter_transactions_r,
-                        'otherId': initiator_id, 
+                        'otherId': initiator_id,
                         'reload': False,
                         'chat': [msg.to_dict()],
+                        'reservedPoints': receiver.reserved_points,
                     },
                 }
-            
+
             elif status == 'Aceptado':
                 # The insufficient-funds case (action == 'Solicita' and the receiver can't
                 # cover it) is already handled above, before the generic message block, so
@@ -1157,14 +1155,18 @@ class Interaction(Page):
                 # reflects true availability net of pending Ofrece commitments.
                 if action == 'Ofrece':
                     initiator.current_points -= points
+                    initiator.round_transfers_given += points
                     # initiator.reserved_points: unchanged, already reserved at initiation.
                     receiver.current_points += points
                     receiver.reserved_points += points
+                    receiver.round_transfers_received += points
                 else: # Solicita
                     initiator.current_points += points
                     initiator.reserved_points += points
+                    initiator.round_transfers_received += points
                     receiver.current_points -= points
                     receiver.reserved_points -= points
+                    receiver.round_transfers_given += points
 
                 closing_transaction(player, data, status, transaction_id)
 
@@ -1185,20 +1187,22 @@ class Interaction(Page):
 
                 return {
                     receiver_id: {
-                        'updateTransactions': True, 
-                        'transactions': filter_transactions_r, 
-                        'otherId': initiator_id, 
-                        'reload': False, 
+                        'updateTransactions': True,
+                        'transactions': filter_transactions_r,
+                        'otherId': initiator_id,
+                        'reload': False,
                         'update': True,
                         'chat': [msg.to_dict()],
+                        'reservedPoints': receiver.reserved_points,
                     },
                     initiator_id: {
-                        'updateTransactions': True, 
-                        'transactions': filter_transactions_i, 
-                        'otherId': receiver_id, 
-                        'reload': False, 
+                        'updateTransactions': True,
+                        'transactions': filter_transactions_i,
+                        'otherId': receiver_id,
+                        'reload': False,
                         'update':True,
                         'chat': [msg.to_dict()],
+                        'reservedPoints': initiator.reserved_points,
                     }
                 }
         
@@ -1220,6 +1224,7 @@ class Interaction(Page):
             })
 
             reload = reload_contribution(player)
+            reload['reservedPoints'] = player.reserved_points
 
             # If the last transaction is still in progress, resend offer/request with updated transactions
             if last_transaction:
@@ -1260,6 +1265,7 @@ class Interaction(Page):
                             'offerValue': value,
                             'myId': receiver_id,
                             'otherId': initiator_id,
+                            'reservedPoints': group.get_player_by_id(receiver_id).reserved_points,
                             **response_data
                         }
                     }
@@ -1282,6 +1288,7 @@ class Interaction(Page):
                             'requestValue': value,
                             'myId': receiver_id,
                             'otherId': initiator_id,
+                            'reservedPoints': group.get_player_by_id(receiver_id).reserved_points,
                             **response_data
                         }
                     }
