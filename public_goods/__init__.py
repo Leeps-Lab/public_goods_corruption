@@ -3,10 +3,6 @@ import json
 import math
 import random
 from random import choices
-from unidecode import unidecode  # type: ignore
-from spanlp.palabrota import Palabrota  # type: ignore
-from spanlp.domain.countries import Country # type: ignore
-from spanlp.domain.strategies import CosineSimilarity # type: ignore
 
 # Local utilities
 from sql_utils import (
@@ -1315,40 +1311,14 @@ class Interaction(Page):
             recipient_id = data['recipient']
             channel = f'{min(my_id, recipient_id)}{max(my_id, recipient_id)}'
 
-            print(f'recipient_id: {recipient_id}')
-            print(f'channel: {channel}')
-            print(f'group.get_player_by_id(my_id): {group.get_player_by_id(my_id)}')
-            print(f'group.get_player_by_id(recipient_id): {group.get_player_by_id(recipient_id)}')
-            
             text_unfiltered = data['text']
-            ascii_text = unidecode(text_unfiltered.lower())
-
-            palabrota = Palabrota(
-                censor_char="*", 
-                countries=[Country.PERU, Country.EL_SALVADOR], 
-                distance_metric=CosineSimilarity()
-            )
-
-            # Manual slang censor
-            custom_slang = {"tmr", "tmre", "pta", "ptm", "ctm", "chch", "chcha"}
-            words = ascii_text.split()
-            pre_censored_words = [
-                "".join("*" for _ in word) if word in custom_slang else word
-                for word in words
-            ]
-            pre_censored_text = " ".join(pre_censored_words)
-
-            #  Apply palabrota
-            text_filtered = palabrota.censor(pre_censored_text)
-
-            print(f"Filtered: {text_filtered}")
 
             msg = Message.create(
                 group=group,
                 sender=group.get_player_by_id(my_id),
                 recipient=group.get_player_by_id(recipient_id),
                 channel=channel,
-                text=text_filtered,
+                text=text_unfiltered,
                 text_unfiltered=text_unfiltered,
                 name='Player',
             )
