@@ -2,6 +2,7 @@ from os import environ
 from dotenv import load_dotenv # type: ignore
 import psycopg2 # type: ignore
 from psycopg2 import sql # type: ignore
+from psycopg2 import pool as pg_pool # type: ignore
 import json
 
 load_dotenv()
@@ -14,10 +15,22 @@ with open("translation.json", "r", encoding="utf-8") as f:
 
 role_mapping = translations["role_terms"]
 
+# Live gameplay hits these functions on every offer/accept/reject/round-end,
+# so a fresh TCP+auth handshake per call (the old behavior) added real latency.
+# One pool, created lazily on first use, is shared for the life of the process.
+_pool = None
+
+
+def get_pool(db_path=DB_PATH):
+    global _pool
+    if _pool is None:
+        _pool = pg_pool.ThreadedConnectionPool(2, 20, db_path)
+    return _pool
+
 
 def connect_to_db(db_path=DB_PATH):
     """
-    Establish a connection to the PostgreSQL database and set the search path to 'game_data'.
+    Borrow a connection from the shared pool and set the search path to 'game_data'.
 
     Args:
         db_path (str): Connection string for the database. Defaults to the `DATABASE_URL` environment variable.
@@ -27,16 +40,28 @@ def connect_to_db(db_path=DB_PATH):
     """
 
     try:
-        conn = psycopg2.connect(db_path)
+        conn = get_pool(db_path).getconn()
         cur = conn.cursor()
         cur.execute("SET search_path TO game_data, public;")
         conn.commit()
-        print("Connected to PostgreSQL and set search path to 'game_data'.")
         return conn, cur
-    except psycopg2.Error as e:
+    except Exception as e:
         print(f"Error connecting to PostgreSQL database: {e}")
         return None, None
-    
+
+
+def release_connection(conn, db_path=DB_PATH):
+    """
+    Return a connection to the shared pool instead of closing it, so the
+    underlying TCP connection is reused by the next caller.
+    """
+
+    if conn is not None:
+        try:
+            get_pool(db_path).putconn(conn)
+        except Exception as e:
+            print(f"Error returning connection to pool: {e}")
+
 
 def create_tables(db_path=DB_PATH):
     """
@@ -121,13 +146,13 @@ def create_tables(db_path=DB_PATH):
 
         conn.commit()
         print("Tables created successfully inside 'game_data' schema.")
-    
+
     except Exception as e:
         print(f"Error creating tables: {e}")
         conn.rollback()
 
     finally:
-        conn.close()
+        release_connection(conn)
 
 
 def insert_row(data, table, db_path=DB_PATH):
@@ -185,57 +210,22 @@ def insert_row(data, table, db_path=DB_PATH):
 
     finally:
         if conn:
-            conn.close()
+            release_connection(conn)
 
 
-def get_points(transaction_id, db_path=DB_PATH):
+def get_transaction(transaction_id, db_path=DB_PATH):
     """
-    Retrieve the number of points for a given transaction ID 
-    from the 'game_data.transactions' table.
+    Retrieve the points and action for a given transaction ID from the
+    'game_data.transactions' table in a single query (replaces the old
+    get_points()/get_action() pair, which each opened their own connection
+    for the same row).
 
     Args:
         transaction_id (int): The ID of the transaction to look up.
         db_path (str): Connection string to the PostgreSQL database.
 
     Returns:
-        int or None: The number of points, or None if not found or error occurs.
-    """
-    
-    conn = cur = None
-
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return None
-
-        cur.execute(
-            "SELECT points FROM game_data.transactions WHERE transaction_id = %s", 
-            (transaction_id,)
-        )
-        result = cur.fetchone()
-        return result[0] if result else None
-    
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        if conn:
-            conn.rollback()
-
-    finally:
-        if conn:
-            conn.close()
-
-
-def get_action(transaction_id, db_path=DB_PATH):
-    """
-    Retrieve the action associated with a given transaction ID 
-    from the 'game_data.transactions' table.
-
-    Args:
-        transaction_id (int): The transaction ID to query.
-        db_path (str): Optional PostgreSQL connection string.
-
-    Returns:
-        action (str) or None: The action (e.g. 'Ofrece', 'Solicita'), or None if not found or error.
+        tuple: (points, action), or (None, None) if not found or on error.
     """
 
     conn = cur = None
@@ -243,23 +233,24 @@ def get_action(transaction_id, db_path=DB_PATH):
     try:
         conn, cur = connect_to_db(db_path)
         if not conn:
-            return None
-        
+            return None, None
+
         cur.execute(
-            "SELECT action FROM game_data.transactions WHERE transaction_id = %s", 
+            "SELECT points, action FROM game_data.transactions WHERE transaction_id = %s",
             (transaction_id,)
         )
         result = cur.fetchone()
-        return result[0] if result else None
-    
+        return result if result else (None, None)
+
     except psycopg2.Error as e:
         print(f"Database error: {e}")
         if conn:
             conn.rollback()
+        return None, None
 
     finally:
         if conn:
-            conn.close()
+            release_connection(conn)
 
 
 def add_balance(data, db_path=DB_PATH):
@@ -298,7 +289,7 @@ def add_balance(data, db_path=DB_PATH):
 
     finally:
         if conn:
-            conn.close()
+            release_connection(conn)
 
 
 def filter_transactions(data, db_path=DB_PATH):
@@ -378,7 +369,7 @@ def filter_transactions(data, db_path=DB_PATH):
     
     finally:
         if conn:
-            conn.close()
+            release_connection(conn)
 
 
 def filter_history(data, db_path=DB_PATH):
@@ -462,7 +453,7 @@ def filter_history(data, db_path=DB_PATH):
 
     finally:
         if conn:
-            conn.close()
+            release_connection(conn)
 
 
 def get_last_transaction_status(participant_code, treatment_round, segment, session_code, db_path=DB_PATH):
@@ -538,93 +529,7 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
 
     finally:
         if conn:
-            conn.close()
-
-
-def total_transfers_per_player(data, db_path=DB_PATH):
-    """
-    Retrieves the total number of points received and given by a participant in a specific
-    round, segment, and session. Only accepted transactions are included.
-
-    Logic:
-        - If participant is receiver and action is 'Ofrece' → received
-        - If participant is initiator and action is 'Solicita' → received
-        - If participant is initiator and action is 'Ofrece' → given
-        - If participant is receiver and action is 'Solicita' → given
-
-    Args:
-        data (dict): Must include:
-            - 'participant_code' (str)
-            - 'round' (int)
-            - 'segment' (int)
-            - 'session_code' (str)
-        db_path (str): PostgreSQL connection string (default: DB_PATH)
-
-    Returns:
-        dict: {
-            'transfers_received': int,
-            'transfers_given': int
-        }
-    """
-
-    conn = cur = None
-
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return {'transfers_received': 0, 'transfers_given': 0}
-
-        query = """
-        SELECT 
-            COALESCE(SUM(
-                CASE 
-                    WHEN t.receiver_code = %s AND t.action = 'Ofrece' THEN t.points
-                    WHEN t.initiator_code = %s AND t.action = 'Solicita' THEN t.points
-                    ELSE 0 
-                END
-            ), 0) AS transfers_received,
-
-            COALESCE(SUM(
-                CASE 
-                    WHEN t.initiator_code = %s AND t.action = 'Ofrece' THEN t.points
-                    WHEN t.receiver_code = %s AND t.action = 'Solicita' THEN t.points
-                    ELSE 0 
-                END
-            ), 0) AS transfers_given
-
-        FROM game_data.transactions t
-        JOIN game_data.status s ON t.transaction_id = s.transaction_id
-        WHERE t.segment = %s
-        AND t.round = %s
-        AND t.session_code = %s
-        AND s.status = 'Aceptado';
-        """
-
-        cur.execute(query, (
-            data['participant_code'], # Receiver: Ofrece (Received)
-            data['participant_code'], # Initiator: Solicita (Received)
-            data['participant_code'], # Initiator: Ofrece (Given)
-            data['participant_code'], # Receiver: Solicita (Given)
-            data['segment'],
-            data['round'],
-            data.get('session_code', '') # Ensure session_code is included
-        ))
-
-        result = cur.fetchone()
-        return {
-            'transfers_received': result[0],
-            'transfers_given': result[1]
-        }
-
-    except psycopg2.Error as e:
-        print(f"Database error in total_transfers_per_player: {e}")
-        if conn:
-            conn.rollback()
-        return {'transfers_received': 0, 'transfers_given': 0}
-
-    finally:
-        if conn:
-            conn.close()
+            release_connection(conn)
 
 
 def check_corruption(data, db_path=DB_PATH):
@@ -712,4 +617,4 @@ def check_corruption(data, db_path=DB_PATH):
         if cur:
             cur.close()
         if conn:
-            conn.close()
+            release_connection(conn)

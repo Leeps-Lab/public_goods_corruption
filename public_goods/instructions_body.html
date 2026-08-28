@@ -17,7 +17,7 @@
             {{ else }}
                 <li>Cada ciudadano recibe <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
             {{ endif }}
-            <li>El funcionario recibe <b>{{ session.config.officer_endowment }} puntos</b>.</li>
+            <li>El funcionario no recibe dotación inicial.</li>
         </ol>
     </li>
     <li>
@@ -200,7 +200,7 @@
         </li>
         <li>
             {{ if participant.treatment in ['T1', 'T2', 'T3', 'T4', 'T6', 'T7'] }}
-                El funcionario no recibe dotación inicial ({{ session.config.officer_endowment }} puntos). Su pago depende completamente de la interacción privada:
+                El funcionario no recibe dotación inicial. Su pago depende completamente de la interacción privada:
                 <div class="math-box">
                     Pago del funcionario = Puntos privados recibidos - Puntos privados enviados
                 </div>
@@ -217,7 +217,7 @@
                     Pago del funcionario = 20 - 50 = <b>-30 puntos</b>
                 </div>
             {{ else }}
-                El funcionario no recibe dotación inicial ({{ session.config.officer_endowment }} puntos) y no puede interactuar de forma privada con los ciudadanos en este bloque, por lo que su pago será <b>0 puntos</b>.
+                El funcionario no recibe dotación inicial y no puede interactuar de forma privada con los ciudadanos en este bloque, por lo que su pago en este bloque será <b>0 puntos</b>.
             {{ endif }}
         </li>
     </ol>

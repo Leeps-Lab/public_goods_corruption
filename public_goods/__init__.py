@@ -9,8 +9,7 @@ from sql_utils import (
     create_tables,
     insert_row,
     add_balance,
-    get_points,
-    get_action,
+    get_transaction,
     filter_transactions,
     filter_history,
     get_last_transaction_status,
@@ -647,6 +646,35 @@ def closing_transaction(player, data, status, transaction_id):
     }, table='status')
 
 
+def get_cached_history(player):
+    """
+    Returns the participant's round-by-round history for the current segment.
+
+    `history` (via filter_history()) is queried identically by five different
+    pages every round (Interaction, SecondWaitPage, ResourceAllocation,
+    ThirdWaitPage, Results), but the underlying rows only change once per
+    round, when insert_history() runs. Caching it in participant.vars — kept
+    up to date by insert_history() appending each new round directly — avoids
+    re-querying the same unchanged rows from SQL on every page load. The SQL
+    table stays the durable source of truth; this is only a per-session cache
+    over it, refreshed from SQL if it's ever missing or stale for the segment.
+    """
+
+    segment = player.participant.segment
+    cache = player.participant.vars.get('history_cache')
+
+    if cache is None or cache.get('segment') != segment:
+        rows = filter_history({
+            'session_code': player.session.code,
+            'segment': segment,
+            'participant_code': player.participant.code,
+        })
+        cache = {'segment': segment, 'rows': rows}
+        player.participant.vars['history_cache'] = cache
+
+    return cache['rows']
+
+
 def insert_history(group):
     """
     Inserts a new row in the history table for each player in the group,
@@ -674,7 +702,32 @@ def insert_history(group):
             'corruption_punishment': player.field_maybe_none('corruption_punishment') or False,
         }
 
+        # Warm/fetch the cache BEFORE inserting the new row: if the cache is
+        # cold, get_cached_history() falls back to SQL, and this round's row
+        # must not already be in the database when it does that fallback
+        # fetch, or the append below would duplicate it.
+        cache = get_cached_history(player)
+
         insert_row(data=history_data, table='history')
+
+        # Keep the per-participant cache in lockstep with what was just
+        # written, so later pages this round don't have to re-query SQL.
+        cache.append({
+            "Segment": history_data['segment'],
+            "Round": history_data['round'],
+            "Participant": history_data['participant_code'],
+            "Endowment": history_data['endowment'],
+            "Contribution": history_data['contribution'] or 0,
+            "TotalPublicGoods": history_data['total_public_goods'],
+            "PublicGoodGrossGain": history_data['public_good_gross_gain'],
+            "TotalTransfersReceived": history_data['total_transfers_received'],
+            "TotalTransfersGiven": history_data['total_transfers_given'],
+            "PublicInteractionPayoff": history_data['public_interaction_payoff'],
+            "PrivateInteractionPayoff": history_data['private_interaction_payoff'],
+            "Payment": history_data['payment'],
+            "Timeout": history_data['timeout_penalty'],
+            "Audited": history_data['corruption_punishment'],
+        })
 
 
 # PAGES
@@ -829,11 +882,7 @@ class Interaction(Page):
             ]
             print(f'other_citizens: {additional_chats}, I am player: {player.id_in_group}')
 
-        history = filter_history({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'participant_code': player.participant.code,
-        })
+        history = get_cached_history(player)
 
         # Instruction timing variables
         num_treatments = len(player.session.config['treatment_order'])
@@ -1003,8 +1052,7 @@ class Interaction(Page):
             initiator = group.get_player_by_id(initiator_id)
             receiver = group.get_player_by_id(receiver_id)
 
-            points = get_points(transaction_id)
-            action = get_action(transaction_id)
+            points, action = get_transaction(transaction_id)
 
             print(f'initiator: {initiator}')
             print(f'receiver: {receiver}')
@@ -1350,11 +1398,7 @@ class SecondWaitPage(WaitPage):
 
     @staticmethod
     def vars_for_template(player):
-        history = filter_history({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'participant_code': player.participant.code,
-        })
+        history = get_cached_history(player)
 
         treatment_cfg = TREATMENTS[player.participant.treatment]
 
@@ -1388,11 +1432,7 @@ class ResourceAllocation(Page):
 
     @staticmethod
     def vars_for_template(player):
-        history = filter_history({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'participant_code': player.participant.code,
-        }) 
+        history = get_cached_history(player)
 
         # Instruction timing variables
         num_treatments = len(player.session.config['treatment_order'])
@@ -1447,11 +1487,7 @@ class ThirdWaitPage(WaitPage):
 
     @staticmethod
     def vars_for_template(player):
-        history = filter_history({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'participant_code': player.participant.code,
-        })
+        history = get_cached_history(player)
 
         return {
             'segment': player.participant.segment,
@@ -1475,11 +1511,7 @@ class Results(Page):
 
     @staticmethod
     def vars_for_template(player):
-        history = filter_history({
-            'session_code': player.session.code,
-            'segment': player.participant.segment,
-            'participant_code': player.participant.code,
-        })
+        history = get_cached_history(player)
 
         treatment_cfg = TREATMENTS[player.participant.treatment]
 
