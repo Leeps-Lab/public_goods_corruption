@@ -1339,7 +1339,10 @@ class Instructions(Page):
 
     @staticmethod
     def vars_for_template(player):
-        return instructions_vars(player)
+        return {
+            **instructions_vars(player),
+            'num_questions': len(Instructions.get_form_fields(player)),
+        }
 
     @staticmethod
     def is_displayed(player):

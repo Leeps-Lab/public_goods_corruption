@@ -263,7 +263,7 @@
     text-align: center;
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--pg-accent);
+    color: var(--pg-ink);
 }
 
 .subsection-title {
@@ -299,18 +299,18 @@
     vertical-align: middle;
     text-align: center;
     font-weight: 600;
-    color: var(--pg-accent);
-    background: var(--pg-accent-soft);
-    border-bottom: 1px solid #c9d6ee;
+    color: var(--pg-ink);
+    background: var(--pg-surface);
+    border-bottom: 1px solid var(--pg-border);
 }
 
 .pg-table thead th.group-header {
-    background: #d6e2f5;
+    background: #eceef1;
     letter-spacing: 0.02em;
 }
 
 .pg-table thead .note-number {
-    color: #5b6b8a;
+    color: var(--pg-muted);
 }
 
 .pg-table tbody td {
@@ -334,13 +334,13 @@
 }
 
 .pg-table th.col-total {
-    background: #d6e2f5;
+    background: #eceef1;
 }
 
 .pg-table td.col-total,
 .pg-table tbody tr:nth-child(even) td.col-total {
     font-weight: 700;
-    background: #f3f6fc;
+    background: #f4f5f7;
 }
 
 /* Newest transaction flashes briefly */
