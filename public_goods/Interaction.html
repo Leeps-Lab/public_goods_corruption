@@ -74,14 +74,13 @@
                                 <p>
                                     Puntos a contribuir al proyecto del grupo:
                                 </p>
-                                <div class="d-flex gap-2">
+                                <div class="contribution-input-row">
                                     <input
                                         id="id_contribution_points"
                                         type="number"
                                         min="0"
                                         step="1"
                                         class="form-control"
-                                        style="flex: 1;"
                                         {% if sequential_contribution %}disabled{% endif %}>
                                     <button
                                         id="send_to_b_button"
@@ -330,8 +329,8 @@
             </div>
 
             <!-- History Section -->
-            <div class="row">
-                <h4 class="section-title mt-4" style="padding-top: 24px;">Historia</h4>
+            <div class="history-section">
+                <h4 class="section-title">Historia</h4>
                 {{ include '../_templates/global/history.html' }}
             </div>
 

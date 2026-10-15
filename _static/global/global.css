@@ -1,11 +1,35 @@
-/* 0. Tokens (accent matches the instruction cards) */
+/* 0. Tokens: warm neutrals, a mid blue for what participants act on or watch
+   (the instruction cards keep their own navy) */
 :root {
-    --pg-ink: #212529;
-    --pg-muted: #6c757d;
-    --pg-border: #dee2e6;
-    --pg-surface: #f8f9fa;
-    --pg-accent: #003b99;
-    --pg-accent-soft: #e8eef9;
+    --pg-bg: #f6f5f2;          /* Page background, white cards sit on it */
+    --pg-card: #ffffff;
+    --pg-ink: #2b2925;
+    --pg-muted: #6f6a63;
+    --pg-border: #e6e2dc;
+    --pg-surface: #faf9f7;
+    --pg-surface-strong: #f1eee9;
+    --pg-accent: #2554c7;
+    --pg-accent-hover: #1d45a8;
+    --pg-accent-soft: #e9effb;
+    --pg-card-shadow: 0 1px 2px rgba(60, 50, 40, 0.04), 0 4px 16px rgba(60, 50, 40, 0.06);
+}
+
+body {
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+}
+
+/* Primary buttons (Siguiente, Enviar puntos, Confirmar) use the same blue as the rest */
+.btn-primary {
+    background-color: var(--pg-accent);
+    border-color: var(--pg-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: var(--pg-accent-hover);
+    border-color: var(--pg-accent-hover);
 }
 
 /* 0.1. oTree page timer: a slim pill instead of the yellow alert box.
@@ -17,7 +41,7 @@
     padding: 0.35rem 0.9rem;
     border: 1px solid var(--pg-border);
     border-radius: 999px;
-    background: var(--pg-surface);
+    background: var(--pg-card);
     color: var(--pg-muted);
     font-size: 0.9rem;
 }
@@ -63,17 +87,31 @@
 }
 
 .main-content-row {
-    border-top: 1px solid var(--pg-border);
+    margin-left: 0;
+    margin-right: 0;
     padding-bottom: 20px;
+    background: var(--pg-card);
+    border: 1px solid var(--pg-border);
+    border-radius: 12px;
+    box-shadow: var(--pg-card-shadow);
 }
 
 .role-column-divider {
     border-right: 1px solid var(--pg-border);
 }
 
+/* Same side padding as the content above (chats, transactions) */
 .page-actions {
     border-top: 1px solid var(--pg-border);
     padding-top: 14px;
+}
+
+.main-content-row > .page-actions {
+    padding: 14px 2rem 0;
+}
+
+.main-content-row > .history-section {
+    padding: 2.5rem 2rem 0.5rem;
 }
 
 /* 1.1. Points display */
@@ -97,9 +135,29 @@
 /* 1.2. Contribution panel locked during the sequential phase */
 #contribution-panel {
     width: 100%;
+    max-width: 440px; /* Stays centered when the column is full width (no private interaction) */
     border-radius: 0.5rem;
     padding: 0.75rem;
     transition: background-color 0.4s ease;
+}
+
+/* Input + "Enviar puntos" centered as a unit in every layout; the button
+   wraps under the input, still centered, when the column is narrow */
+.contribution-input-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.contribution-input-row .form-control {
+    flex: 1 1 90px;
+    max-width: 150px;
+}
+
+#contribution-panel {
+    margin-left: auto;
+    margin-right: auto;
 }
 
 #contribution-panel.is-locked .contribution-controls {
@@ -196,7 +254,7 @@
 
 .otherText {
     align-self: flex-start;
-    background: #eceef1;
+    background: var(--pg-surface-strong);
     color: var(--pg-ink);
     border-bottom-left-radius: 4px;
 }
@@ -253,6 +311,8 @@
 #transactionsContainer {
     max-height: 220px;
     overflow-y: auto;
+    padding: 0; /* Drop Bootstrap's .row > * gutter so the table reaches the border */
+    background: var(--pg-card);
     border: 1px solid var(--pg-border);
     border-radius: 0.5rem;
 }
@@ -276,6 +336,7 @@
 
 /* 1.7. Tables (history and transactions) */
 .table-card {
+    background: var(--pg-card);
     border: 1px solid var(--pg-border);
     border-radius: 0.5rem;
     overflow: hidden;
@@ -305,7 +366,7 @@
 }
 
 .pg-table thead th.group-header {
-    background: #eceef1;
+    background: var(--pg-surface-strong);
     letter-spacing: 0.02em;
 }
 
@@ -317,7 +378,7 @@
     padding: 8px;
     vertical-align: middle;
     text-align: center;
-    border-bottom: 1px solid #eef0f3;
+    border-bottom: 1px solid #f0ede8;
 }
 
 .pg-table tbody tr:last-child td {
@@ -325,7 +386,7 @@
 }
 
 .pg-table tbody tr:nth-child(even) td {
-    background: #fafbfc;
+    background: var(--pg-surface);
 }
 
 .pg-table th.public-end,
@@ -334,13 +395,13 @@
 }
 
 .pg-table th.col-total {
-    background: #eceef1;
+    background: var(--pg-surface-strong);
 }
 
 .pg-table td.col-total,
 .pg-table tbody tr:nth-child(even) td.col-total {
     font-weight: 700;
-    background: #f4f5f7;
+    background: #f7f5f1;
 }
 
 /* Newest transaction flashes briefly */
