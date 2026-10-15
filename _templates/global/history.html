@@ -9,18 +9,17 @@
         display: inline-block;
         width: 16px;
         height: 16px;
-        border: 1px solid #777777;
+        border: 1px solid currentColor;
         border-radius: 50%;
         text-align: center;
         font-size: 12px;
         line-height: 15px;
         font-family: sans-serif;
         cursor: pointer;
-        color: #777777;
         margin-left: 5px;
         position: relative;
     }
-    
+
     .info-icon:hover::after {
         content: attr(data-tooltip);
         position: absolute;
@@ -34,107 +33,124 @@
         white-space: normal;
         width: 240px;
         font-size: 12px;
+        font-weight: normal;
         z-index: 10;
         opacity: 1;
         pointer-events: none;
     }
 </style>
 
-<div>
-    <div class="row">
-        <table class="table" style="font-size: 0.875rem;">
+<div class="w-100">
+<div class="table-card">
+    {{ if player.id_in_group == 4 }}
+        <!-- Officer: no endowment and no public payoff, so the payment is the private interaction only
+             (as in the block instructions). Total public resources are shown for information. -->
+        <table class="table pg-table">
+            <thead>
+                {{ if private_interaction }}
+                    <tr>
+                        <th rowspan="2">Bloque</th>
+                        <th rowspan="2" class="public-end">Ronda</th>
+                        <th rowspan="2" class="public-end">
+                            Recursos públicos totales
+                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador. No forma parte de tu pago.">i</span>
+                        </th>
+                        <th colspan="3" class="group-header public-end">Interacción privada</th>
+                        <th rowspan="2" class="col-total">Pago total <br>
+                            <span class="note-number">(4) = (3)</span>
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>Transferencias recibidas <br>
+                            <span class="note-number">(1)</span>
+                        </th>
+                        <th>Transferencias enviadas <br>
+                            <span class="note-number">(2)</span>
+                        </th>
+                        <th class="public-end">Pago de la interacción privada <br>
+                            <span class="note-number">(3) = (1) - (2)</span>
+                        </th>
+                    </tr>
+                {{ else }}
+                    <tr>
+                        <th>Bloque</th>
+                        <th class="public-end">Ronda</th>
+                        <th class="public-end">
+                            Recursos públicos totales
+                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador. No forma parte de tu pago.">i</span>
+                        </th>
+                        <th class="col-total">Pago total</th>
+                    </tr>
+                {{ endif }}
+            </thead>
+            <tbody>
+                {{ for row in history }}
+                <tr>
+                    <td>{{ row.Segment }}</td>
+                    <td class="public-end">{{ row.Round }}</td>
+                    <td class="public-end">{{ row.TotalPublicGoods }}</td>
+
+                    {{ if private_interaction }}
+                        <td>{{ row.TotalTransfersReceived }}</td>
+                        <td>{{ row.TotalTransfersGiven }}</td>
+                        <td class="public-end">{{ row.PrivateInteractionPayoff }}</td>
+                    {{ endif }}
+
+                    <td class="col-total {% if row.Audited %}text-danger{% endif %}">{{ row.Payment }}</td>
+                </tr>
+                {{ endfor }}
+            </tbody>
+        </table>
+
+    {{ else }}
+        <!-- Citizens -->
+        <table class="table pg-table">
             <thead>
                 <tr>
                     <th rowspan="2">Bloque</th>
                     <th rowspan="2" class="public-end">Ronda</th>
-                    
-                    <!-- Public Interaction -->
-                    {{ if player.id_in_group != 4 }}
-                        <th colspan="5" class="text-center public-end">Interacción pública</th>
-                    {{ else }}
-                        <th colspan="3" class="text-center public-end">Interacción pública</th>
-                    {{ endif }}
-
-                    <!-- Private Interaction -->
+                    <th colspan="5" class="group-header public-end">Interacción pública</th>
                     {{ if private_interaction }}
-                        <th colspan="3" class="text-center public-end">Interacción privada</th>
+                        <th colspan="3" class="group-header public-end">Interacción privada</th>
                     {{ endif }}
-
-                    <th rowspan="2">Pago total <br>
+                    <th rowspan="2" class="col-total">Pago total <br>
                         {{ if private_interaction }}
-                            {{ if player.id_in_group != 4 }}
-                                <span class="note-number">(9) = (5) + (8)</span>
-                            {{ else }}
-                                <span class="note-number">(7) = (3) + (6)</span>
-                            {{ endif }}
+                            <span class="note-number">(9) = (5) + (8)</span>
                         {{ else }}
-                            {{ if player.id_in_group != 4 }}
-                                <span class="note-number">(6) = (5)</span>
-                            {{ else }}
-                                <span class="note-number">(4) = (3)</span>
-                            {{ endif }}
+                            <span class="note-number">(6) = (5)</span>
                         {{ endif }}
                     </th>
                 </tr>
                 <tr>
-                    <th>Dotación 
-                        <br>
+                    <th>Dotación <br>
                         <span class="note-number">(1)</span>
                     </th>
-                    {{ if player.id_in_group != 4 }}
-                        <th>Contribución 
-                            <br>
-                            <span class="note-number">(2)</span>
-                        </th>
-                        <th>
-                            Recursos públicos totales
-                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador">i</span>
-                            <br>
-                            <span class="note-number">(3)</span>
-                        </th>
-                        <th>Asignación de servicios públicos 
-                            <br>
-                            <span class="note-number">(4)</span>
-                        </th>
-                    {{ else }}
-                        <th>
-                            Recursos públicos totales
-                            <span class="info-icon" data-tooltip="= Contribución total x Multiplicador">i</span>
-                            <br>
-                            <span class="note-number">(2)</span>
-                        </th>
-                    {{ endif }}
+                    <th>Contribución <br>
+                        <span class="note-number">(2)</span>
+                    </th>
+                    <th>
+                        Recursos públicos totales
+                        <span class="info-icon" data-tooltip="= Contribución total x Multiplicador">i</span>
+                        <br>
+                        <span class="note-number">(3)</span>
+                    </th>
+                    <th>Recursos públicos recibidos <br>
+                        <span class="note-number">(4)</span>
+                    </th>
                     <th class="public-end">Pago de la interacción pública
                         <span class="info-icon" data-tooltip="Si ves un monto en rojo, es porque no se envió tu decisión a tiempo y se aplicó una penalización.">i</span>
                         <br>
-                        {{ if player.id_in_group != 4 }}
-                            <span class="note-number">(5) = (1) - (2) + (4)</span>
-                        {{ else }}
-                            <span class="note-number">(3) = (1)</span>
-                        {{ endif }}
+                        <span class="note-number">(5) = (1) - (2) + (4)</span>
                     </th>
-
                     {{ if private_interaction }}
-                        <th>Total de transferencias recibidas <br>
-                            {{ if player.id_in_group != 4 }}
-                                <span class="note-number">(6)</span>
-                            {{ else }}
-                                <span class="note-number">(4)</span>
-                            {{ endif }}
+                        <th>Transferencias recibidas <br>
+                            <span class="note-number">(6)</span>
                         </th>
-                        <th>Total de transferencias enviadas <br>
-                            {{ if player.id_in_group != 4 }}
-                                <span class="note-number">(7)</span>
-                            {{ else }}
-                                <span class="note-number">(5)</span>
-                            {{ endif }}
+                        <th>Transferencias enviadas <br>
+                            <span class="note-number">(7)</span>
                         </th>
                         <th class="public-end">Pago de la interacción privada <br>
-                            {{ if player.id_in_group != 4 }}
-                                <span class="note-number">(8) = (6) - (7)</span>
-                            {{ else }}
-                                <span class="note-number">(6) = (4) - (5)</span>
-                            {{ endif }}
+                            <span class="note-number">(8) = (6) - (7)</span>
                         </th>
                     {{ endif }}
                 </tr>
@@ -147,16 +163,12 @@
 
                     <!-- Public Interaction -->
                     <td>{{ row.Endowment }}</td>
-                    {{ if player.id_in_group != 4 }}
-                        <td>{{ row.Contribution }}</td>
-                        <td>{{ row.TotalPublicGoods }}</td>
-                        <td>{{ row.PublicGoodGrossGain }}</td>
-                    {{ else}}
-                        <td>{{ row.TotalPublicGoods }}</td>
-                    {{ endif }}
+                    <td>{{ row.Contribution }}</td>
+                    <td>{{ row.TotalPublicGoods }}</td>
+                    <td>{{ row.PublicGoodGrossGain }}</td>
                     <td class="public-end {% if row.Timeout %}text-danger{% endif %}">
                         {{ row.PublicInteractionPayoff }}
-                    </td> 
+                    </td>
 
                     <!-- Private Interaction -->
                     {{ if private_interaction }}
@@ -165,10 +177,11 @@
                         <td class="public-end">{{ row.PrivateInteractionPayoff }}</td>
                     {{ endif }}
 
-                    <td class="{% if row.Audited %}text-danger{% endif %}"><b>{{ row.Payment }}</b></td>
+                    <td class="col-total {% if row.Audited %}text-danger{% endif %}">{{ row.Payment }}</td>
                 </tr>
                 {{ endfor }}
             </tbody>
         </table>
-    </div>
+    {{ endif }}
+</div>
 </div>

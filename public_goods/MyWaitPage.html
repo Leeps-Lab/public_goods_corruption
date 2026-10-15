@@ -3,6 +3,7 @@
 {{ block title }}{{ title_text }}{{ endblock }}
 
 {{ block style }}
+<link rel="stylesheet" href="{{ static 'global/global.css' }}">
 <style>
     /* Wait Page CSS *******************/
     .card {
@@ -11,7 +12,7 @@
         max-width: 1250px;
     }
     .card-header {
-        visibility: hidden;
+        display: none;
     }
     /* .progress {
         display: none;
@@ -24,29 +25,14 @@
         background-color: white;
     }
 
-    /* History table CSS *******************/
     .history-container {
         display: flex;
         justify-content: center; /* Centers the table horizontally */
         align-items: center;
         width: 100%;
     }
-    .table thead th {
-        border-bottom: 1px solid #ddd !important;
-        text-align: center;
-        font-weight: bold;
-        padding: 12px 10px;
-    }
-    
-    /* Add a vertical line to separate public and private interactions */
-    .table th.public-end, 
-    .table td.public-end {
-        border-right: 1px solid #ddd !important; /* Adjust thickness as needed */
-    }
 
-    .table tbody { /* Center numbers only */
-        text-align: center;
-    }
+    /* History table: see _static/global/global.css */
 </style>
 {{ endblock }}
 
@@ -54,7 +40,7 @@
     {{ body_text }}
     <br>
     <br>
-    <h4 class="text-center">Historia hasta ahora</h4>
+    <h4 class="section-title">Historia hasta ahora</h4>
     <br>
     <div class="history-container">
         {{ include '../_templates/global/history.html' }}     

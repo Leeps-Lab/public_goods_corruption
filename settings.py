@@ -148,7 +148,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     doc="",
     num_demo_participants=4,
     multiplier=2, # Default multiplier value when it is not random
-    exchange_rate=10, # Default exchange rate bewteen experimental points and soles
+    exchange_rate=12, # Points per S/ 1 (variable pay = avg points per round / exchange_rate). 12 targets ~S/ 8 avg variable pay, calibrated on 2025-26 sessions
     c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
     audit_probability=0.2, # Default detection probability of corruption action (T6)
     private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds

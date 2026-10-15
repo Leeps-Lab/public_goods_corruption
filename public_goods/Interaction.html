@@ -6,12 +6,24 @@
 
 {{ block content }}
 
+    {{ include '../_templates/global/notices.html' }}
+
     <div class="container">
         <!-- Header Row -->
-        <div class="row page-header-info">
-            <div class="col-4 text-center"><b>Bloque:</b> {{ participant.segment }}</div>
-            <div class="col-4 text-center"><b>Ronda:</b> {{ participant.treatment_round }}</div>
-            <div class="col-4 text-center"><b>Rol:</b> {{ player.role }}</div>
+        <div class="page-header-info">
+            <div class="header-meta">
+                <span><span class="meta-label">Bloque:</span><b>{{ participant.segment }}</b></span>
+                <span><span class="meta-label">Ronda:</span><b>{{ participant.treatment_round }}</b></span>
+                <span><span class="meta-label">Rol:</span><b>{{ player.role }}</b></span>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#block-instructions-modal">
+                    Instrucciones del bloque
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#general-instructions-modal">
+                    Instrucciones generales
+                </button>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -26,49 +38,69 @@
                     {% else %}
                         col-3
                     {% endif %}
+                    {% if private_interaction %}role-column-divider{% endif %}
                     d-flex flex-column align-items-center justify-content-center p-5 text-center"
-                style="{% if private_interaction %}border-right: solid #808080;{% endif %}"
             >
                 {{ if player.id_in_group == 4 }}
                     <p>Tu rol es el de <b>funcionario</b>.</p>
-                    <p>El multiplicador es <b>{{ group.multiplier }}</b></p>
-                    <p>Tienes <b><span id="points-value">{{ player.reserved_points }}</span> puntos</b>.</p>
+                    <p>El multiplicador es <b>{{ group.multiplier }}</b>.</p>
+                    <div class="text-muted">Tienes</div>
+                    <div class="points-display">
+                        <span id="points-value" class="points-number">{{ player.reserved_points }}</span>
+                        <span class="points-unit">puntos</span>
+                    </div>
                 {{ else }}
                     <p>Tu rol es el de <b>ciudadano {{ player.id_in_group }}</b>.</p>
-                    <p id="points-info">
-                        Tienes <b><span id="points-value">{{ player.reserved_points }}</span> puntos</b><span id="points-info-suffix"> para
-                        distribuir entre tu cuenta y el proyecto del grupo.</span>
-                    </p>
-                    <div id="beforeContribution">
-                        {{ if participant.treatment in ['T4'] }}
-                            <p>
-                                El multiplicador puede tomar el valor de <b>1,5</b> o <b>2,5</b>.
-                            </p>
-                        {{ else }}
-                            <p>
-                                El multiplicador es <b>{{ group.multiplier }}.</b>
-                            </p>
-                        {{ endif }}
-                        <p>
-                            Puntos a contribuir al proyecto del grupo:
-                        </p>
-                        <div class="d-flex">
-                            <input
-                                id="id_contribution_points"
-                                type="number"
-                                class="form-control"
-                                style="flex: 1;">
-                            <button
-                                id="send_to_b_button"
-                                type="button"
-                                class="btn btn-primary"
-                                onclick="sendContribution()">
-                                Enviar puntos
-                            </button>
-                        </div>
+                    <div class="text-muted">Tienes</div>
+                    <div class="points-display">
+                        <span id="points-value" class="points-number">{{ player.reserved_points }}</span>
+                        <span class="points-unit">puntos</span>
                     </div>
-                    <!-- Display message after contribution -->
-                    <div id="afterContribution" style="display: none;">
+                    <p id="points-info-suffix" class="small text-muted">
+                        para distribuir entre tu cuenta y el proyecto del grupo.
+                    </p>
+                    <div id="contribution-panel" class="{% if sequential_contribution %}is-locked{% endif %}">
+                        <div id="beforeContribution">
+                            <div class="contribution-controls">
+                                {{ if participant.treatment in ['T4'] }}
+                                    <p>
+                                        El multiplicador puede tomar el valor de <b>1,5</b> o <b>2,5</b>.
+                                    </p>
+                                {{ else }}
+                                    <p>
+                                        El multiplicador es <b>{{ group.multiplier }}</b>.
+                                    </p>
+                                {{ endif }}
+                                <p>
+                                    Puntos a contribuir al proyecto del grupo:
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <input
+                                        id="id_contribution_points"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        class="form-control"
+                                        style="flex: 1;"
+                                        {% if sequential_contribution %}disabled{% endif %}>
+                                    <button
+                                        id="send_to_b_button"
+                                        type="button"
+                                        class="btn btn-primary"
+                                        onclick="sendContribution()"
+                                        {% if sequential_contribution %}disabled{% endif %}>
+                                        Enviar puntos
+                                    </button>
+                                </div>
+                            </div>
+                            {{ if sequential_contribution }}
+                                <!-- Countdown until the contribution opens; its space is reserved so nothing moves -->
+                                <div id="contribution-status" class="contribution-status">&nbsp;</div>
+                            {{ endif }}
+                        </div>
+                        <!-- Display message after contribution -->
+                        <div id="afterContribution" style="display: none;">
+                        </div>
                     </div>
                 {{ endif }}
             </div>
@@ -77,7 +109,7 @@
             {{ if private_interaction }}
                 <div class="
                     {% if chat_only_officer and not officer_interactions_public and player.id_in_group != 4 %}
-                        col-7 
+                        col-7
                     {% else %}
                         col-9
                     {% endif %}
@@ -86,79 +118,72 @@
                     {{ if chat_only_officer and player.id_in_group != 4}}
                         <div class="chat-container row">
                             <!-- Show only the first chat from others (Officer) -->
-                            <div class="col" style="max-width: 400px;">
+                            <div class="col" style="max-width: 420px;">
                                 <div class="row mb-4">
-                                    <p class="text-center"><b>Chat con {{ others.0.role }}</b></p>
+                                    <p class="subsection-title">Chat con {{ others.0.role }}</p>
                                     <div id="chat_messages_{{ others.0.id_in_group }}" class="chat-box"></div>
                                     <div class="chat-input-container">
-                                        <input 
-                                            type="text" 
-                                            id="chat_input_{{ others.0.id_in_group }}" 
-                                            class="chat-input" 
+                                        <input
+                                            type="text"
+                                            id="chat_input_{{ others.0.id_in_group }}"
+                                            class="chat-input"
                                             placeholder="Envía un mensaje..."
                                         >
-                                        <button 
-                                            type="button" 
-                                            class="chat-send" 
+                                        <button
+                                            type="button"
+                                            class="chat-send"
                                             onclick="sendMsg({{ others.0.id_in_group }})"
                                         >Enviar</button>
                                     </div>
                                 </div>
                                 <!-- Buttons (Only for the officer chat) -->
                                 <div class="row">
-                                    <p class="text-center"><b>Ofertas/solicitudes de puntos</b></p>
-                                    <div 
-                                        class="d-flex align-items-center spacing-between" 
-                                        style="gap: 10px; justify-content: center;"
-                                    >
-                                        <button 
-                                            type="button" 
-                                            id="id_offerButton_{{ others.0.id_in_group }}" 
-                                            class="btn btn-outline-primary" 
-                                            onclick="initiatingTransaction(
-                                                'Ofrece', 
-                                                {{ player.id_in_group }}, 
-                                                {{ others.0.id_in_group }}, 
-                                                'id_offerInput'
-                                            )"
-                                        >
-                                            Ofrecer puntos:
-                                        </button>
-                                        <input 
-                                            type="number" 
-                                            id="id_offerInput_{{ others.0.id_in_group }}" 
-                                            class="form-control" 
-                                            style="width: 30%;">
-                                    </div>
-                                    <div 
-                                        class="d-flex align-items-center" 
-                                        style="gap: 10px; justify-content: center;"
-                                    >
-                                        <button 
-                                            type="button"
-                                            id="id_requestButton_{{ others.0.id_in_group }}"
-                                            class="btn btn-outline-success"
-                                            onclick="initiatingTransaction(
-                                                'Solicita', 
-                                                {{ player.id_in_group }}, 
-                                                {{ others.0.id_in_group }}, 
-                                                'id_requestInput'
-                                            )"
-                                        >
-                                            Solicitar puntos:
-                                        </button>
-                                        <input 
-                                            type="text"
-                                            id="id_requestInput_{{ others.0.id_in_group }}"
-                                            class="form-control" 
-                                            style="width: 30%;">
-                                    </div>
-                                    <!-- Action messages -->
-                                    <div 
-                                        class="row" 
-                                        id="id_afterAction_{{ others.0.id_in_group }}" 
-                                        style="display: none; margin-top: 30px;"
-                                    >
+                                    <p class="subsection-title">Ofertas/solicitudes de puntos</p>
+                                    <div class="tx-area">
+                                        <div class="tx-row">
+                                            <button
+                                                type="button"
+                                                id="id_offerButton_{{ others.0.id_in_group }}"
+                                                class="btn btn-outline-secondary"
+                                                onclick="initiatingTransaction(
+                                                    'Ofrece',
+                                                    {{ player.id_in_group }},
+                                                    {{ others.0.id_in_group }},
+                                                    'id_offerInput'
+                                                )"
+                                            >
+                                                Ofrecer puntos:
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                id="id_offerInput_{{ others.0.id_in_group }}"
+                                                class="form-control">
+                                        </div>
+                                        <div class="tx-row">
+                                            <button
+                                                type="button"
+                                                id="id_requestButton_{{ others.0.id_in_group }}"
+                                                class="btn btn-outline-secondary"
+                                                onclick="initiatingTransaction(
+                                                    'Solicita',
+                                                    {{ player.id_in_group }},
+                                                    {{ others.0.id_in_group }},
+                                                    'id_requestInput'
+                                                )"
+                                            >
+                                                Solicitar puntos:
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                id="id_requestInput_{{ others.0.id_in_group }}"
+                                                class="form-control">
+                                        </div>
+                                        <!-- Pending offer/request: laid over the controls above -->
+                                        <div class="tx-pending" id="id_afterAction_{{ others.0.id_in_group }}"></div>
                                     </div>
                                 </div>
                             </div>
@@ -173,7 +198,7 @@
                                 </div>
                             {{ endfor }}
                         </div>
-                    
+
                     <!-- Participants chat with everyone -->
                     {{ else }}
                         <div class="chat-container row">
@@ -181,76 +206,72 @@
                                 <div class="col">
                                     <!-- Chat -->
                                     <div class="row mb-4">
-                                        <p class="text-center"><b>Chat con {{ other.role }}</b></p>
+                                        <p class="subsection-title">Chat con {{ other.role }}</p>
                                         <div id="chat_messages_{{ other.id_in_group }}" class="chat-box"></div>
                                         <div class="chat-input-container">
-                                            <input 
-                                                type="text" 
-                                                id="chat_input_{{ other.id_in_group }}" 
-                                                class="chat-input" 
+                                            <input
+                                                type="text"
+                                                id="chat_input_{{ other.id_in_group }}"
+                                                class="chat-input"
                                                 placeholder="Envía un mensaje..."
                                             >
-                                            <button 
-                                                type="button" 
-                                                class="chat-send" 
+                                            <button
+                                                type="button"
+                                                class="chat-send"
                                                 onclick="sendMsg({{ other.id_in_group }})"
-                                            >Send</button>
+                                            >Enviar</button>
                                         </div>
                                     </div>
                                     <!-- Buttons -->
                                     <div class="row">
-                                        <p class="text-center"><b>Ofertas/solicitudes de puntos</b></p>
-                                        <!-- Offer section -->
-                                        <div 
-                                            class="d-flex align-items-center spacing-between" 
-                                            style="gap: 10px; justify-content: center;"
-                                        >
-                                            <button 
-                                                type="button" 
-                                                id="id_offerButton_{{ other.id_in_group }}" 
-                                                class="btn btn-outline-primary" 
-                                                onclick="initiatingTransaction(
-                                                    'Ofrece', 
-                                                    {{ player.id_in_group }}, 
-                                                    {{ other.id_in_group }}, 
-                                                    'id_offerInput')"
+                                        <p class="subsection-title">Ofertas/solicitudes de puntos</p>
+                                        <div class="tx-area">
+                                            <!-- Offer section -->
+                                            <div class="tx-row">
+                                                <button
+                                                    type="button"
+                                                    id="id_offerButton_{{ other.id_in_group }}"
+                                                    class="btn btn-outline-secondary"
+                                                    onclick="initiatingTransaction(
+                                                        'Ofrece',
+                                                        {{ player.id_in_group }},
+                                                        {{ other.id_in_group }},
+                                                        'id_offerInput')"
+                                                    >
+                                                    Ofrecer puntos:
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    id="id_offerInput_{{ other.id_in_group }}"
+                                                    class="form-control">
+                                            </div>
+                                            <!-- Request section -->
+                                            <div class="tx-row">
+                                                <button
+                                                    type="button"
+                                                    id="id_requestButton_{{ other.id_in_group }}"
+                                                    class="btn btn-outline-secondary"
+                                                    onclick="initiatingTransaction(
+                                                        'Solicita',
+                                                        {{ player.id_in_group }},
+                                                        {{ other.id_in_group }},
+                                                        'id_requestInput'
+                                                    )"
                                                 >
-                                                Ofrecer puntos:
-                                            </button>
-                                            <input 
-                                                type="number" 
-                                                id="id_offerInput_{{ other.id_in_group }}" 
-                                                class="form-control" 
-                                                style="width: 30%;">
+                                                    Solicitar puntos:
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    id="id_requestInput_{{ other.id_in_group }}"
+                                                    class="form-control">
+                                            </div>
+                                            <!-- Pending offer/request: laid over the controls above -->
+                                            <div class="tx-pending" id="id_afterAction_{{ other.id_in_group }}"></div>
                                         </div>
-                                        <!-- Request section -->
-                                        <div class="d-flex align-items-center" style="gap: 10px; justify-content: center;">
-                                            <button 
-                                                type="button"
-                                                id="id_requestButton_{{ other.id_in_group }}"
-                                                class="btn btn-outline-success"
-                                                onclick="initiatingTransaction(
-                                                    'Solicita', 
-                                                    {{ player.id_in_group }}, 
-                                                    {{ other.id_in_group }}, 
-                                                    'id_requestInput'
-                                                )"
-                                            >
-                                                Solicitar puntos:
-                                            </button>
-                                            <input 
-                                                type="text"
-                                                id="id_requestInput_{{ other.id_in_group }}"
-                                                class="form-control"
-                                                style="width: 30%;">
-                                        </div>
-                                    </div>
-                                    <!-- Action messages -->
-                                    <div 
-                                        class="row" 
-                                        id="id_afterAction_{{ other.id_in_group }}" 
-                                        style="display: none; margin-top: 30px;"
-                                    >
                                     </div>
                                 </div>
                             {{ endfor }}
@@ -277,15 +298,15 @@
 
                     <!-- Transactions and balance -->
                     <div class="row transaction-section">
-                        <h5 class="text-center">Balance de transacciones</h5>
+                        <h5 class="section-title">Balance de transacciones</h5>
                         <div id="transactionsContainer">
-                            <table class="table">
+                            <table class="table pg-table">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Jugador</th>
                                         <th>Acción</th>
-                                        <th>A</th>
+                                        <th>Dirigido a</th>
                                         <th>Puntos</th>
                                         <th>¿Se aceptó?</th>
                                         <th>Balance</th>
@@ -298,32 +319,27 @@
 
                 </div>
             {{ endif }}
-            
+
             <!-- Next Button -->
-            <div style="border-top: solid #808080; padding-top: 14px;">
+            <div class="page-actions">
                 {{ if player.id_in_group == 4}}
-                    <button class="btn btn-success">
-                        Siguiente página &rarr;
-                    </button>
+                    <button class="btn btn-primary">Siguiente</button>
                 {{ else }}
-                    <button id="next_button" type="button" class="btn btn-success" onclick="verifyContribution()">
-                        Siguiente página &rarr;
-                    </button>
+                    <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">Siguiente</button>
                 {{ endif }}
             </div>
 
             <!-- History Section -->
             <div class="row">
-                <h4 class="text-center mt-4" style="padding-top: 24px;">Historia</h4>
-                <br>
+                <h4 class="section-title mt-4" style="padding-top: 24px;">Historia</h4>
                 {{ include '../_templates/global/history.html' }}
             </div>
 
         </div>
 
-        <!-- Include block and general instructions -->
-        {{ include_sibling 'instructions_buttons.html' }}
-    
+        <!-- Block and general instructions (opened from the header) -->
+        {{ include_sibling 'instructions_modals.html' }}
+
     </div>
 
     <script>
@@ -370,25 +386,28 @@
         }
 
         function sendContribution() {
-            let contributionPoints = parseFloat(document.getElementById('id_contribution_points').value);
+            const contributionInput = document.getElementById('id_contribution_points');
+            let contributionPoints = parseFloat(contributionInput.value);
             let availablePoints = parseFloat(document.getElementById('points-value').textContent);
 
             if (!Number.isInteger(contributionPoints) || isNaN(contributionPoints)) {
-                alert("Por favor, ingresa un número válido.");
+                notify("Por favor, ingresa un número válido.");
+                contributionInput.focus();
                 return;
             } else if (contributionPoints < 0) {
-                alert("No puedes ingresar una cantidad negativa.");
+                notify("No puedes ingresar una cantidad negativa.");
+                contributionInput.focus();
                 return;
             } else if (contributionPoints > availablePoints) {
-                alert("No puedes contribuir más puntos de los que tienes disponibles.");
+                notify("No puedes contribuir más puntos de los que tienes disponibles.");
+                contributionInput.focus();
                 return;
             }
 
-            let confirmSend = confirm(`¿Estás seguro(a) que quieres contribuir con ${contributionPoints} puntos en el proyecto del grupo?`);
-            if (!confirmSend) {
-                return;
-            }
-            liveSend({'type': 'contributionPoints', 'value': contributionPoints});
+            confirmDialog(
+                `¿Estás seguro(a) que quieres contribuir con ${contributionPoints} puntos en el proyecto del grupo?`,
+                () => liveSend({'type': 'contributionPoints', 'value': contributionPoints})
+            );
         }
 
         function verifyContribution() {
@@ -399,7 +418,11 @@
             if (beforeContribution.style.display === "none" && afterContribution.style.display === "block") {
                 document.getElementById("form").submit();
             } else {
-                alert("Debes enviar tu contribución antes de continuar.");
+                notify("Debes enviar tu contribución antes de continuar.");
+                const contributionInput = document.getElementById('id_contribution_points');
+                if (!contributionInput.disabled) {
+                    contributionInput.focus();
+                }
             }
         }
 
@@ -416,10 +439,12 @@
             const inputValue = parseFloat(inputElement.value);
 
             if (!Number.isInteger(inputValue) || isNaN(inputValue)) {
-                alert("Por favor, ingresa una cantidad válida.");
+                notify("Por favor, ingresa una cantidad válida.");
+                inputElement.focus();
                 return;
-            } else if (inputValue < 0) {
-                alert("No puedes ingresar una cantidad negativa.");
+            } else if (inputValue <= 0) {
+                notify("Ingresa una cantidad mayor que 0.");
+                inputElement.focus();
                 return;
             }
 
@@ -461,10 +486,18 @@
             hasOngoingTransaction = false;
             console.log("Transaction closed:", hasOngoingTransaction);
         }
-        
-        function disableLeftEnableRight() {
-            document.querySelectorAll(".col-5 input, .col-5 button").forEach(el => el.disabled = true);
-            
+
+        // Sequential decision: the contribution panel stays locked while citizens chat,
+        // with a countdown until it opens.
+        function setContributionControlsDisabled(disabled) {
+            document.querySelectorAll("#contribution-panel input, #contribution-panel button")
+                .forEach(el => el.disabled = disabled);
+        }
+
+        function lockContribution() {
+            document.getElementById("contribution-panel").classList.add("is-locked");
+            setContributionControlsDisabled(true);
+
             if (hasOngoingTransaction) {
                 console.log("Right side enable skipped: transaction active");
                 return;
@@ -473,8 +506,49 @@
             document.querySelectorAll(".chat-container input, .chat-container button").forEach(el => el.disabled = false);
         }
 
-        function enableLeft() {
-            document.querySelectorAll(".col-5 input, .col-5 button").forEach(el => el.disabled = false);
+        function unlockContribution(announce) {
+            const panel = document.getElementById("contribution-panel");
+            const status = document.getElementById("contribution-status");
+
+            panel.classList.remove("is-locked");
+            setContributionControlsDisabled(false);
+
+            if (status) {
+                status.textContent = "Ya puedes contribuir.";
+                status.classList.add("is-ready");
+            }
+
+            if (announce) {
+                panel.classList.add("just-unlocked");
+                setTimeout(() => panel.classList.remove("just-unlocked"), 2500);
+                notify('Ya puedes decidir cuánto contribuir al proyecto del grupo.', 'info');
+            }
+        }
+
+        function formatSeconds(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function startUnlockCountdown(secondsUntilUnlock) {
+            const status = document.getElementById("contribution-status");
+            const unlockTime = Date.now() + secondsUntilUnlock * 1000;
+
+            const tick = () => {
+                const secondsLeft = Math.max(0, Math.ceil((unlockTime - Date.now()) / 1000));
+                if (secondsLeft === 0) {
+                    clearInterval(countdown);
+                    unlockContribution(true);
+                    return;
+                }
+                if (status) {
+                    status.textContent = `Podrás contribuir en ${formatSeconds(secondsLeft)}`;
+                }
+            };
+
+            const countdown = setInterval(tick, 250);
+            tick();
         }
 
         function disableRightSide() {
@@ -520,13 +594,14 @@
                 const afterContribution = document.getElementById("afterContribution");
                 beforeContribution.style.display = "none";
                 afterContribution.style.display = "block";
-                afterContribution.innerHTML = `<p>Has contribuido con ${points} puntos al proyecto del grupo.</p>`;
+                afterContribution.innerHTML = `<p>Has contribuido con <b>${points} puntos</b> al proyecto del grupo.</p>`;
 
                 // "Tienes X puntos para distribuir..." no longer makes sense once the
-                // decision is made — collapse it to "Tienes X puntos."
+                // decision is made — keep only "Tienes X puntos" (hidden, not removed,
+                // so the column doesn't jump).
                 const pointsInfoSuffix = document.getElementById("points-info-suffix");
                 if (pointsInfoSuffix) {
-                    pointsInfoSuffix.textContent = ".";
+                    pointsInfoSuffix.style.visibility = "hidden";
                 }
             };
 
@@ -545,14 +620,14 @@
                 showContribution(data.contributionPoints);
                 return;
             } else if (data.contributionPointsValid === false) {
-                alert(data.error);
+                notify(data.error);
                 return;
             }
-            
+
 
             // Helper function to update `afterAction` content
             function updateAfterAction(elements, display, content = '') {
-                elements.afterAction.style.display = display ? 'block' : 'none';
+                elements.afterAction.style.display = display ? 'flex' : 'none';
                 elements.afterAction.innerHTML = content;
             }
 
@@ -569,10 +644,8 @@
                         elements,
                         true,
                         `
-                        <p class="text-center" style="font-weight: bold;">Ofreciste ${data.offerValue} puntos. Esperando respuesta.</p>
-                        <div class="col-12 d-flex justify-content-center">
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Cancelar</button>
-                        </div>
+                        <p>Ofreciste ${data.offerValue} puntos. Esperando respuesta.</p>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Cancelar</button>
                         `
                     );
                 }
@@ -582,10 +655,10 @@
                         elements,
                         true,
                         `
-                        <p class="text-center" style="font-weight: bold;">Te ofrecieron ${data.offerValue} puntos. ¿Aceptas?</p>
-                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Aceptar</button>
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Rechazar</button>
+                        <p>Te ofrecieron ${data.offerValue} puntos. ¿Aceptas?</p>
+                        <div class="d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Rechazar</button>
                         </div>
                         `
                     );
@@ -594,7 +667,7 @@
 
             // Handle invalid offer points
             if (data.offerPoints === false) {
-                alert(data.error);
+                notify(data.error);
                 const elements = getElements(data.otherId);
                 toggleInputs(elements, false);
                 elements.offerInput.value = "";
@@ -615,10 +688,8 @@
                         elements,
                         true,
                         `
-                        <p class="text-center" style="font-weight: bold;">Solicitaste ${data.requestValue} puntos. Esperando respuesta.</p>
-                        <div class="col-12 d-flex justify-content-center">
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Cancelar</button>
-                        </div>
+                        <p>Solicitaste ${data.requestValue} puntos. Esperando respuesta.</p>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closingTransaction('Cancelado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Cancelar</button>
                         `
                     );
                 }
@@ -629,10 +700,10 @@
                         elements,
                         true,
                         `
-                        <p class="text-center" style="font-weight: bold;">Te solicitaron ${data.requestValue} puntos. ¿Aceptas?</p>
-                        <div class="col-12 d-flex justify-content-center" style="gap: 5px;">
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Aceptar</button>
-                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})" style="width: auto;">Rechazar</button>
+                        <p>Te solicitaron ${data.requestValue} puntos. ¿Aceptas?</p>
+                        <div class="d-flex justify-content-center" style="gap: 5px;">
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Aceptado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Aceptar</button>
+                            <button type="button" class="btn btn-secondary" onclick="closingTransaction('Rechazado', ${data.myId}, ${data.otherId}, ${data.transactionId})">Rechazar</button>
                         </div>
                         `
                     );
@@ -641,10 +712,7 @@
 
             // Handle invalid request points
             if (data.requestPoints === false) {
-                const message = data.initiator
-                    ? "No puedes solicitar más puntos de los que hay en tu grupo."
-                    : "No puedes aceptar el monto solicitado dado que excede el total de puntos que tienes.";
-                alert(message);
+                notify(data.error);
                 const elements = getElements(data.otherId);
                 toggleInputs(elements, false);
                 elements.requestInput.value = "";
@@ -671,7 +739,7 @@
 
                 if (data.updateTransactions) {
                     if (data.error) {
-                        alert(data.error);
+                        notify(data.error);
                     }
 
                     if (data.reload === false) {
@@ -740,8 +808,6 @@
 
             function insertChatMessage(msg) {
                 let chat_messages = document.getElementById(`chat_messages_${msg.sender === my_id ? msg.recipient : msg.sender}`);
-                let msgSpan = document.createElement('span');
-                msgSpan.textContent = msg.text;
 
                 let cssClass;
                 if (msg.name === 'TransferInfo') {
@@ -750,11 +816,28 @@
                     cssClass = msg.sender === my_id ? 'msg selfText' : 'msg otherText';
                 }
 
-                let row = `<div class="${cssClass}">${msgSpan.innerHTML}</div><br>`;
-                chat_messages.insertAdjacentHTML('beforeend', row);
+                let bubble = document.createElement('div');
+                bubble.className = cssClass;
+                bubble.textContent = msg.text;
+                chat_messages.appendChild(bubble);
                 chat_messages.scrollTop = chat_messages.scrollHeight;
             }
         }
+
+        // Enter never submits the page (it would end the round for the officer, whose
+        // "Siguiente" is a submit button). In a chat box it sends the message instead.
+        document.getElementById("form").addEventListener("keydown", function (event) {
+            if (event.key !== "Enter" || event.target.tagName !== "INPUT") {
+                return;
+            }
+            event.preventDefault();
+
+            if (event.target.classList.contains("chat-input")) {
+                sendMsg(parseInt(event.target.id.replace("chat_input_", ""), 10));
+            } else if (event.target.id === "id_contribution_points") {
+                sendContribution();
+            }
+        });
 
         // Execute the live method each time the page is reloaded
         document.addEventListener("DOMContentLoaded", function (event) {
@@ -768,50 +851,18 @@
                 waitForTimerContent((remainingTime) => {
                     const privateInteractionDuration = js_vars.private_interaction_duration;
                     const publicInteractionActivation = js_vars.public_interaction_activation;
+                    // The contribution opens when the page timer drops to this many seconds
                     const leftSideActivationThreshold = privateInteractionDuration - publicInteractionActivation;
-                    const timeUntilAlert = remainingTime - (privateInteractionDuration - publicInteractionActivation);
-                    
-                    function showAlert(message, alertType) {
-                        const contentBlock = document.querySelector("._otree-content .container");
+                    const secondsUntilUnlock = remainingTime - leftSideActivationThreshold;
 
-                        if (!contentBlock || !contentBlock.parentNode) {
-                            console.warn("Content block not found inside _otree-content.");
-                            return;
-                        }
+                    // Right side enabled, contribution locked
+                    lockContribution();
 
-                        const alertDiv = document.createElement("div");
-                        alertDiv.className = `alert ${alertType} text-center`;
-                        alertDiv.role = "alert";
-                        alertDiv.textContent = message;
-
-                        // Insert alert directly before the .container inside _otree-content
-                        contentBlock.parentNode.insertBefore(alertDiv, contentBlock);
-
-                        setTimeout(() => {
-                            alertDiv.remove();
-                        }, 5000);
-                    }
-
-                    // Right side enabled, left side disabled
-                    disableLeftEnableRight();
-
-                    // After publicInteractionActivation seconds, enable left
-                    if (remainingTime < leftSideActivationThreshold) {
-                        enableLeft();
+                    // After publicInteractionActivation seconds, open the contribution
+                    if (secondsUntilUnlock <= 0) {
+                        unlockContribution(false);
                     } else {
-                        const delay = remainingTime - leftSideActivationThreshold;
-                        setTimeout(() => {
-                            enableLeft();
-                        }, delay * 1000);
-                    }
-
-                    // Alert after left side activates
-                    if (timeUntilAlert <= 0) {
-                        showAlert('Ya puedes decidir cuánto contribuir al proyecto del grupo.', "alert-info");
-                    } else {
-                        setTimeout(() => {
-                            showAlert('Ya puedes decidir cuánto contribuir al proyecto del grupo.', "alert-info");
-                        }, timeUntilAlert * 1000);
+                        startUnlockCountdown(secondsUntilUnlock);
                     }
 
                     // After privateInteractionDuration, disable right side

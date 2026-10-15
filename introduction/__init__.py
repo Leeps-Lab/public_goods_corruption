@@ -40,7 +40,8 @@ class GeneralInstructions(Page):
             num_rounds=num_rounds,
             tot_num_rounds=tot_num_rounds,
             tot_session_time=tot_session_time,
-            time_unit=time_unit
+            time_unit=time_unit,
+            participation_fee_text='S/ {:.2f}'.format(player.session.config['participation_fee']).replace('.', ','),
         )
 
 page_sequence = [GeneralInstructions]

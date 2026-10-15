@@ -1,232 +1,539 @@
-<p>
-    Este es el <b>Bloque {{ participant.segment }}</b>. Como se mencionó anteriormente, serás asignado/a aleatoriamente a uno de dos roles: 
-</p>
-<ul>
-    <li><strong>Ciudadano</strong></li>
-    <li><strong>Funcionario</strong></li>
-</ul>
-<p>Este bloque contiene <b>{{ session.config.num_rounds }} rondas</b> de interacción. A continuación, se describen las reglas y el cálculo de puntos para cada ronda.</p>
+<style>
+    .bi-card {
+        border: 1px solid #dbe6f7;
+        border-radius: 10px;
+        background: #fff;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+    }
 
-<ol>
-    <li>
-        Los participantes reciben su dotación inicial:
-        <ol type="a">
-            {{ if participant.treatment in ['T3'] }}
-                <li>El ciudadano 1 recibe <b>{{ session.config.c1_endowment }} puntos</b>.</li>
-                <li>Los ciudadanos 2 y 3 reciben <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
-            {{ else }}
-                <li>Cada ciudadano recibe <b>{{ C.CITIZEN_ENDOWMENT }} puntos</b>.</li>
-            {{ endif }}
-            <li>El funcionario no recibe dotación inicial.</li>
-        </ol>
-    </li>
-    <li>
-        A continuación, 
-        {{ if participant.treatment in ['BL1', 'BL2'] }}
-            los ciudadanos y el funcionario tomarán decisiones en lo que llamaremos <b>interacción pública</b>.
+    .bi-card-title {
+        font-weight: 700;
+        color: #003b99;
+        margin-bottom: 10px;
+        font-size: 1.05rem;
+    }
+
+    .bi-card p {
+        margin-bottom: 0;
+    }
+
+    .bi-card p + p,
+    .bi-card ul + p,
+    .bi-card p + ul,
+    .bi-card .bi-formula + p {
+        margin-top: 8px;
+    }
+
+    .bi-card ul {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+    }
+
+    .bi-card li + li {
+        margin-top: 4px;
+    }
+
+    .bi-badge {
+        display: inline-block;
+        background: #dbe6f7;
+        color: #003b99;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 12px;
+    }
+
+    .bi-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    /* Round timeline */
+    .bi-steps {
+        list-style: none;
+        counter-reset: bi-step;
+        padding-left: 0 !important;
+    }
+
+    .bi-steps > li {
+        counter-increment: bi-step;
+        position: relative;
+        padding-left: 42px;
+        min-height: 30px;
+    }
+
+    .bi-steps > li + li {
+        margin-top: 14px !important;
+    }
+
+    .bi-steps > li::before {
+        content: counter(bi-step);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #003b99;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bi-step-title {
+        font-weight: 700;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+    .bi-formula {
+        background: #f4f7fc;
+        border-left: 4px solid #003b99;
+        border-radius: 4px;
+        padding: 10px 15px;
+        margin: 10px 0;
+        text-align: center;
+        font-family: 'Cambria', 'Georgia', serif;
+        font-size: 1rem;
+    }
+
+    .bi-subtitle {
+        font-weight: 700;
+        margin-top: 14px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* Worked examples: one table per example with every group member */
+    .bi-example {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 0.93rem;
+        margin-top: 10px;
+    }
+
+    .bi-example-title {
+        font-weight: 700;
+        color: #003b99;
+        margin-bottom: 6px !important;
+    }
+
+    .bi-calc-line {
+        font-family: 'Cambria', 'Georgia', serif;
+        margin-top: 8px !important;
+    }
+
+    .bi-table-wrap {
+        overflow-x: auto;
+        margin-top: 8px;
+    }
+
+    .bi-group-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .bi-group-table th,
+    .bi-group-table td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .bi-group-table th {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #555;
+        white-space: normal;
+        vertical-align: bottom;
+    }
+
+    .bi-group-table th:first-child,
+    .bi-group-table td:first-child {
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .bi-group-table th:last-child,
+    .bi-group-table td:last-child {
+        background: #f4f7fc;
+    }
+
+    /* Role overview */
+    .bi-roles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+    }
+
+    .bi-role {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+
+    .bi-role-mine {
+        border: 2px solid #003b99;
+        background: #f4f7fc;
+    }
+
+    .bi-role-title {
+        font-weight: 700;
+        margin-bottom: 6px !important;
+    }
+
+    .bi-role-tag {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #fff;
+        background: #003b99;
+        border-radius: 10px;
+        padding: 1px 8px;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+
+    /* Block 2+: changes and folded full rules */
+    .bi-changes {
+        border-left: 4px solid #003b99;
+    }
+
+    .bi-details {
+        margin-bottom: 12px;
+    }
+
+    .bi-details > summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: #003b99;
+        padding: 10px 0;
+    }
+
+    .bi-note {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 14px 20px;
+        font-size: 0.93rem;
+        color: #444;
+        margin-bottom: 12px;
+    }
+
+    .bi-note ul {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+    }
+</style>
+
+<!-- Block overview: what each role decides (neutral, no goals or recommendations) -->
+<div class="bi-card">
+    <div class="bi-card-title">Bloque {{ participant.segment }}: ¿qué decide cada rol?</div>
+    <div class="bi-summary" style="margin-top: 0; margin-bottom: 12px;">
+        <span class="bi-badge">{{ session.config.num_rounds }} rondas</span>
+        <span class="bi-badge">Grupo: 3 ciudadanos y 1 funcionario</span>
+        {{ if ins.random_multiplier }}
+            <span class="bi-badge">Multiplicador: 1,5 o 2,5</span>
         {{ else }}
-            los ciudadanos y el funcionario pueden interactuar de dos formas en simultáneo: <b>interacción privada</b> e <b>interacción pública</b>. 
-    </li>
-    <li>
-        <b>Interacción Privada</b>: Cada ciudadano puede interactuar con el funcionario de forma privada de dos maneras:
-        <ol type="a">
-            <li>A través de un chat privado.</li>
-            <li>Ofreciendo o solicitando puntos de manera privada. Las transferencias solo se realizan si la otra parte hace click en “Aceptar”.</li>
-        </ol>
-        El funcionario puede interactuar con todos los ciudadanos simultáneamente.
-        <br>
-        <b>Importante:</b> los puntos que envíes o recibas en esta interacción privada se suman o restan directamente de tu <b>pago total</b> de la ronda, además de lo que ganes en la interacción pública.
-        <br>
-        Te pedimos que utilices el chat de manera respetuosa. El uso de lenguaje ofensivo puede afectar tu pago en esta sesión.
-    </li>
-    <li>
-        <b>Interacción Pública</b>: 
-        <ol type="a">
+            <span class="bi-badge">Multiplicador: {{ ins.multiplier }}</span>
         {{ endif }}
-    <li>
-        Luego, cada ciudadano debe decidir cuánto de su dotación, desde <b>0 a {{ C.CITIZEN_ENDOWMENT }}</b>, contribuye al proyecto del grupo.
-    </li>
-    <li>
-        Después de que todos los ciudadanos contribuyen al proyecto del grupo, la computadora suma las contribuciones y multiplica dicha suma por 
-        {{ if participant.treatment in ['T4'] }}
-            un multiplicador aleatorio, cuyo valor será <b>1,5</b> o <b>2,5</b>:
-        {{ else }}
-            <b>{{ group.multiplier }}</b>:
-        {{ endif }}
-        <div class="math-box">
-            Recursos públicos totales = Contribución total × Multiplicador
+    </div>
+    <div class="bi-roles">
+        <div class="bi-role {{ if not ins.is_officer }}bi-role-mine{{ endif }}">
+            <p class="bi-role-title">Ciudadanos {{ if not ins.is_officer }}<span class="bi-role-tag">Tu rol</span>{{ endif }}</p>
+            <ul>
+                <li>
+                    {{ if ins.heterogeneous }}
+                        Deciden cuántos de sus puntos aportan al proyecto del grupo (el ciudadano 1, de 0 a {{ ins.c1_endowment }}; los ciudadanos 2 y 3, de 0 a {{ ins.endowment }}).
+                    {{ else }}
+                        Deciden cuántos de sus puntos aportan al proyecto del grupo, de 0 a {{ ins.endowment }}.
+                    {{ endif }}
+                </li>
+                {{ if ins.private }}
+                    <li>Pueden conversar e intercambiar puntos en privado con el funcionario.</li>
+                {{ endif }}
+            </ul>
         </div>
-    </li>
-    {{ if participant.treatment in ['BL2', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] }}
-        <li>
-            Luego, el funcionario decide cómo distribuir los <b>recursos públicos totales</b> entre los tres ciudadanos.
-        </li>
-    {{ endif }}
-    <li>La ronda termina y se calcula los pagos:</li>
-    {{ if participant.treatment in ['BL1', 'BL2'] }}
-    <ol type="a">
-    {{ else }}
-    <ol type="i">
-    {{ endif }}
-        <li>
-            Para cada ciudadano, el pago se calcula de la siguiente forma:
-            {{ if participant.treatment in ['BL1', 'T1'] }}
-                <div class="math-box">
-                    {{ if participant.treatment == 'T1' }}
-                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 ) + Pago de la interacción privada
-                    {{ else }}
-                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + ( Recursos públicos totales / 3 )
-                    {{ endif }}
-                </div>
-
-                <!-- Example 1 -->
-                <div class="example-box">
-                    <b>Ejemplo 1 (Contribución mínima):</b><br>
-                    Todos los ciudadanos contribuyen 0 puntos.<br>
-                    Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
-                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + (0 / 3) = <b>100 puntos</b>
-                </div>
-
-                <!-- Example 2 -->
-                <div class="example-box">
-                    <b>Ejemplo 2 (Contribución máxima):</b><br>
-                    Todos los ciudadanos contribuyen 100 puntos.<br>
-                    Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                    Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + (600 / 3) = <b>200 puntos</b>
-                </div>
-
-                {{ if participant.treatment == 'T1' }}
-                <!-- Example 3: private interaction effect -->
-                <div class="example-box">
-                    <b>Ejemplo 3 (efecto de la interacción privada):</b><br>
-                    Supongamos que, como en el Ejemplo 2, tu pago de la interacción pública es 200 puntos.<br>
-                    Durante la interacción privada, enviaste 30 puntos al funcionario y no recibiste nada a cambio.<br>
-                    Pago de la interacción privada = 0 - 30 = <b>-30 puntos</b><br>
-                    Pago total = 200 + (-30) = <b>170 puntos</b>
-                </div>
+        <div class="bi-role {{ if ins.is_officer }}bi-role-mine{{ endif }}">
+            <p class="bi-role-title">Funcionario {{ if ins.is_officer }}<span class="bi-role-tag">Tu rol</span>{{ endif }}</p>
+            <ul>
+                {{ if ins.allocation }}
+                    <li>Decide cómo repartir los recursos públicos totales entre los tres ciudadanos. Tiene {{ ins.allocation_time }} para hacerlo.</li>
                 {{ endif }}
-            {{ else }}
-                <div class="math-box">
-                    {{ if participant.treatment in ['T2', 'T3', 'T4', 'T6', 'T7'] }}
-                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario + Pago de la interacción privada
-                    {{ else }}
-                        Pago del ciudadano = Dotación - Contribución al proyecto del grupo + Recursos públicos asignados por el funcionario
-                    {{ endif }}
-                </div>
-
-                <!-- Example 1 -->
-                <div class="example-box">
-                    <b>Ejemplo 1 (Contribución mínima):</b><br>
-                    Todos los ciudadanos contribuyen 0 puntos.<br>
-                    {{ if participant.treatment in ['T4'] }}
-                        El valor del multiplicador aleatorio es <b>1,5</b>.<br>
-                        Recursos públicos totales = (0 + 0 + 0) × 1,5 = <b>0</b><br>
-                    {{ else }}
-                        Recursos públicos totales = (0 + 0 + 0) × {{ group.multiplier }} = <b>0</b><br>
-                    {{ endif }}
-                    El funcionario reparte <b>0 puntos</b> a cada ciudadano.<br>
-                    {{ if participant.treatment in ['T3'] }}
-                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 0 + 0 = <b>120 puntos</b><br>
-                        Pago de los ciudadanos 2 y 3 = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
-                    {{ else }}
-                        Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 0 + 0 = <b>100 puntos</b>
-                    {{ endif }}
-                </div>
-                
-                <!-- Example 2 -->
-                <div class="example-box">
-                    <b>Ejemplo 2 (Contribución máxima y asignación de recursos general):</b><br>
-                    {{ if participant.treatment in ['T3'] }}
-                        El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
-                        Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
-                        El funcionario reparte <b>213,3 puntos</b> a cada ciudadano.<br>
-                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 120 + 213,3 = <b>213,3 puntos</b><br>
-                        Pago de los ciudadanos 2 y 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 213,3 = <b>213,3 puntos</b>
-                    {{ else }}
-                        Todos los ciudadanos contribuyen 100 puntos.<br>
-                        {{ if participant.treatment in ['T4'] }}
-                            El valor del multiplicador aleatorio es <b>1,5</b>.<br>
-                            Recursos públicos totales = (100 + 100 + 100) × 1,5 = <b>450</b><br>
-                            El funcionario reparte <b>150 puntos</b> a cada ciudadano.<br>
-                            Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 150 = <b>150 puntos</b>
-                        {{ else }}
-                            Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                            El funcionario reparte <b>200 puntos</b> a cada ciudadano.<br>
-                            Pago de cada ciudadano = {{ C.CITIZEN_ENDOWMENT }} - 100 + 200 = <b>200 puntos</b>
-                        {{ endif }}
-                    {{ endif }}
-                </div>
-
-                <!-- Example 3 -->
-                 <div class="example-box">
-                    <b>Ejemplo 3 (Contribución máxima y asignación de recursos selectivo):</b><br>
-                    {{ if participant.treatment in ['T3'] }}
-                        El ciudadano 1 contribuye 120 puntos y los demás contribuyen 100 puntos.<br>
-                        Recursos públicos totales = (120 + 100 + 100) × {{ group.multiplier }} = <b>640</b><br>
-                        El funcionario reparte <b>90 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>280 puntos</b> al ciudadano 3.<br>
-                        Pago del ciudadano 1 = {{ session.config.c1_endowment }} - 120 + 90 = <b>90 puntos</b><br>
-                        Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300 = <b>300 puntos</b><br>
-                        Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
-                    {{ else }}
-                        Todos los ciudadanos contribuyen 100 puntos.<br>
-                        {{ if participant.treatment in ['T4'] }}
-                            El valor del multiplicador aleatorio es <b>2,5</b>.<br>
-                            Recursos públicos totales = (100 + 100 + 100) × 2,5 = <b>750</b><br>
-                            El funcionario reparte <b>65 puntos</b> al ciudadano 1, <b>375 puntos</b> al ciudadano 2 y <b>310 puntos</b> al ciudadano 3.<br>
-                            Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 65 = <b>65 puntos</b><br>
-                            Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 375= <b>375 puntos</b><br>
-                            Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 310 = <b>310 puntos</b><br>
-                        {{ else }}
-                            Recursos públicos totales = (100 + 100 + 100) × {{ group.multiplier }} = <b>600</b><br>
-                            El funcionario reparte <b>50 puntos</b> al ciudadano 1, <b>300 puntos</b> al ciudadano 2 y <b>250 puntos</b> al ciudadano 3.<br>
-                            Pago del ciudadano 1 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 50 = <b>50 puntos</b><br>
-                            Pago del ciudadano 2 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 300= <b>300 puntos</b><br>
-                            Pago del ciudadano 3 = {{ C.CITIZEN_ENDOWMENT }} - 100 + 250 = <b>250 puntos</b><br>
-                        {{ endif }}
-                    {{ endif }}
-                </div>
-
-                {{ if participant.treatment in ['T2', 'T3', 'T4', 'T6', 'T7'] }}
-                <!-- Example 4: private interaction effect -->
-                <div class="example-box">
-                    <b>Ejemplo 4 (efecto de la interacción privada):</b><br>
-                    Supongamos que tu pago de la interacción pública en esta ronda fue 200 puntos.<br>
-                    Durante la interacción privada, enviaste 30 puntos al funcionario y no recibiste nada a cambio.<br>
-                    Pago de la interacción privada = 0 - 30 = <b>-30 puntos</b><br>
-                    Pago total = 200 + (-30) = <b>170 puntos</b>
-                </div>
+                {{ if ins.private }}
+                    <li>Puede conversar e intercambiar puntos en privado con cada ciudadano.</li>
                 {{ endif }}
-            {{ endif }}
-        </li>
-        <li>
-            {{ if participant.treatment in ['T1', 'T2', 'T3', 'T4', 'T6', 'T7'] }}
-                El funcionario no recibe dotación inicial. Su pago depende completamente de la interacción privada:
-                <div class="math-box">
-                    Pago del funcionario = Puntos privados recibidos - Puntos privados enviados
-                </div>
+                {{ if not ins.allocation and not ins.private }}
+                    <li>En este bloque no toma decisiones. Su pago es 0 puntos en cada ronda.</li>
+                {{ endif }}
+            </ul>
+        </div>
+    </div>
+    {{ if not ins.is_officer or ins.private }}
+        <p style="margin-top: 10px;">
+            Tu pago en cada ronda depende de tus decisiones y de las de los demás miembros de tu grupo.
+            No hay respuestas correctas ni incorrectas: decide lo que prefieras.
+        </p>
+    {{ elif ins.allocation }}
+        <p style="margin-top: 10px;">No hay respuestas correctas ni incorrectas: decide lo que prefieras.</p>
+    {{ endif }}
+</div>
 
-                <!-- Example: officer payoff, both directions -->
-                <div class="example-box">
-                    <b>Ejemplo (el funcionario recibe más de lo que envía):</b><br>
-                    El funcionario recibe 60 puntos de un ciudadano y envía 20 puntos a otro.<br>
-                    Pago del funcionario = 60 - 20 = <b>40 puntos</b>
-                </div>
-                <div class="example-box">
-                    <b>Ejemplo (el funcionario envía más de lo que recibe):</b><br>
-                    El funcionario recibe 20 puntos de un ciudadano y envía 50 puntos a otro.<br>
-                    Pago del funcionario = 20 - 50 = <b>-30 puntos</b>
-                </div>
+<!-- From block 2 on: only what changed, full rules folded away -->
+{{ if not ins.first_block }}
+    <div class="bi-card bi-changes">
+        <div class="bi-card-title">¿Qué cambia respecto al bloque anterior?</div>
+        <ul>
+            <li>Formarás parte de un <strong>nuevo grupo</strong>, formado al azar. Tu rol sigue siendo el mismo.</li>
+            {{ for change in ins.changes }}
+                <li>{{ change }}</li>
+            {{ endfor }}
+        </ul>
+        <p>
+            {{ if ins.changes }}
+                Todo lo demás funciona igual que en el bloque anterior.
             {{ else }}
-                El funcionario no recibe dotación inicial y no puede interactuar de forma privada con los ciudadanos en este bloque, por lo que su pago en este bloque será <b>0 puntos</b>.
+                Las reglas son las mismas que en el bloque anterior.
             {{ endif }}
-        </li>
-    </ol>
-</ol>
-{{ if participant.treatment in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] }}
-</ol>
-</li>
+            Puedes revisar las reglas completas abajo.
+        </p>
+    </div>
+
+    <details class="bi-details">
+        <summary>Ver las reglas completas de este bloque</summary>
 {{ endif }}
 
-<p>
-    Es importante que permanezcas atento. La decisión sobre contribución al proyecto del grupo y de distribución de recursos públicos (según el rol que se te asigne) tienen tiempo límite. <b>Se penalizará las rondas donde no tomes una decisión y la envíes</b> dentro del tiempo límite. En dichas rondas, <b>recibirás cero puntos en tu pago de la interacción pública</b>.
-</p>
+<!-- Round timeline -->
+<div class="bi-card">
+    <div class="bi-card-title">¿Qué ocurre en cada ronda?</div>
+    <ol class="bi-steps">
+        <li>
+            <span class="bi-step-title">Puntos iniciales (dotación)</span>
+            {{ if ins.heterogeneous }}
+                El ciudadano 1 recibe <strong>{{ ins.c1_endowment }} puntos</strong>. Los ciudadanos 2 y 3 reciben <strong>{{ ins.endowment }} puntos</strong> cada uno.
+            {{ else }}
+                Cada ciudadano recibe <strong>{{ ins.endowment }} puntos</strong>.
+            {{ endif }}
+            El funcionario no recibe puntos iniciales.
+        </li>
+
+        {{ if ins.private }}
+            <li>
+                <span class="bi-step-title">Interacción privada</span>
+                Los ciudadanos y el funcionario pueden conversar e intercambiar puntos en privado.
+                Se explica en detalle más abajo.
+            </li>
+        {{ endif }}
+
+        <li>
+            <span class="bi-step-title">Contribución al proyecto del grupo</span>
+            {{ if ins.heterogeneous }}
+                Cada ciudadano decide cuántos de sus puntos aporta al proyecto del grupo
+                (el ciudadano 1, de 0 a {{ ins.c1_endowment }}; los ciudadanos 2 y 3, de 0 a {{ ins.endowment }}).
+            {{ else }}
+                Cada ciudadano decide cuántos de sus puntos aporta al proyecto del grupo, de <strong>0 a {{ ins.endowment }}</strong>.
+            {{ endif }}
+            Los puntos que no aporta se quedan en su cuenta. El funcionario no contribuye.
+            {{ if ins.sequential }}
+                <br>Esta etapa dura <strong>{{ ins.stage_time }}</strong>. Al inicio, durante {{ ins.contribution_delay }}, solo está abierta la interacción privada; después se habilita también la casilla para contribuir.
+            {{ else }}
+                <br>Tienes <strong>{{ ins.stage_time }}</strong> para enviar tu contribución.
+            {{ endif }}
+        </li>
+
+        <li>
+            <span class="bi-step-title">Recursos públicos</span>
+            La computadora suma las contribuciones de los tres ciudadanos y multiplica el total:
+            <div class="bi-formula">Recursos públicos totales = Suma de contribuciones × Multiplicador</div>
+            {{ if ins.random_multiplier }}
+                En este bloque, el multiplicador se sortea al inicio de cada ronda:
+                vale <strong>2,5</strong> con probabilidad 2/3 y <strong>1,5</strong> con probabilidad 1/3.
+                El funcionario ve el valor sorteado desde el inicio de la ronda; los ciudadanos no lo ven cuando deciden su contribución.
+            {{ else }}
+                En este bloque, el multiplicador es <strong>{{ ins.multiplier }}</strong> en todas las rondas.
+            {{ endif }}
+        </li>
+
+        <li>
+            <span class="bi-step-title">Reparto de los recursos públicos</span>
+            {{ if ins.allocation }}
+                El funcionario decide cuántos puntos de los recursos públicos totales recibe cada ciudadano.
+                Puede asignar cualquier cantidad a cada uno (incluido 0, y con hasta 1 decimal), pero debe repartir el total completo.
+                En su pantalla, el funcionario ve el total de recursos públicos, pero no cuánto aportó cada ciudadano.
+            {{ else }}
+                Los recursos públicos totales se reparten <strong>en partes iguales</strong> entre los tres ciudadanos,
+                sin importar cuánto aportó cada uno.
+            {{ endif }}
+        </li>
+
+        {{ if ins.audits }}
+            <li>
+                <span class="bi-step-title">Auditoría</span>
+                Algunos participantes pueden ser auditados. Se explica en detalle más abajo.
+            </li>
+        {{ endif }}
+
+        <li>
+            <span class="bi-step-title">Resultados</span>
+            Verás un resumen de la ronda con tu pago. Luego empieza la siguiente ronda.
+        </li>
+    </ol>
+</div>
+
+<!-- Private interaction -->
+{{ if ins.private }}
+    <div class="bi-card">
+        <div class="bi-card-title">Interacción privada</div>
+        <p>
+            {{ if ins.chat_only_officer }}
+                Cada ciudadano puede comunicarse en privado con el funcionario.
+                El funcionario puede comunicarse con los tres ciudadanos al mismo tiempo, por separado.
+            {{ else }}
+                Cada miembro del grupo puede comunicarse en privado con los demás miembros.
+            {{ endif }}
+            Hay dos herramientas:
+        </p>
+        <ul>
+            <li><strong>Chat privado.</strong></li>
+            <li>
+                <strong>Ofrecer o solicitar puntos.</strong>
+                Una transferencia solo se realiza si la otra persona hace clic en «Aceptar».
+                Mientras no haya sido aceptada, quien la inició puede cancelarla.
+            </li>
+        </ul>
+        <p>
+            Solo puedes entregar puntos que tengas disponibles en ese momento.
+            Los puntos que envías o recibes se restan o suman a tu <strong>pago de la ronda</strong>.
+            En el caso de los ciudadanos, también cambian los puntos disponibles para contribuir.
+        </p>
+        {{ if ins.public_chats }}
+            <p>
+                <strong>En este bloque, las interacciones del funcionario son visibles:</strong>
+                cada ciudadano puede ver, sin poder escribir, el chat y las transferencias entre el funcionario y los otros dos ciudadanos.
+                Todos los miembros del grupo, incluido el funcionario, saben esto.
+            </p>
+        {{ else }}
+            <p>Los otros miembros del grupo no pueden ver tus conversaciones privadas.</p>
+        {{ endif }}
+        <p>
+            Usa el chat con respeto y no compartas datos personales (nombre, teléfono, redes sociales).
+            El uso de lenguaje ofensivo puede afectar tu pago en esta sesión.
+        </p>
+    </div>
+{{ endif }}
+
+<!-- Payoffs -->
+<div class="bi-card">
+    <div class="bi-card-title">¿Cómo se calcula el pago de cada ronda?</div>
+
+    <p class="bi-subtitle">Ciudadanos</p>
+    <div class="bi-formula">
+        {{ if ins.allocation }}
+            Pago = Dotación − Contribución + Recursos públicos asignados por el funcionario{{ if ins.private }} + Pago de la interacción privada{{ endif }}
+        {{ else }}
+            Pago = Dotación − Contribución + (Recursos públicos totales ÷ 3){{ if ins.private }} + Pago de la interacción privada{{ endif }}
+        {{ endif }}
+    </div>
+
+    <p class="bi-subtitle">Funcionario</p>
+    {{ if ins.private }}
+        <div class="bi-formula">Pago = Pago de la interacción privada</div>
+        <p>donde, para cualquier participante:</p>
+        <div class="bi-formula">Pago de la interacción privada = Puntos recibidos − Puntos enviados</div>
+    {{ else }}
+        <p>
+            En este bloque el funcionario no recibe puntos iniciales y no hay interacción privada,
+            por lo que su pago es <strong>0 puntos</strong> en cada ronda.
+        </p>
+    {{ endif }}
+
+    <p class="bi-subtitle">Ejemplos</p>
+    {{ for ex in ins.examples }}
+        <div class="bi-example">
+            <p class="bi-example-title">{{ ex.title }}</p>
+            {{ for fact in ex.facts }}
+                <p>{{ fact }}</p>
+            {{ endfor }}
+            <p class="bi-calc-line">Recursos públicos totales = {{ ex.total_expr }} = <strong>{{ ex.total }}</strong></p>
+            <div class="bi-table-wrap">
+                <table class="bi-group-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Dotación</th>
+                            <th>Contribución</th>
+                            <th>Recursos públicos recibidos</th>
+                            {{ if ins.private }}<th>Interacción privada</th>{{ endif }}
+                            <th>Pago de la ronda</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ for r in ex.rows }}
+                            <tr>
+                                <td>{{ r.role }}</td>
+                                <td>{{ r.endowment }}</td>
+                                <td>{{ r.contribution }}</td>
+                                <td>{{ r.allocation }}</td>
+                                {{ if ins.private }}<td>{{ r.private }}</td>{{ endif }}
+                                <td><strong>{{ r.pay }}</strong></td>
+                            </tr>
+                        {{ endfor }}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {{ endfor }}
+    <p style="margin-top: 10px;"><small>Los números de los ejemplos son solo ilustrativos; no son una recomendación sobre qué decidir.</small></p>
+</div>
+
+<!-- Audits -->
+{{ if ins.audits }}
+    <div class="bi-card">
+        <div class="bi-card-title">Auditorías</div>
+        <p>
+            En cada ronda, después del reparto de los recursos públicos, cada participante puede ser auditado con una
+            probabilidad de <strong>{{ ins.audit_pct }}%</strong>. El sorteo es independiente para cada persona y cada ronda.
+        </p>
+        <ul>
+            <li>
+                <strong>Un ciudadano auditado</strong> recibe 0 puntos en esa ronda si se cumplen <strong>las dos</strong> condiciones siguientes:
+                <ol type="a">
+                    <li>en esa ronda envió al funcionario más puntos de los que recibió de él, y</li>
+                    <li>recibió más recursos públicos que la parte igual (recursos públicos totales ÷ 3).</li>
+                </ol>
+            </li>
+            <li>
+                <strong>El funcionario auditado</strong> recibe 0 puntos en esa ronda si al menos un ciudadano de su grupo cumple
+                las dos condiciones, aunque ese ciudadano no haya sido auditado.
+            </li>
+        </ul>
+        <p>Si eres auditado, lo verás en el resumen de la ronda.</p>
+    </div>
+{{ endif }}
+
+{{ if not ins.first_block }}
+    </details>
+{{ endif }}
+
+<!-- Time limits -->
+<div class="bi-note">
+    <strong>Tiempo límite</strong>
+    <ul>
+        <li>
+            Si eres ciudadano y no envías tu contribución dentro del tiempo límite, tu pago de la interacción pública en esa ronda será
+            <strong>0 puntos</strong>{{ if ins.private }} (lo que ganes o pierdas en la interacción privada sí se mantiene){{ endif }}.
+        </li>
+        {{ if ins.allocation }}
+            <li>
+                Si eres funcionario, tienes <strong>{{ ins.allocation_time }}</strong> para repartir los recursos públicos.
+                Los recursos que no hayas asignado a tiempo se reparten en partes iguales entre los ciudadanos.
+            </li>
+        {{ endif }}
+    </ul>
+</div>

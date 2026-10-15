@@ -22,48 +22,12 @@
             margin: 0 auto;
         }
 
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table thead {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            background: white;
-        }
-
-        @keyframes fadeOut {
-            0% {background-color: #a3e6a3;}
-            100% {background-color: transparent;}
-        }
-
-        .new-transaction {
-            animation: fadeOut 2s ease-out forwards;
-        }
-
-        /* History table CSS *******************/
-        .table thead th {
-            border-bottom: 1px solid #ddd !important;
-            text-align: center;
-            font-weight: bold;
-            padding: 12px 10px;
-        }
-        
-        /* Add a vertical line to separate public and private interactions */
-        .table th.public-end, 
-        .table td.public-end {
-            border-right: 1px solid #ddd !important; /* Adjust thickness as needed */
-        }
-
-        .table tbody { /* Center numbers only */
-            text-align: center;
-        }
+        /* Tables, section titles: see _static/global/global.css */
 
         /* Allocation Header */
         .allocation-header {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: center;
             width: 100%;
@@ -72,8 +36,7 @@
 
         /* Calculator Button */
         .calculator-btn {
-            position: absolute;
-            transform: translateY(-70%);
+            flex-shrink: 0;
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -83,7 +46,8 @@
             justify-content: center;
             cursor: pointer;
             transition: background 0.3s ease;
-            margin-left: 40px; /* Moves the button slightly to the right */
+            margin-left: 16px;
+            padding: 0;
         }
 
         .calculator-btn:hover {

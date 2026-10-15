@@ -109,8 +109,8 @@
     <div class="gi-card-title"><span class="gi-icon">💰</span> Pagos</div>
     <p>Recibirás dos tipos de compensación:</p>
     <ul>
-        <li><strong>Pago fijo:</strong> S/ 12 por participar.</li>
-        <li><strong>Pago variable:</strong> depende de tus decisiones y las de los demás participantes.</li>
+        <li><strong>Pago fijo:</strong> {{ participation_fee_text }} por participar.</li>
+        <li><strong>Pago variable:</strong> depende de tus decisiones y las de los demás participantes. Se calcula con el promedio de puntos que obtengas por ronda en toda la sesión: cada {{ session.config.exchange_rate }} puntos equivalen a S/ 1.</li>
     </ul>
 </div>
 

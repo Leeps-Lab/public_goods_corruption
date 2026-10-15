@@ -1,0 +1,52 @@
+<!-- Floating notices and confirmation dialog: replace the browser's alert()/confirm(),
+     which block the page while the timer keeps running and can be suppressed by the browser. -->
+<div id="pg-toast-area" class="pg-toast-area" aria-live="assertive" aria-atomic="true"></div>
+
+<div class="modal fade" id="pg-confirm-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center pt-4">
+                <p id="pg-confirm-message" class="mb-0"></p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pb-4">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="pg-confirm-ok">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show a message that floats over the page and disappears on its own.
+    // type: 'danger' for errors, 'info' for neutral announcements.
+    function notify(message, type = 'danger') {
+        const area = document.getElementById('pg-toast-area');
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center border-0 pg-toast-${type}`;
+        toast.setAttribute('role', type === 'danger' ? 'alert' : 'status');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+            </div>`;
+        toast.querySelector('.toast-body').textContent = message;
+        area.appendChild(toast);
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        new bootstrap.Toast(toast, {delay: type === 'danger' ? 4000 : 6000}).show();
+    }
+
+    // Ask for confirmation in a dialog; onConfirm runs only if the participant confirms.
+    function confirmDialog(message, onConfirm) {
+        const modalEl = document.getElementById('pg-confirm-modal');
+        const okButton = document.getElementById('pg-confirm-ok');
+        document.getElementById('pg-confirm-message').textContent = message;
+
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        okButton.onclick = () => {
+            okButton.onclick = null;
+            modal.hide();
+            onConfirm();
+        };
+        modal.show();
+    }
+</script>

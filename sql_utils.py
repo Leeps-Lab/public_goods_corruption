@@ -1,620 +1,599 @@
+"""
+Storage for the custom `game_data` schema (PostgreSQL).
+
+oTree keeps its own models in the `public` schema; everything here lives in
+`game_data`, which `otree resetdb` does not touch. Every row carries the keys
+needed to join it back to the oTree export (see LINKAGE_COLUMNS), so the data
+stays usable after a reset or across many sessions.
+
+Tables:
+    sessions            One row per session: config, treatment order, demo flag.
+    transactions        One row per offer/request between two players.
+    status              Status events per transaction (Iniciado, then Aceptado /
+                        Rechazado / Cancelado / Fallido). The latest row is the
+                        current status.
+    history             One row per participant per round: payoff breakdown.
+    calculator_history  Every calculator operation typed by the officer.
+    messages            Every chat and system (TransferInfo) message.
+"""
+
+from contextlib import contextmanager
 from os import environ
+from pathlib import Path
+import copy
+import functools
+import json
+
 from dotenv import load_dotenv # type: ignore
 import psycopg2 # type: ignore
 from psycopg2 import sql # type: ignore
 from psycopg2 import pool as pg_pool # type: ignore
-import json
+from psycopg2.extras import RealDictCursor # type: ignore
 
 load_dotenv()
 
 DB_PATH = environ.get('DATABASE_URL')
 
-# Load role translations from translation.json
-with open("translation.json", "r", encoding="utf-8") as f:
-    translations = json.load(f)
+with open(Path(__file__).with_name('translation.json'), encoding='utf-8') as f:
+    role_mapping = json.load(f)['role_terms']
 
-role_mapping = translations["role_terms"]
+CITIZENS = (1, 2, 3)
+OFFICER = 4
 
-# Live gameplay hits these functions on every offer/accept/reject/round-end,
-# so a fresh TCP+auth handshake per call (the old behavior) added real latency.
-# One pool, created lazily on first use, is shared for the life of the process.
+
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
+
+# Primary key of each table. Also the whitelist of tables insert_row() accepts.
+TABLE_KEYS = {
+    'sessions': 'session_code',
+    'transactions': 'transaction_id',
+    'status': 'status_id',
+    'history': 'id',
+    'calculator_history': 'id',
+    'messages': 'id',
+}
+
+# Tables as first deployed. Columns added later live in LINKAGE_COLUMNS, so the
+# same code both creates a fresh database and upgrades an existing one.
+_CREATE_TABLES = '''
+    CREATE SCHEMA IF NOT EXISTS game_data;
+
+    CREATE TABLE IF NOT EXISTS game_data.sessions (
+        session_code TEXT PRIMARY KEY,
+        config_name TEXT,
+        label TEXT,
+        is_demo BOOLEAN,
+        num_participants INTEGER,
+        treatment_order TEXT,
+        rounds_per_treatment INTEGER,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS game_data.transactions (
+        transaction_id SERIAL PRIMARY KEY,
+        session_code TEXT NOT NULL,
+        segment INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        group_id INTEGER NOT NULL,
+        initiator_code TEXT NOT NULL,
+        receiver_code TEXT NOT NULL,
+        initiator_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        points INTEGER NOT NULL,
+        initiator_initial_endowment INTEGER,  -- balance when the transaction was opened
+        receiver_initial_endowment INTEGER,
+        initiator_balance INTEGER,            -- balance when it was closed
+        receiver_balance INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS game_data.status (
+        status_id SERIAL PRIMARY KEY,
+        transaction_id INTEGER NOT NULL REFERENCES game_data.transactions(transaction_id),
+        status TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS game_data.history (
+        id SERIAL PRIMARY KEY,
+        session_code TEXT NOT NULL,
+        segment INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        participant_code TEXT NOT NULL,
+        endowment INTEGER NOT NULL,
+        contribution INTEGER,
+        total_public_goods FLOAT,
+        public_good_gross_gain FLOAT,
+        public_interaction_payoff FLOAT NOT NULL,
+        total_transfers_received INTEGER NOT NULL,
+        total_transfers_given INTEGER NOT NULL,
+        private_interaction_payoff INTEGER NOT NULL,
+        payment FLOAT NOT NULL,
+        timeout_penalty BOOLEAN NOT NULL,
+        corruption_punishment BOOLEAN NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS game_data.calculator_history (
+        id SERIAL PRIMARY KEY,
+        session_code TEXT NOT NULL,
+        segment INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        participant_code TEXT NOT NULL,
+        operation TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS game_data.messages (
+        id SERIAL PRIMARY KEY,
+        session_code TEXT NOT NULL,
+        segment INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        round_number INTEGER NOT NULL,
+        treatment TEXT NOT NULL,
+        group_id INTEGER NOT NULL,
+        group_id_in_subsession INTEGER NOT NULL,
+        channel TEXT NOT NULL,
+        sender_code TEXT NOT NULL,
+        recipient_code TEXT NOT NULL,
+        sender_id INTEGER NOT NULL,
+        recipient_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        text TEXT,
+        transaction_id INTEGER REFERENCES game_data.transactions(transaction_id),
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+'''
+
+# Columns that let every row be joined back to the oTree export
+# (`subsession.round_number`, `group.id_in_subsession`, `player.id_in_group`)
+# even after `otree resetdb` wipes oTree's own tables. `group_id` is oTree's
+# internal database key: fine for live lookups, but it is not in the export and
+# restarts after a reset. These were added after the first sessions were run,
+# so rows written before then have NULL in them.
+_ROUND_COLUMNS = [
+    ('round_number', 'INTEGER'),            # oTree round (1..NUM_ROUNDS), not the round within the treatment
+    ('treatment', 'TEXT'),
+    ('group_id_in_subsession', 'INTEGER'),  # = group.id_in_subsession in the oTree export
+]
+_PLAYER_COLUMNS = _ROUND_COLUMNS + [
+    ('group_id', 'INTEGER'),
+    ('id_in_group', 'INTEGER'),
+]
+LINKAGE_COLUMNS = {
+    'transactions': _ROUND_COLUMNS + [('timestamp', 'TIMESTAMP')],
+    'history': _PLAYER_COLUMNS + [('timestamp', 'TIMESTAMP')],
+    'calculator_history': _PLAYER_COLUMNS,
+}
+
+# Indexes for the lookups the live game runs on every action, plus one rule
+# the data must obey. NULLs never collide in a unique index, so rows from
+# before round_number existed don't block it.
+_CREATE_INDEXES = '''
+    CREATE INDEX IF NOT EXISTS status_by_transaction
+        ON game_data.status (transaction_id, status_id);
+    CREATE INDEX IF NOT EXISTS transactions_by_round
+        ON game_data.transactions (session_code, segment, round);
+    CREATE INDEX IF NOT EXISTS history_by_participant
+        ON game_data.history (session_code, segment, participant_code);
+    CREATE UNIQUE INDEX IF NOT EXISTS history_one_row_per_round
+        ON game_data.history (session_code, round_number, participant_code);
+'''
+
+
+# ---------------------------------------------------------------------------
+# Connection handling
+# ---------------------------------------------------------------------------
+
+# Live gameplay hits the database on every offer/accept/reject/chat message,
+# so connections are pooled rather than opened per call. One pool, created
+# lazily on first use, is shared for the life of the process.
+#
+# oTree runs requests and live methods one at a time per process, so only one
+# connection is in use at any moment. The cap is a ceiling, kept low so that
+# every process's pool plus oTree's own connections stay under small hosted
+# Postgres plans' connection limits (about 20 on Heroku's smallest plans).
+_POOL_MIN_CONNECTIONS = 2
+_POOL_MAX_CONNECTIONS = 5
 _pool = None
 
 
-def get_pool(db_path=DB_PATH):
+def _get_pool():
     global _pool
     if _pool is None:
-        _pool = pg_pool.ThreadedConnectionPool(2, 20, db_path)
+        _pool = pg_pool.ThreadedConnectionPool(_POOL_MIN_CONNECTIONS, _POOL_MAX_CONNECTIONS, DB_PATH)
     return _pool
 
 
-def connect_to_db(db_path=DB_PATH):
+@contextmanager
+def _cursor():
     """
-    Borrow a connection from the shared pool and set the search path to 'game_data'.
-
-    Args:
-        db_path (str): Connection string for the database. Defaults to the `DATABASE_URL` environment variable.
-
-    Returns:
-        tuple: (connection, cursor) if successful; otherwise (None, None).
+    Borrow a pooled connection for one database transaction. Commits if the
+    block succeeds, rolls back if it raises, and always returns the connection.
+    Rows are returned as dicts keyed by column name.
     """
 
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
-        conn = get_pool(db_path).getconn()
-        cur = conn.cursor()
-        cur.execute("SET search_path TO game_data, public;")
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            yield cur
         conn.commit()
-        return conn, cur
-    except Exception as e:
-        print(f"Error connecting to PostgreSQL database: {e}")
-        return None, None
-
-
-def release_connection(conn, db_path=DB_PATH):
-    """
-    Return a connection to the shared pool instead of closing it, so the
-    underlying TCP connection is reused by the next caller.
-    """
-
-    if conn is not None:
-        try:
-            get_pool(db_path).putconn(conn)
-        except Exception as e:
-            print(f"Error returning connection to pool: {e}")
-
-
-def create_tables(db_path=DB_PATH):
-    """
-    Create all required tables inside the 'game_data' schema in PostgreSQL.
-
-    Args:
-        db_path (str): Connection string to the database.
-    """
-
-    conn, cur = connect_to_db(db_path)
-    if not conn:
-        return
-    
-    try:
-        cur.execute('CREATE SCHEMA IF NOT EXISTS game_data')
-
-        # Transactions table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS game_data.transactions (
-                transaction_id SERIAL PRIMARY KEY,
-                session_code TEXT NOT NULL,
-                segment INTEGER NOT NULL,
-                round INTEGER NOT NULL,
-                group_id INTEGER NOT NULL,
-                initiator_code TEXT NOT NULL,
-                receiver_code TEXT NOT NULL,
-                initiator_id INTEGER NOT NULL,
-                receiver_id INTEGER NOT NULL,
-                action TEXT NOT NULL,
-                points INTEGER NOT NULL,
-                initiator_initial_endowment INTEGER,
-                receiver_initial_endowment INTEGER,
-                initiator_balance INTEGER,
-                receiver_balance INTEGER
-            );
-        ''')
-
-        # Status table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS game_data.status (
-                status_id SERIAL PRIMARY KEY,
-                transaction_id INTEGER NOT NULL REFERENCES game_data.transactions(transaction_id),
-                status TEXT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        ''')
-
-        # History table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS game_data.history (
-                id SERIAL PRIMARY KEY,
-                session_code TEXT NOT NULL,
-                segment INTEGER NOT NULL,
-                round INTEGER NOT NULL,
-                participant_code TEXT NOT NULL,
-                endowment INTEGER NOT NULL,
-                contribution INTEGER,
-                total_public_goods FLOAT,
-                public_good_gross_gain FLOAT,
-                public_interaction_payoff FLOAT NOT NULL,
-                total_transfers_received INTEGER NOT NULL,
-                total_transfers_given INTEGER NOT NULL,
-                private_interaction_payoff INTEGER NOT NULL,
-                payment FLOAT NOT NULL,
-                timeout_penalty BOOLEAN NOT NULL,
-                corruption_punishment BOOLEAN NOT NULL
-            );
-        ''')
-
-        # Calculator history table
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS game_data.calculator_history (
-                id SERIAL PRIMARY KEY,
-                session_code TEXT NOT NULL,
-                segment INTEGER NOT NULL,
-                round INTEGER NOT NULL,
-                participant_code TEXT NOT NULL,
-                operation TEXT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        ''')
-
-        conn.commit()
-        print("Tables created successfully inside 'game_data' schema.")
-
-    except Exception as e:
-        print(f"Error creating tables: {e}")
-        conn.rollback()
-
-    finally:
-        release_connection(conn)
-
-
-def insert_row(data, table, db_path=DB_PATH):
-    """
-    Inserts a row into a specified table in the 'game_data' schema.
-
-    Args:
-        data (dict): The column-value pairs to insert.
-        table (str): The name of the target table.
-        db_path (str): Database connection string (defaults to DB_PATH).
-
-    Returns:
-        transaction_id (int) or None: The inserted ID for tables that have a return column, otherwise None.
-    """
-
-    conn = cur = None  # Ensure conn is defined for finally block
-
-    try:
-        allowed_tables = {'transactions', 'status', 'history', 'calculator_history'}
-        if table not in allowed_tables:
-            raise ValueError(f"Invalid table name: {table}")
-
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return None
-
-        # ID column only applies to specific tables
-        id_column = "transaction_id" if table in {'transactions', 'status'} else "id"
-
-        query = sql.SQL("""
-            INSERT INTO game_data.{table} ({columns}) 
-            VALUES ({values}) 
-            RETURNING {id_column}
-        """).format(
-            table=sql.Identifier(table),
-            columns=sql.SQL(', ').join(map(sql.Identifier, data.keys())),
-            values=sql.SQL(', ').join(sql.Placeholder() * len(data)),
-            id_column=sql.Identifier(id_column)
-        )
-
-        cur.execute(query, list(data.values()))
-        inserted_id = cur.fetchone()[0] if table in {'transactions', 'status'} else None
-
-        conn.commit()
-        print(
-            f"Row inserted into '{table}' with ID {inserted_id}" 
-            if inserted_id else f"Row inserted into '{table}'"
-        )
-        return inserted_id
-
-    except psycopg2.Error as e:
-        print(f"Database error while inserting into '{table}': {e}")
-        if conn:
+    except Exception:
+        if not conn.closed:
             conn.rollback()
-
+        raise
     finally:
-        if conn:
-            release_connection(conn)
+        # A connection the server dropped (e.g. Postgres restarted) is discarded
+        # instead of being handed to the next caller.
+        pool.putconn(conn, close=bool(conn.closed))
 
 
-def get_transaction(transaction_id, db_path=DB_PATH):
+def _logs_db_errors(fallback):
     """
-    Retrieve the points and action for a given transaction ID from the
-    'game_data.transactions' table in a single query (replaces the old
-    get_points()/get_action() pair, which each opened their own connection
-    for the same row).
+    A database failure must never crash a live session, so the decorated
+    function logs it and returns a copy of `fallback` instead.
+    """
 
-    Args:
-        transaction_id (int): The ID of the transaction to look up.
-        db_path (str): Connection string to the PostgreSQL database.
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except psycopg2.Error as e:
+                print(f"Database error in {func.__name__}: {e}")
+                return copy.copy(fallback)
+        return wrapper
+    return decorator
+
+
+def _insert(cur, table, data, ignore_duplicates=False):
+    """
+    Insert one row inside an open transaction.
 
     Returns:
-        tuple: (points, action), or (None, None) if not found or on error.
+        The new row's primary key, or None if `ignore_duplicates` skipped it.
     """
 
-    conn = cur = None
+    if table not in TABLE_KEYS:
+        raise ValueError(f"Invalid table name: {table}")
 
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return None, None
-
-        cur.execute(
-            "SELECT points, action FROM game_data.transactions WHERE transaction_id = %s",
-            (transaction_id,)
-        )
-        result = cur.fetchone()
-        return result if result else (None, None)
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        if conn:
-            conn.rollback()
-        return None, None
-
-    finally:
-        if conn:
-            release_connection(conn)
+    query = sql.SQL('INSERT INTO game_data.{table} ({columns}) VALUES ({values}) {conflict} RETURNING {key}').format(
+        table=sql.Identifier(table),
+        columns=sql.SQL(', ').join(map(sql.Identifier, data.keys())),
+        values=sql.SQL(', ').join(sql.Placeholder() * len(data)),
+        conflict=sql.SQL('ON CONFLICT DO NOTHING' if ignore_duplicates else ''),
+        key=sql.Identifier(TABLE_KEYS[table]),
+    )
+    cur.execute(query, list(data.values()))
+    row = cur.fetchone()
+    return row[TABLE_KEYS[table]] if row else None
 
 
-def add_balance(data, db_path=DB_PATH):
+# ---------------------------------------------------------------------------
+# Writes
+# ---------------------------------------------------------------------------
+
+@_logs_db_errors(fallback=None)
+def create_tables():
     """
-    Update initiator and receiver balances in the 'game_data.transactions' table.
+    Create the 'game_data' schema, or upgrade an existing one in place. Safe to
+    run on every server start.
+    """
+
+    with _cursor() as cur:
+        cur.execute(_CREATE_TABLES)
+
+        for table, columns in LINKAGE_COLUMNS.items():
+            for column, column_type in columns:
+                cur.execute(sql.SQL('ALTER TABLE game_data.{} ADD COLUMN IF NOT EXISTS {} ' + column_type).format(
+                    sql.Identifier(table), sql.Identifier(column)
+                ))
+                # Set apart from ADD COLUMN so existing rows keep NULL instead
+                # of being stamped with the time of the upgrade.
+                if column == 'timestamp':
+                    cur.execute(sql.SQL('ALTER TABLE game_data.{} ALTER COLUMN timestamp SET DEFAULT CURRENT_TIMESTAMP').format(
+                        sql.Identifier(table)
+                    ))
+
+        cur.execute(_CREATE_INDEXES)
+
+    print("Tables created successfully inside 'game_data' schema.")
+
+
+@_logs_db_errors(fallback=None)
+def insert_row(data, table):
+    """
+    Insert one row into a 'game_data' table.
 
     Args:
-        data (dict): Must include 'transaction_id', 'initiator_balance', and 'receiver_balance'.
-        db_path (str): PostgreSQL connection string (optional).
+        data (dict): Column-value pairs to insert.
+        table (str): One of TABLE_KEYS.
+
+    Returns:
+        The new row's primary key, or None on error.
     """
 
-    conn = cur = None
+    with _cursor() as cur:
+        return _insert(cur, table, data)
 
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return
-        
+
+@_logs_db_errors(fallback=None)
+def register_session(data):
+    """
+    Record a session's configuration. Later calls for the same session are ignored.
+
+    Args:
+        data (dict): Column-value pairs for 'game_data.sessions'; must include 'session_code'.
+    """
+
+    with _cursor() as cur:
+        _insert(cur, 'sessions', data, ignore_duplicates=True)
+
+
+@_logs_db_errors(fallback=None)
+def open_transaction(data):
+    """
+    Record a new offer/request together with its 'Iniciado' status, atomically.
+
+    Args:
+        data (dict): Column-value pairs for 'game_data.transactions'.
+
+    Returns:
+        int or None: The new transaction_id, or None on error.
+    """
+
+    with _cursor() as cur:
+        transaction_id = _insert(cur, 'transactions', data)
+        _insert(cur, 'status', {'transaction_id': transaction_id, 'status': 'Iniciado'})
+        return transaction_id
+
+
+@_logs_db_errors(fallback=None)
+def close_transaction(transaction_id, status, initiator_balance, receiver_balance):
+    """
+    Record how a transaction ended, and both players' balances at that moment,
+    atomically.
+
+    Args:
+        transaction_id (int): The transaction being closed.
+        status (str): 'Aceptado', 'Rechazado', 'Cancelado' or 'Fallido'.
+        initiator_balance (int): Initiator's points after the transaction.
+        receiver_balance (int): Receiver's points after the transaction.
+    """
+
+    with _cursor() as cur:
         cur.execute("""
             UPDATE game_data.transactions
             SET initiator_balance = %s, receiver_balance = %s
             WHERE transaction_id = %s
-        """, (
-            data['initiator_balance'], 
-            data['receiver_balance'], 
-            data['transaction_id']
-        ))
-        
-        conn.commit()
-        print(f"Balance updated for transaction {data['transaction_id']}")
-
-    except psycopg2.Error as e:
-        print(f"Database error while updating balance: {e}")
-        if conn:
-            conn.rollback()
-
-    finally:
-        if conn:
-            release_connection(conn)
+        """, (initiator_balance, receiver_balance, transaction_id))
+        _insert(cur, 'status', {'transaction_id': transaction_id, 'status': status})
 
 
-def filter_transactions(data, db_path=DB_PATH):
+# ---------------------------------------------------------------------------
+# Reads
+# ---------------------------------------------------------------------------
+
+@_logs_db_errors(fallback=None)
+def get_transaction(transaction_id):
     """
-    Filters and retrieves transactions for a given participant in an oTree experiment,
-    replacing initiator and receiver IDs with their corresponding role names.
-
-    Args:
-        data (dict): Must include:
-            - 'participant_code' (str)
-            - 'round' (int)
-            - 'segment' (int)
-            - 'session_code' (str)
-        db_path (str): PostgreSQL connection string (default: DB_PATH)
-
     Returns:
-        list of dict: Transactions with keys:
-            - "Jugador": Role name of the initiator
-            - "Acción": Action taken ("Ofrece", "Solicita")
-            - "A": Role name of the receiver
-            - "Puntos": Points transferred
-            - "¿Se aceptó?": Final status ("Aceptado" or "Rechazado")
-            - "Balance": Player's balance after transaction (if available)
+        dict or None: Keys 'points', 'action', 'initiator_id', 'receiver_id',
+        'group_id' and 'status' (the latest one); None if not found or on error.
     """
-    
-    conn = cur = None
 
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return []
-        
-        query = """
-            SELECT
-                t.initiator_id,  
-                t.action,        
-                t.receiver_id,   
-                t.points,        
-                CASE 
-                    WHEN t.initiator_code = %(participant_code)s THEN t.initiator_balance  
-                    WHEN t.receiver_code = %(participant_code)s THEN t.receiver_balance  
-                    ELSE NULL
-                END AS total_balance,  
-                s.status  
-            FROM game_data.transactions t
-            LEFT JOIN game_data.status s ON t.transaction_id = s.transaction_id
-            WHERE (t.initiator_code = %(participant_code)s OR t.receiver_code = %(participant_code)s)
-            AND t.round = %(round)s
-            AND t.segment = %(segment)s
-            AND t.session_code = %(session_code)s
-            AND s.status IN ('Aceptado', 'Rechazado')
-        """
-
-        cur.execute(query, data)
-        results = cur.fetchall()
-
-        transactions = [
-            {
-                "Jugador": role_mapping.get(str(row[0]), f"Jugador {row[0]}"),
-                "Acción": row[1],
-                "A": role_mapping.get(str(row[2]), f"Jugador {row[2]}"),
-                "Puntos": row[3],
-                "¿Se aceptó?": row[5],
-                "Balance": row[4],
-            }
-            for row in results
-        ]
-
-        return transactions 
-
-    except psycopg2.Error as e:
-        print(f"Database error: {e}")
-        if conn:
-            conn.rollback()
-        return []
-
-    
-    finally:
-        if conn:
-            release_connection(conn)
-
-
-def filter_history(data, db_path=DB_PATH):
-    """
-    Retrieve the full round-by-round history of a participant within a segment.
-
-    Args:
-        data (dict): Must include:
-            - 'session_code' (str)
-            - 'segment' (int)
-            - 'participant_code' (str)
-        db_path (str): PostgreSQL connection string (default: DB_PATH)
-
-    Returns:
-        list of dict: One entry per round, with payoff breakdown and flags for timeout and audit.
-    """
-    
-    conn = cur = None
-
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return []
-    
-        query = """
-            SELECT 
-                segment, 
-                round, 
-                participant_code, 
-                endowment, 
-                contribution,
-                total_public_goods,
-                public_good_gross_gain, 
-                total_transfers_received, 
-                total_transfers_given, 
-                public_interaction_payoff, 
-                private_interaction_payoff, 
-                payment,
-                timeout_penalty,  -- New field
-                corruption_punishment  -- New field
-            FROM game_data.history
-            WHERE session_code = %s
-            AND segment = %s
-            AND participant_code = %s
-            ORDER BY round ASC;  -- Ensure rounds are in chronological order
-        """
-
-        cur.execute(query, (
-            data['session_code'],
-            data['segment'],
-            data['participant_code']
-        ))
-
-        results = cur.fetchall()
-
-        return [
-            {
-                "Segment": row[0],
-                "Round": row[1],
-                "Participant": row[2],
-                "Endowment": row[3],
-                "Contribution": row[4] or 0,
-                "TotalPublicGoods": row[5], 
-                "PublicGoodGrossGain": row[6],
-                "TotalTransfersReceived": row[7],
-                "TotalTransfersGiven": row[8],
-                "PublicInteractionPayoff": row[9],
-                "PrivateInteractionPayoff": row[10],
-                "Payment": row[11],
-                "Timeout": row[12],
-                "Audited": row[13]
-            }
-            for row in results
-        ]
-
-    except psycopg2.Error as e:
-        print(f"Database error in filter_history: {e}")
-        if conn:
-            conn.rollback()
-        return []
-
-    finally:
-        if conn:
-            release_connection(conn)
-
-
-def get_last_transaction_status(participant_code, treatment_round, segment, session_code, db_path=DB_PATH):
-    """
-    Retrieves the latest transaction for a participant in the given session, round, and segment,
-    ONLY if the most recent status is 'Iniciado' (i.e., still open).
-
-    Args:
-        participant_code (str): The participant's unique code.
-        treatment_round (int): The round number within the treatment.
-        segment (int): The experiment segment number.
-        session_code (str): The session code identifier.
-        db_path (str): PostgreSQL connection string (default: DB_PATH)
-
-    Returns:
-        dict: Dictionary with transaction details if the latest status is 'Iniciado',
-            otherwise None.
-    """
-    
-    conn = cur = None
-
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return None
-    
-        query = """
-            SELECT 
-                t.transaction_id,
-                t.initiator_id,
-                t.receiver_id,
-                t.action,
-                t.points,
-                s.status
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT t.points, t.action, t.initiator_id, t.receiver_id, t.group_id, latest.status
             FROM game_data.transactions t
             JOIN LATERAL (
-                SELECT status 
-                FROM game_data.status 
+                SELECT status
+                FROM game_data.status
                 WHERE transaction_id = t.transaction_id
                 ORDER BY status_id DESC
                 LIMIT 1
-            ) s ON true
-            WHERE (t.initiator_code = %s OR t.receiver_code = %s)
-            AND t.session_code = %s
-            AND t.round = %s
-            AND t.segment = %s
-            AND s.status = 'Iniciado'
-            ORDER BY t.transaction_id DESC
-            LIMIT 1;
-        """
-
-        cur.execute(query, (participant_code, participant_code, session_code, treatment_round, segment))
-        result = cur.fetchone()
-
-        if result:
-            transaction_id, initiator_id, receiver_id, action, points, _ = result
-            print(f"Last open transaction: {result}")
-            return {
-                'transactionId': transaction_id,
-                'initiatorId': initiator_id,
-                'receiverId': receiver_id,
-                'action': action,
-                'value': points
-            }
-
-        return None
-
-    except psycopg2.Error as e:
-        print(f"Database error while fetching last transaction: {e}")
-        if conn:
-            conn.rollback()
-        return None
-
-    finally:
-        if conn:
-            release_connection(conn)
+            ) latest ON true
+            WHERE t.transaction_id = %s
+        """, (transaction_id,))
+        return cur.fetchone()
 
 
-def check_corruption(data, db_path=DB_PATH):
+@_logs_db_errors(fallback=[])
+def filter_transactions(data):
     """
-    Identifies potentially corrupt transfers between citizens (players 1, 2, 3) and 
-    the public officer (player 4), considering only accepted transactions.
+    A participant's finished (accepted or rejected) transactions in one round,
+    formatted for the transactions table on screen.
 
     Args:
-        data (dict): Must include:
-            - 'segment' (int)
-            - 'round' (int)
-            - 'session_code' (str)
-            - 'group_id' (int)
-        db_path (str): PostgreSQL connection string (default: DB_PATH)
+        data (dict): Must include 'participant_code', 'round', 'segment', 'session_code'.
 
     Returns:
-        dict: For each citizen (1, 2, 3), reports:
-            - 'transfers_from_citizen_to_officer' (int)
-            - 'transfers_from_officer_to_citizen' (int)
-        or:
-            {'error': str} if something goes wrong
+        list of dict: Keys "Jugador", "Acción", "A", "Puntos", "¿Se aceptó?", "Balance".
     """
 
-    conn = cur = None
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT
+                t.initiator_id,
+                t.action,
+                t.receiver_id,
+                t.points,
+                CASE
+                    WHEN t.initiator_code = %(participant_code)s THEN t.initiator_balance
+                    ELSE t.receiver_balance
+                END AS balance,
+                s.status
+            FROM game_data.transactions t
+            JOIN game_data.status s ON t.transaction_id = s.transaction_id
+            WHERE (t.initiator_code = %(participant_code)s OR t.receiver_code = %(participant_code)s)
+              AND t.round = %(round)s
+              AND t.segment = %(segment)s
+              AND t.session_code = %(session_code)s
+              AND s.status IN ('Aceptado', 'Rechazado')
+            ORDER BY t.transaction_id
+        """, data)
 
-    CITIZENS = [1, 2, 3]
-    OFFICER = 4
+        return [
+            {
+                "Jugador": role_mapping.get(str(row['initiator_id']), f"Jugador {row['initiator_id']}"),
+                "Acción": row['action'],
+                "A": role_mapping.get(str(row['receiver_id']), f"Jugador {row['receiver_id']}"),
+                "Puntos": row['points'],
+                "¿Se aceptó?": row['status'],
+                "Balance": row['balance'],
+            }
+            for row in cur.fetchall()
+        ]
 
-    corruption_data = {
-        citizen_id: {
-            'transfers_from_citizen_to_officer': 0,
-            'transfers_from_officer_to_citizen': 0
-        } for citizen_id in CITIZENS
+
+# Display label -> history column. Shared by filter_history() and by the
+# per-participant history cache in public_goods, so both produce the same rows.
+HISTORY_DISPLAY_FIELDS = {
+    "Segment": 'segment',
+    "Round": 'round',
+    "Participant": 'participant_code',
+    "Endowment": 'endowment',
+    "Contribution": 'contribution',
+    "TotalPublicGoods": 'total_public_goods',
+    "PublicGoodGrossGain": 'public_good_gross_gain',
+    "TotalTransfersReceived": 'total_transfers_received',
+    "TotalTransfersGiven": 'total_transfers_given',
+    "PublicInteractionPayoff": 'public_interaction_payoff',
+    "PrivateInteractionPayoff": 'private_interaction_payoff',
+    "Payment": 'payment',
+    "Timeout": 'timeout_penalty',
+    "Audited": 'corruption_punishment',
+}
+
+
+def history_display_row(row):
+    """Convert a history row (dict keyed by column name) into its on-screen form."""
+
+    display = {label: row[column] for label, column in HISTORY_DISPLAY_FIELDS.items()}
+    display["Contribution"] = display["Contribution"] or 0
+    return display
+
+
+@_logs_db_errors(fallback=[])
+def filter_history(data):
+    """
+    A participant's round-by-round history within one segment, oldest first.
+
+    Args:
+        data (dict): Must include 'session_code', 'segment', 'participant_code'.
+
+    Returns:
+        list of dict: One history_display_row() per round.
+    """
+
+    with _cursor() as cur:
+        cur.execute(sql.SQL("""
+            SELECT {columns}
+            FROM game_data.history
+            WHERE session_code = %(session_code)s
+              AND segment = %(segment)s
+              AND participant_code = %(participant_code)s
+            ORDER BY round
+        """).format(
+            columns=sql.SQL(', ').join(map(sql.Identifier, HISTORY_DISPLAY_FIELDS.values()))
+        ), data)
+
+        return [history_display_row(row) for row in cur.fetchall()]
+
+
+@_logs_db_errors(fallback=None)
+def get_last_transaction_status(participant_code, treatment_round, segment, session_code):
+    """
+    The participant's most recent transaction in this round, but only if it is
+    still open (its latest status is 'Iniciado'). Used to restore the UI after a
+    page reload.
+
+    Returns:
+        dict or None: Keys 'transactionId', 'initiatorId', 'receiverId', 'action', 'value'.
+    """
+
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT t.transaction_id, t.initiator_id, t.receiver_id, t.action, t.points
+            FROM game_data.transactions t
+            JOIN LATERAL (
+                SELECT status
+                FROM game_data.status
+                WHERE transaction_id = t.transaction_id
+                ORDER BY status_id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE (t.initiator_code = %(code)s OR t.receiver_code = %(code)s)
+              AND t.session_code = %(session_code)s
+              AND t.round = %(round)s
+              AND t.segment = %(segment)s
+              AND latest.status = 'Iniciado'
+            ORDER BY t.transaction_id DESC
+            LIMIT 1
+        """, {
+            'code': participant_code,
+            'session_code': session_code,
+            'round': treatment_round,
+            'segment': segment,
+        })
+
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        return {
+            'transactionId': row['transaction_id'],
+            'initiatorId': row['initiator_id'],
+            'receiverId': row['receiver_id'],
+            'action': row['action'],
+            'value': row['points'],
+        }
+
+
+@_logs_db_errors(fallback={})
+def check_corruption(data):
+    """
+    Total points each citizen gave to and received from the officer through
+    accepted transactions in one round.
+
+    Args:
+        data (dict): Must include 'segment', 'round', 'session_code', 'group_id'.
+
+    Returns:
+        dict: {citizen_id: {'transfers_from_citizen_to_officer': int,
+                            'transfers_from_officer_to_citizen': int}},
+              or {} on error.
+    """
+
+    totals = {
+        citizen: {'transfers_from_citizen_to_officer': 0, 'transfers_from_officer_to_citizen': 0}
+        for citizen in CITIZENS
     }
-    
-    query = """
-        SELECT 
-            t.initiator_id, t.receiver_id, t.action, t.points
-        FROM game_data.transactions t
-        JOIN game_data.status s ON t.transaction_id = s.transaction_id
-        WHERE t.segment = %s
-          AND t.round = %s
-          AND t.session_code = %s
-          AND t.group_id = %s
-          AND s.status = 'Aceptado'
-          AND (
-            (t.initiator_id IN (1, 2, 3) AND t.receiver_id = 4) OR
-            (t.initiator_id = 4 AND t.receiver_id IN (1, 2, 3))
-          );
-    """
 
-    try:
-        conn, cur = connect_to_db(db_path)
-        if not conn:
-            return {'error': 'Database connection failed'}
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT t.initiator_id, t.receiver_id, t.action, t.points
+            FROM game_data.transactions t
+            JOIN game_data.status s ON t.transaction_id = s.transaction_id
+            WHERE t.segment = %(segment)s
+              AND t.round = %(round)s
+              AND t.session_code = %(session_code)s
+              AND t.group_id = %(group_id)s
+              AND s.status = 'Aceptado'
+        """, data)
 
-        cur.execute(query, (
-            data['segment'],
-            data['round'],
-            data['session_code'],
-            data['group_id']
-        ))
+        for row in cur.fetchall():
+            # 'Ofrece': the initiator pays. 'Solicita': the initiator is paid.
+            if row['action'] == 'Ofrece':
+                payer, payee = row['initiator_id'], row['receiver_id']
+            else:
+                payer, payee = row['receiver_id'], row['initiator_id']
 
-        for initiator_id, receiver_id, action, points in cur.fetchall():
-            if initiator_id in CITIZENS and receiver_id == OFFICER:
-                if action == 'Ofrece':
-                    corruption_data[initiator_id]['transfers_from_citizen_to_officer'] += points
-                elif action == 'Solicita':
-                    corruption_data[initiator_id]['transfers_from_officer_to_citizen'] += points
-            elif initiator_id == OFFICER and receiver_id in CITIZENS:
-                if action == 'Ofrece':
-                    corruption_data[receiver_id]['transfers_from_officer_to_citizen'] += points
-                elif action == 'Solicita':
-                    corruption_data[receiver_id]['transfers_from_citizen_to_officer'] += points
+            if payer in CITIZENS and payee == OFFICER:
+                totals[payer]['transfers_from_citizen_to_officer'] += row['points']
+            elif payer == OFFICER and payee in CITIZENS:
+                totals[payee]['transfers_from_officer_to_citizen'] += row['points']
 
-        return corruption_data
-
-    except psycopg2.Error as e:
-        print(f"Database error in check_corruption: {e}")
-        if conn:
-            conn.rollback()
-        return {'error': str(e)}
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            release_connection(conn)
+    return totals

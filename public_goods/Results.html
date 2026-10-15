@@ -8,17 +8,19 @@
 
     <div class="container">
         <!-- Header Row -->
-        <div class="row page-header-info">
-            <div class="col-4 text-center"><b>Bloque:</b> {{ player.participant.segment }}</div>
-            <div class="col-4 text-center"><b>Ronda:</b> {{ player.participant.treatment_round }}</div>
-            <div class="col-4 text-center"><b>Rol:</b> {{ player.role }}</div>
+        <div class="page-header-info">
+            <div class="header-meta">
+                <span><span class="meta-label">Bloque:</span><b>{{ player.participant.segment }}</b></span>
+                <span><span class="meta-label">Ronda:</span><b>{{ player.participant.treatment_round }}</b></span>
+                <span><span class="meta-label">Rol:</span><b>{{ player.role }}</b></span>
+            </div>
         </div>
 
         <div class="row main-content-row">
             <!-- Audit Content -->
             {% if random_audits and corruption_audit %}
                 <div class="col-12 d-flex flex-column align-items-center justify-content-center p-5 text-center">
-                    <h5>Fuiste auditado</h5><br>
+                    <h5 class="section-title">Fuiste auditado</h5>
 
                     {% if player.corruption_punishment %}
                         <p style="color: #D72638; font-weight: bold;"> 
@@ -33,15 +35,14 @@
             {% endif %}
 
             <!-- History Section -->
-            <h4 class="text-center" style="margin-top: 2rem;">Este es el resultado de la ronda</h4>
-            <br>
+            <h4 class="section-title" style="margin-top: 2rem;">Este es el resultado de la ronda</h4>
             {{ include '../_templates/global/history.html' }} 
         </div>    
-    </div>
-    
-    <!-- Next Button -->
-    <div style="border-top: solid #808080; padding-top: 14px;">
-        {{ next_button }}
+
+        <!-- Next Button -->
+        <div class="page-actions">
+            {{ next_button }}
+        </div>
     </div>
 
 {{ endblock }}
