@@ -185,6 +185,11 @@ body {
     font-weight: 600;
 }
 
+.contribution-status.is-urgent {
+    color: #b02a37;
+    font-weight: 600;
+}
+
 /* 1.3. Chat */
 .chat-container {
     display: flex;
@@ -193,6 +198,17 @@ body {
     padding-top: 1.5rem;
     padding-right: 2rem;
     padding-left: 2rem;
+}
+
+/* Chats with every other player: equal-width columns that sit in one row
+   whenever they fit; on narrow screens they wrap but keep the same width */
+.chat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.chat-grid > .col {
+    min-width: 0;
 }
 
 .chat-box {
@@ -269,6 +285,12 @@ body {
     font-style: italic;
 }
 
+/* A player who already left the page: their chat stays readable, the rest is grayed out */
+.partner-left .chat-input-container,
+.partner-left .tx-area {
+    opacity: 0.5;
+}
+
 /* 1.4. Offer / request controls */
 .tx-area {
     position: relative; /* The pending-transaction message is laid over the controls */
@@ -277,7 +299,7 @@ body {
 
 .tx-row {
     display: grid;
-    grid-template-columns: 1fr 100px;
+    grid-template-columns: minmax(0, 1fr) minmax(60px, 100px); /* Lets the button shrink (text wraps) so narrow chat columns fit */
     gap: 8px;
     margin-bottom: 8px;
 }

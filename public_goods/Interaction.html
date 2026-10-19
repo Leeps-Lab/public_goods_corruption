@@ -200,7 +200,7 @@
 
                     <!-- Participants chat with everyone -->
                     {{ else }}
-                        <div class="chat-container row">
+                        <div class="chat-container chat-grid row">
                             {{ for other in others }}
                                 <div class="col">
                                     <!-- Chat -->
@@ -322,7 +322,7 @@
             <!-- Next Button -->
             <div class="page-actions">
                 {{ if player.id_in_group == 4}}
-                    <button class="btn btn-primary">Siguiente</button>
+                    <button id="next_button" type="button" class="btn btn-primary" onclick="leavePage()">Siguiente</button>
                 {{ else }}
                     <button id="next_button" type="button" class="btn btn-primary" onclick="verifyContribution()">Siguiente</button>
                 {{ endif }}
@@ -347,6 +347,10 @@
         let my_id = {{ player.id_in_group }};
         let other_ids = [{% for p in player.get_others_in_group %}{{ p.id_in_group }}{% endfor %}];
         let hasOngoingTransaction = false;
+        // Players who already left this page (id_in_group -> text shown in their chat box)
+        const leftPartners = new Map();
+        let leaving = false;
+        let submitted = false;
 
         const ID_PREFIXES = {
             offerButton: 'id_offerButton_',
@@ -359,6 +363,7 @@
         // Get related DOM elements by `otherId`
         function getElements(otherId) {
             return {
+                otherId: Number(otherId),
                 offerButton: document.getElementById(ID_PREFIXES.offerButton + otherId),
                 offerInput: document.getElementById(ID_PREFIXES.offerInput + otherId),
                 requestButton: document.getElementById(ID_PREFIXES.requestButton + otherId),
@@ -369,6 +374,8 @@
 
         // Disable/enable inputs and buttons
         function toggleInputs(elements, disabled) {
+            // A player who left stays grayed out, whatever re-enables the inputs.
+            disabled = disabled || leftPartners.has(elements.otherId);
             elements.offerButton.disabled = disabled;
             elements.offerInput.disabled = disabled;
             elements.requestButton.disabled = disabled;
@@ -415,7 +422,7 @@
 
             // Check if contribution was already sent
             if (beforeContribution.style.display === "none" && afterContribution.style.display === "block") {
-                document.getElementById("form").submit();
+                leavePage();
             } else {
                 notify("Debes enviar tu contribución antes de continuar.");
                 const contributionInput = document.getElementById('id_contribution_points');
@@ -423,6 +430,55 @@
                     contributionInput.focus();
                 }
             }
+        }
+
+        function submitForm() {
+            if (submitted) return;
+            submitted = true;
+            document.getElementById("form").submit();
+        }
+
+        // "Siguiente": the server first tells the other players this one left
+        // (and closes their pending offers/requests), then the page moves on.
+        function leavePage() {
+            if (leaving) return;
+            leaving = true;
+            document.getElementById("next_button").disabled = true;
+
+            if (!privateInteractionFlag) {
+                submitForm();
+                return;
+            }
+            liveSend({'type': 'leavingInteraction'});
+            // Move on even if the server's answer doesn't arrive.
+            setTimeout(submitForm, 1500);
+        }
+
+        // Gray out the chat and offer/request box of a player who already left.
+        function grayOutPartner(otherId, text) {
+            leftPartners.set(Number(otherId), text);
+            const elements = getElements(otherId);
+            if (!elements.offerButton) return;  // No box with this player on this screen
+
+            toggleInputs(elements, true);
+            elements.afterAction.style.display = 'none';
+            elements.afterAction.innerHTML = '';
+
+            const chatInput = document.getElementById(`chat_input_${otherId}`);
+            if (chatInput) {
+                chatInput.disabled = true;
+                chatInput.value = '';
+                chatInput.placeholder = text;
+                const sendButton = chatInput.parentElement.querySelector('.chat-send');
+                if (sendButton) sendButton.disabled = true;
+            }
+
+            const column = elements.offerButton.closest('.col');
+            if (column) column.classList.add('partner-left');
+        }
+
+        function reapplyLeftPartners() {
+            leftPartners.forEach((text, otherId) => grayOutPartner(otherId, text));
         }
 
         function initiatingTransaction(action, playerId, otherId, inputPrefix) {
@@ -503,6 +559,7 @@
             }
 
             document.querySelectorAll(".chat-container input, .chat-container button").forEach(el => el.disabled = false);
+            reapplyLeftPartners();
         }
 
         function unlockContribution(announce) {
@@ -575,6 +632,31 @@
             return null; // Return null if the timer element is not found
         }
 
+        // Citizens who haven't sent their contribution are warned when this many
+        // seconds are left on the page timer (a missed contribution makes the
+        // round's public payoff 0).
+        const CONTRIBUTION_WARNING_SECONDS = 30;
+
+        function warnMissingContribution() {
+            if (document.getElementById("beforeContribution").style.display === "none") {
+                return;  // Already contributed
+            }
+            notify(
+                `Quedan ${CONTRIBUTION_WARNING_SECONDS} segundos y aún no has enviado tu contribución. ` +
+                'Si no la envías a tiempo, tu pago de la interacción pública en esta ronda será 0 puntos.'
+            );
+
+            const panel = document.getElementById("contribution-panel");
+            panel.classList.add("just-unlocked");
+            setTimeout(() => panel.classList.remove("just-unlocked"), 2500);
+
+            const status = document.getElementById("contribution-status");
+            if (status) {
+                status.textContent = `¡Quedan ${CONTRIBUTION_WARNING_SECONDS} segundos para contribuir!`;
+                status.classList.add("is-urgent");
+            }
+        }
+
         // Wait for the timer content to be updated
         function waitForTimerContent(callback) {
             const interval = setInterval(() => {
@@ -588,6 +670,23 @@
 
         // Receives information from backend
         function liveRecv(data) {
+            // This player's "Siguiente" was processed: move on.
+            if (data.leftConfirmed) {
+                submitForm();
+                return;
+            }
+
+            // Another player left the page (now, or before a reload of this one).
+            if (data.partnerLeft !== undefined) {
+                grayOutPartner(data.partnerLeft, data.partnerLeftText);
+                if (data.partnerLeftError) {
+                    notify(data.partnerLeftError);
+                }
+            }
+            if (Array.isArray(data.partnersLeft)) {
+                data.partnersLeft.forEach(p => grayOutPartner(p.partnerLeft, p.partnerLeftText));
+            }
+
             const showContribution = (points) => {
                 const beforeContribution = document.getElementById("beforeContribution");
                 const afterContribution = document.getElementById("afterContribution");
@@ -743,17 +842,9 @@
 
                     if (data.reload === false) {
                         console.log("enable buttons transactions");
-                        let offerButton = document.getElementById('id_offerButton_' + data.otherId);
-                        let offerInput = document.getElementById('id_offerInput_' + data.otherId);
-                        let requestButton = document.getElementById('id_requestButton_' + data.otherId);
-                        let requestInput = document.getElementById('id_requestInput_' + data.otherId);
-                        let afterAction = document.getElementById('id_afterAction_' + data.otherId);
-
-                        offerButton.disabled = false;
-                        offerInput.disabled = false;
-                        requestButton.disabled = false;
-                        requestInput.disabled = false;
-                        afterAction.style.display = "none";
+                        const elements = getElements(data.otherId);
+                        toggleInputs(elements, false);
+                        elements.afterAction.style.display = "none";
                     }
 
                     const transactions = data.transactions;
@@ -809,7 +900,7 @@
                 let chat_messages = document.getElementById(`chat_messages_${msg.sender === my_id ? msg.recipient : msg.sender}`);
 
                 let cssClass;
-                if (msg.name === 'TransferInfo') {
+                if (msg.name === 'TransferInfo' || msg.name === 'SystemInfo') {
                     cssClass = 'msg transferInfoText'; // Centered and neutral (no color)
                 } else {
                     cssClass = msg.sender === my_id ? 'msg selfText' : 'msg otherText';
@@ -844,6 +935,15 @@
             liveSend({});
 
             const isCitizen = js_vars.player_role !== "Funcionario";
+
+            if (isCitizen) {
+                waitForTimerContent((remainingTime) => {
+                    // A reload in the last 30 seconds doesn't repeat the warning.
+                    if (remainingTime > CONTRIBUTION_WARNING_SECONDS) {
+                        setTimeout(warnMissingContribution, (remainingTime - CONTRIBUTION_WARNING_SECONDS) * 1000);
+                    }
+                });
+            }
 
             // If the sequential decision and private interaction are True
             if (sequentialDecisionFlag && privateInteractionFlag && isCitizen) {

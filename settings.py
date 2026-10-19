@@ -6,13 +6,6 @@ load_dotenv()
 
 SESSION_CONFIGS = [
     dict(
-        name='public_goods_demo',
-        display_name='All treatments',
-        app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
-        treatment_order=['BL1', 'BL2', 'T1', 'T2', 'T3', 'T4'],
-        num_rounds=2, # NOTE: change num of rounds per treatment
-    ),
-    dict(
         name='public_goods1',
         display_name='Public Goods T1 y T2',
         app_sequence=['introduction', 'public_goods', 'final_questionnaire', 'final_payoff'],
@@ -148,7 +141,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     doc="",
     num_demo_participants=4,
     multiplier=2, # Default multiplier value when it is not random
-    exchange_rate=12, # Points per S/ 1 (variable pay = avg points per round / exchange_rate). 12 targets ~S/ 8 avg variable pay, calibrated on 2025-26 sessions
+    exchange_rate=20, # Points per S/ 1 (variable pay = avg points per round / exchange_rate).
     c1_endowment=150, # Default heterogenous endowment for Citizen 1 (T3)
     audit_probability=0.2, # Default detection probability of corruption action (T6)
     private_interaction_duration=180, # Default time for deactivate private interaction: 180 seconds
@@ -157,7 +150,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     chat_only_officer=True # True: chat only between citizens and officer | False: chat with everyone
 )
 
-PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'treatment', 'session_payoff']
+PARTICIPANT_FIELDS = ['treatment_round', 'segment', 'treatment', 'session_payoff', 'interaction_left_round']
 SESSION_FIELDS = []
 
 # ISO-639 code

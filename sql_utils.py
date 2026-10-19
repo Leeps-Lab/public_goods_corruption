@@ -10,11 +10,14 @@ Tables:
     sessions            One row per session: config, treatment order, demo flag.
     transactions        One row per offer/request between two players.
     status              Status events per transaction (Iniciado, then Aceptado /
-                        Rechazado / Cancelado / Fallido). The latest row is the
-                        current status.
+                        Rechazado / Cancelado / Fallido / Expirado). The latest
+                        row is the current status.
     history             One row per participant per round: payoff breakdown.
     calculator_history  Every calculator operation typed by the officer.
-    messages            Every chat and system (TransferInfo) message.
+    messages            Every chat and system (TransferInfo, SystemInfo) message.
+    interaction_times   One row per participant per round: when they entered and
+                        left the Interaction page, why they left, and when a
+                        citizen sent their contribution.
 """
 
 from contextlib import contextmanager
@@ -53,6 +56,7 @@ TABLE_KEYS = {
     'history': 'id',
     'calculator_history': 'id',
     'messages': 'id',
+    'interaction_times': 'id',
 }
 
 # Tables as first deployed. Columns added later live in LINKAGE_COLUMNS, so the
@@ -144,6 +148,23 @@ _CREATE_TABLES = '''
         transaction_id INTEGER REFERENCES game_data.transactions(transaction_id),
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS game_data.interaction_times (
+        id SERIAL PRIMARY KEY,
+        session_code TEXT NOT NULL,
+        segment INTEGER NOT NULL,
+        round INTEGER NOT NULL,
+        round_number INTEGER NOT NULL,
+        treatment TEXT NOT NULL,
+        group_id INTEGER NOT NULL,
+        group_id_in_subsession INTEGER NOT NULL,
+        participant_code TEXT NOT NULL,
+        id_in_group INTEGER NOT NULL,
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- first time the page was shown
+        contributed_at TIMESTAMP,                        -- when the citizen's contribution was accepted (NULL: none sent, or officer)
+        ended_at TIMESTAMP,                              -- when the player left it
+        end_reason TEXT                                  -- 'Siguiente' (clicked) or 'Tiempo agotado' (timer)
+    );
 '''
 
 # Columns that let every row be joined back to the oTree export
@@ -179,6 +200,8 @@ _CREATE_INDEXES = '''
         ON game_data.history (session_code, segment, participant_code);
     CREATE UNIQUE INDEX IF NOT EXISTS history_one_row_per_round
         ON game_data.history (session_code, round_number, participant_code);
+    CREATE UNIQUE INDEX IF NOT EXISTS interaction_times_one_row_per_round
+        ON game_data.interaction_times (session_code, round_number, participant_code);
 '''
 
 
@@ -358,7 +381,7 @@ def close_transaction(transaction_id, status, initiator_balance, receiver_balanc
 
     Args:
         transaction_id (int): The transaction being closed.
-        status (str): 'Aceptado', 'Rechazado', 'Cancelado' or 'Fallido'.
+        status (str): 'Aceptado', 'Rechazado', 'Cancelado', 'Fallido' or 'Expirado'.
         initiator_balance (int): Initiator's points after the transaction.
         receiver_balance (int): Receiver's points after the transaction.
     """
@@ -370,6 +393,74 @@ def close_transaction(transaction_id, status, initiator_balance, receiver_balanc
             WHERE transaction_id = %s
         """, (initiator_balance, receiver_balance, transaction_id))
         _insert(cur, 'status', {'transaction_id': transaction_id, 'status': status})
+
+
+@_logs_db_errors(fallback=None)
+def start_interaction(data):
+    """
+    Record when a participant first sees the Interaction page. Reloads of the
+    page are ignored, so started_at stays the first time it was shown.
+
+    Args:
+        data (dict): Column-value pairs for 'game_data.interaction_times'.
+    """
+
+    with _cursor() as cur:
+        _insert(cur, 'interaction_times', data, ignore_duplicates=True)
+
+
+def _stamp_interaction(cur, keys, column, extra=None):
+    """
+    Set `column` to now on the participant's interaction_times row, unless it
+    is already set (only the first time counts). Creates the row if the page
+    load never recorded it, leaving started_at empty since it is unknown.
+    """
+
+    data = {**keys, 'started_at': None, column: None, **(extra or {})}
+    cur.execute(sql.SQL("""
+        INSERT INTO game_data.interaction_times ({columns}) VALUES ({values})
+        ON CONFLICT (session_code, round_number, participant_code) DO NOTHING
+    """).format(
+        columns=sql.SQL(', ').join(map(sql.Identifier, data.keys())),
+        values=sql.SQL(', ').join(sql.Placeholder() * len(data)),
+    ), list(data.values()))
+
+    assignments = [sql.SQL('{} = CURRENT_TIMESTAMP').format(sql.Identifier(column))]
+    assignments += [sql.SQL('{} = %s').format(sql.Identifier(k)) for k in (extra or {})]
+    cur.execute(sql.SQL("""
+        UPDATE game_data.interaction_times SET {assignments}
+        WHERE session_code = %s AND round_number = %s AND participant_code = %s
+          AND {column} IS NULL
+    """).format(assignments=sql.SQL(', ').join(assignments), column=sql.Identifier(column)),
+        [*(extra or {}).values(), keys['session_code'], keys['round_number'], keys['participant_code']])
+
+
+@_logs_db_errors(fallback=None)
+def record_contribution_time(keys):
+    """
+    Record when a citizen's contribution was accepted (only the first time).
+
+    Args:
+        keys (dict): The row's columns for 'game_data.interaction_times' (as for start_interaction).
+    """
+
+    with _cursor() as cur:
+        _stamp_interaction(cur, keys, 'contributed_at')
+
+
+@_logs_db_errors(fallback=None)
+def end_interaction(keys, end_reason):
+    """
+    Record when and why a participant left the Interaction page. Only the first
+    call counts: a click on "Siguiente" followed by the page submit keeps the
+    click's time and reason.
+
+    Args:
+        keys (dict): The row's columns for 'game_data.interaction_times' (as for start_interaction).
+    """
+
+    with _cursor() as cur:
+        _stamp_interaction(cur, keys, 'ended_at', extra={'end_reason': end_reason})
 
 
 # ---------------------------------------------------------------------------
@@ -550,6 +641,42 @@ def get_last_transaction_status(participant_code, treatment_round, segment, sess
             'action': row['action'],
             'value': row['points'],
         }
+
+
+@_logs_db_errors(fallback=[])
+def get_open_transactions(participant_code, treatment_round, segment, session_code):
+    """
+    Every transaction of the participant in this round still waiting for an
+    answer (latest status 'Iniciado'), as initiator or receiver.
+
+    Returns:
+        list of dict: Keys 'transaction_id', 'initiator_id', 'receiver_id', 'action', 'points'.
+    """
+
+    with _cursor() as cur:
+        cur.execute("""
+            SELECT t.transaction_id, t.initiator_id, t.receiver_id, t.action, t.points
+            FROM game_data.transactions t
+            JOIN LATERAL (
+                SELECT status
+                FROM game_data.status
+                WHERE transaction_id = t.transaction_id
+                ORDER BY status_id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE (t.initiator_code = %(code)s OR t.receiver_code = %(code)s)
+              AND t.session_code = %(session_code)s
+              AND t.round = %(round)s
+              AND t.segment = %(segment)s
+              AND latest.status = 'Iniciado'
+            ORDER BY t.transaction_id
+        """, {
+            'code': participant_code,
+            'session_code': session_code,
+            'round': treatment_round,
+            'segment': segment,
+        })
+        return cur.fetchall()
 
 
 @_logs_db_errors(fallback={})

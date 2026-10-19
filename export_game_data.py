@@ -38,6 +38,7 @@ EXPORTS = [
     ("COPY game_data.transactions TO STDOUT WITH CSV HEADER", "transactions.csv"),
     ("COPY game_data.messages TO STDOUT WITH CSV HEADER", "messages.csv"),
     ("COPY game_data.sessions TO STDOUT WITH CSV HEADER", "sessions.csv"),
+    ("COPY game_data.interaction_times TO STDOUT WITH CSV HEADER", "interaction_times.csv"),
 ]
 
 

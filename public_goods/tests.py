@@ -217,3 +217,44 @@ def play_private_interaction(method, group):
 
     # Nothing left pending, so a reload restores no offer.
     expect('offerPoints' in method(1, {'type': 'reloadPage'})[1], False, 'reload after cancel')
+
+    # The officer clicks "Siguiente" with an offer to them and a request of
+    # theirs both pending: both expire, the offered points are released, and
+    # every citizen is told the officer left.
+    before = balances()
+    offer_id = method(1, offer(1, C.OFFICER_ID, 5))[1]['transactionId']
+    request_id = method(C.OFFICER_ID, request(C.OFFICER_ID, 2, 3))[C.OFFICER_ID]['transactionId']
+    response = method(C.OFFICER_ID, {'type': 'leavingInteraction'})
+    expect(response[C.OFFICER_ID], {'leftConfirmed': True}, 'leaver moves on')
+    expect(set(response), {1, 2, 3, C.OFFICER_ID}, 'every citizen is told')
+    expect(response[1]['partnerLeft'], C.OFFICER_ID, 'citizen grays out the officer')
+    expect(response[1]['chat'][0]['name'], 'SystemInfo', 'left notice in chat')
+    expect(balances(), before, 'expired offer releases reserved points')
+    for transaction_id in (offer_id, request_id):
+        expect(game.get_transaction(transaction_id)['status'], 'Expirado', 'pending transaction expires')
+
+    # Nothing more reaches the officer, and nothing is recorded.
+    response = method(1, offer(1, C.OFFICER_ID, 5))
+    expect((response[1]['offerPoints'], response[1]['partnerLeft']), (False, C.OFFICER_ID), 'offer to a player who left')
+    expect(balances(), before, 'refused offer reserves nothing')
+    expect(method(1, {'text': 'hola?', 'recipient': C.OFFICER_ID})[1]['partnerLeft'], C.OFFICER_ID, 'chat to a player who left')
+    response = method(2, close('Aceptado', C.OFFICER_ID, 2, request_id))
+    expect(response[2]['partnerLeft'], C.OFFICER_ID, 'answering an expired request')
+    expect(balances(), before, 'answering an expired request moves nothing')
+
+    # A citizen reloading still sees the officer grayed out; the officer
+    # reloading (or clicking again) just moves on.
+    expect(method(1, {'type': 'reloadPage'})[1]['partnersLeft'][0]['partnerLeft'], C.OFFICER_ID, 'reload keeps the officer grayed out')
+    expect(method(C.OFFICER_ID, {'type': 'reloadPage'}), {C.OFFICER_ID: {'leftConfirmed': True}}, 'leaver reloading')
+    expect(method(C.OFFICER_ID, {'type': 'leavingInteraction'}), {C.OFFICER_ID: {'leftConfirmed': True}}, 'second click')
+
+    # Contribution times: citizens 2 and 3 contributed above, the officer never does.
+    game_sql = sys.modules[game.record_contribution_time.__module__]
+    with game_sql._cursor() as cur:
+        cur.execute("""
+            SELECT id_in_group, contributed_at IS NOT NULL AS contributed
+            FROM game_data.interaction_times
+            WHERE session_code = %s AND round_number = %s AND group_id = %s
+        """, (group.session.code, group.round_number, group.id))
+        contributed = {row['id_in_group']: row['contributed'] for row in cur.fetchall()}
+    expect((contributed.get(2), contributed.get(3), contributed.get(C.OFFICER_ID)), (True, True, False), 'contribution times')

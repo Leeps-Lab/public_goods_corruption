@@ -14,6 +14,10 @@ from sql_utils import (
     filter_transactions,
     filter_history,
     get_last_transaction_status,
+    get_open_transactions,
+    start_interaction,
+    record_contribution_time,
+    end_interaction,
     check_corruption,
     register_session,
     history_display_row,
@@ -254,6 +258,8 @@ class Message(ExtraModel):
     The `name` field indicates the message type:
     - 'Player': message written by a participant.
     - 'TransferInfo': system-generated message when a transfer is made.
+    - 'SystemInfo': system-generated notice not tied to a transfer (e.g. the
+      other player moved on to the next stage).
     """
     group = models.Link(Group)
     channel = models.StringField(max_length=255)
@@ -261,7 +267,7 @@ class Message(ExtraModel):
     recipient = models.Link(Player)
     text = models.StringField()
     text_unfiltered = models.StringField()
-    name = models.StringField(choices=['Player', 'TransferInfo'])
+    name = models.StringField(choices=['Player', 'TransferInfo', 'SystemInfo'])
     
     def to_dict(self):
         """
@@ -576,7 +582,8 @@ def handle_contribution(player, contribution_points):
     player.current_points -= contribution_points
     player.reserved_points -= contribution_points
     player.contribution_points = contribution_points
-    
+    record_contribution_time(interaction_keys(player))
+
     return {
         'contributionPointsValid': True,
         'contributionPoints': contribution_points,
@@ -624,6 +631,16 @@ def round_keys(player):
         'treatment': player.participant.treatment,
         'group_id': player.group_id,
         'group_id_in_subsession': player.group.id_in_subsession,
+    }
+
+
+def interaction_keys(player):
+    """The columns identifying the player's row in 'game_data.interaction_times'."""
+
+    return {
+        **round_keys(player),
+        'participant_code': player.participant.code,
+        'id_in_group': player.id_in_group,
     }
 
 
@@ -958,7 +975,8 @@ def instructions_vars(player):
     # Transfers sit in the equal-split example on purpose: no example pairs a transfer to the
     # officer with a larger allocation, so the examples don't hint at what "works"
     equal = [1 / 3] * 3
-    transfers_a = [(1, 4, 20), (4, 3, 5)]
+    # Only citizen -> officer: an officer -> citizen transfer read as a model of what officers do.
+    transfers_a = [(1, 4, 20)]
     if treatment.resource_allocation:
         examples = [
             build_example('Ejemplo A', [20, 50, 80], multipliers[0], equal, transfers_a),
@@ -1086,6 +1104,94 @@ def apply_transfer(initiator, receiver, action, points):
     payee.round_transfers_received += points
 
 
+# Leaving the page. A player who clicks "Siguiente" (or whose timer runs out)
+# can no longer answer, so their pending offers/requests are closed as
+# 'Expirado' and the players they were interacting with are told, so they stop
+# waiting on them. participant.interaction_left_round holds the round_number of
+# the last Interaction page the player left.
+
+LEFT_NOTICE = 'El {role} avanzó a la siguiente ronda.'
+
+
+def has_left(player):
+    return player.participant.vars.get('interaction_left_round') == player.round_number
+
+
+def interaction_partners(player):
+    """The players whose screen has a chat and offer/request box with `player`."""
+
+    others = player.get_others_in_group()
+    if player.session.config['chat_only_officer']:
+        # Citizens only see the officer; the officer sees every citizen.
+        return [p for p in others if C.OFFICER_ID in (p.id_in_group, player.id_in_group)]
+    return others
+
+
+def leave_interaction(player, end_reason):
+    """
+    Mark `player` as gone for this round, record when, and expire their pending
+    transactions (releasing points reserved for a pending offer).
+
+    Returns:
+        list of int, or None if the player had already left: the id_in_group of
+        the other side of every expired transaction.
+    """
+
+    if has_left(player):
+        return None
+    player.participant.interaction_left_round = player.round_number
+
+    end_interaction(interaction_keys(player), end_reason)
+
+    group = player.group
+    expired_with = []
+    for t in get_open_transactions(
+        participant_code=player.participant.code,
+        treatment_round=player.participant.treatment_round,
+        segment=player.participant.segment,
+        session_code=player.session.code,
+    ):
+        initiator = group.get_player_by_id(t['initiator_id'])
+        receiver = group.get_player_by_id(t['receiver_id'])
+        if t['action'] == 'Ofrece':
+            initiator.reserved_points += t['points']
+        closing_transaction(initiator, receiver, 'Expirado', t['transaction_id'])
+        expired_with.append(receiver.id_in_group if initiator == player else initiator.id_in_group)
+    return expired_with
+
+
+def partner_left_view(other, error=None):
+    """What a player needs to gray out the chat and offer/request box of `other`, who left."""
+
+    view = {'partnerLeft': other.id_in_group, 'partnerLeftText': f'El {other.role} ya avanzó.'}
+    if error:
+        view['partnerLeftError'] = error
+    return view
+
+
+def on_leaving(player, data):
+    """The player clicked "Siguiente": tell their partners before the page is submitted."""
+
+    my_id = player.id_in_group
+    if leave_interaction(player, 'Siguiente') is None:
+        return {my_id: {'leftConfirmed': True}}
+
+    responses = {}
+    for other in interaction_partners(player):
+        msg = create_message(
+            player.group, my_id, other.id_in_group,
+            text=LEFT_NOTICE.format(role=player.role),
+            name='SystemInfo',
+        )
+        responses[other.id_in_group] = {
+            **partner_left_view(player),
+            'chat': [msg.to_dict()],
+            'reservedPoints': other.reserved_points,
+        }
+    responses[my_id] = {'leftConfirmed': True}
+    return responses
+
+
 def on_contribution(player, data):
     return {player.id_in_group: handle_contribution(player, data.get('value'))}
 
@@ -1106,6 +1212,15 @@ def on_open_transaction(player, data):
         return {initiator_id: refused_transaction_view(action, receiver_id, 'Por favor, ingresa una cantidad válida.')}
 
     receiver = group.get_player_by_id(receiver_id)
+
+    if has_left(player):
+        return None
+    if has_left(receiver):
+        # Not recorded: the receiver could never have seen it.
+        return {initiator_id: {
+            **refused_transaction_view(action, receiver_id, f'El {receiver.role} ya avanzó a la siguiente ronda.'),
+            **partner_left_view(receiver),
+        }}
 
     transaction_id = new_transaction(player, data)
 
@@ -1174,6 +1289,18 @@ def on_close_transaction(player, data):
     status, transaction_id = data.get('status'), data.get('transactionId')
 
     transaction = get_transaction(transaction_id)
+    if (transaction is not None and transaction['status'] == 'Expirado'
+            and transaction['group_id'] == player.group_id
+            and player.id_in_group in (transaction['initiator_id'], transaction['receiver_id'])):
+        # The other side left the page first (e.g. their timer ran out a moment
+        # earlier); nothing moves, the box for them is grayed out.
+        other_id = transaction['receiver_id'] if player.id_in_group == transaction['initiator_id'] else transaction['initiator_id']
+        other = group.get_player_by_id(other_id)
+        return {player.id_in_group: {
+            **partner_left_view(other, error=f'El {other.role} ya avanzó a la siguiente ronda.'),
+            'reservedPoints': player.reserved_points,
+        }}
+
     if (status not in CLOSING_LABELS or transaction is None
             or transaction['group_id'] != player.group_id or transaction['status'] != 'Iniciado'):
         # Unknown, from another group or round, or already closed: a double
@@ -1258,7 +1385,14 @@ def on_reload(player, data):
     """
 
     my_id = player.id_in_group
+    if has_left(player):
+        # Their "Siguiente" was processed but the page didn't move on: finish it.
+        return {my_id: {'leftConfirmed': True}}
+
     view = {**reload_contribution(player), 'reservedPoints': player.reserved_points}
+    partners_left = [partner_left_view(p) for p in interaction_partners(player) if has_left(p)]
+    if partners_left:
+        view['partnersLeft'] = partners_left
     transactions = round_transactions(player)
 
     pending = get_last_transaction_status(
@@ -1304,6 +1438,11 @@ def on_reload(player, data):
 
 def on_chat(player, data):
     my_id, recipient_id = player.id_in_group, data['recipient']
+    if has_left(player):
+        return None
+    recipient = player.group.get_player_by_id(recipient_id)
+    if has_left(recipient):
+        return {my_id: partner_left_view(recipient, error=f'El {recipient.role} ya avanzó a la siguiente ronda.')}
     msg = create_message(
         player.group, my_id, recipient_id,
         text=data['text'],
@@ -1330,6 +1469,7 @@ LIVE_HANDLERS = {
     'initiatingTransaction': on_open_transaction,
     'closingTransaction': on_close_transaction,
     'reloadPage': on_reload,
+    'leavingInteraction': on_leaving,
 }
 
 
@@ -1438,6 +1578,8 @@ class Interaction(Page):
 
     @staticmethod
     def vars_for_template(player):
+        start_interaction(interaction_keys(player))
+
         # Identify other players in group
         others = player.get_others_in_group()
         officer = next((p for p in others if p.role == C.OFFICER_ROLE), None)
@@ -1545,6 +1687,10 @@ class Interaction(Page):
 
     @staticmethod
     def before_next_page(player, timeout_happened):
+        # Already done if the player clicked "Siguiente" (on_leaving); this
+        # covers the timer running out, or the click's live message not arriving.
+        leave_interaction(player, 'Tiempo agotado' if timeout_happened else 'Siguiente')
+
         if timeout_happened and (player.role != C.OFFICER_ROLE) and (player.field_maybe_none('contribution_points') is None):
             player.timeout_penalty = True 
 
@@ -1605,8 +1751,15 @@ class ResourceAllocation(Page):
             tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
             time_unit = 'horas'
 
+        # Contribution of each citizen this round, shown above their allocation field
+        contributions = {
+            f'contribution{p.id_in_group}': p.field_maybe_none('contribution_points') or 0
+            for p in player.group.get_players() if p.id_in_group != C.OFFICER_ID
+        }
+
         return {
             'history': history,
+            **contributions,
             'private_interaction': TREATMENTS[player.participant.treatment].private_interaction,
             'num_treatments': num_treatments,
             'num_rounds': num_rounds,

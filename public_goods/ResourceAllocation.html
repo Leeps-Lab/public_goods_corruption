@@ -43,9 +43,18 @@
                 <p><small>(Se permite distribuir montos con hasta 1 decimal separado por una coma)</small></p>
                 <br>
                 <div class="row w-100">
-                    <div class="col-4 mb-3">{{ formfield 'allocation1' }}</div>
-                    <div class="col-4 mb-3">{{ formfield 'allocation2' }}</div>
-                    <div class="col-4 mb-3">{{ formfield 'allocation3' }}</div>
+                    <div class="col-4 mb-3">
+                        <p class="mb-2">El Ciudadano 1 contribuyó <b>{{ contribution1 }}</b> puntos</p>
+                        {{ formfield 'allocation1' }}
+                    </div>
+                    <div class="col-4 mb-3">
+                        <p class="mb-2">El Ciudadano 2 contribuyó <b>{{ contribution2 }}</b> puntos</p>
+                        {{ formfield 'allocation2' }}
+                    </div>
+                    <div class="col-4 mb-3">
+                        <p class="mb-2">El Ciudadano 3 contribuyó <b>{{ contribution3 }}</b> puntos</p>
+                        {{ formfield 'allocation3' }}
+                    </div>
                 </div>
             </div>
 
