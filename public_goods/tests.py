@@ -17,6 +17,11 @@ from otree.api import Bot, Submission
 from . import C, TREATMENTS, Instructions, Interaction, ResourceAllocation, Results
 
 
+# Round in which the officer's allocation page times out (a round with officer
+# allocation in public_goods1, whose second block is T2).
+TIMEOUT_ROUND = 8
+
+
 class PlayerBot(Bot):
     def play_round(self):
         if Instructions.is_displayed(self.player):
@@ -26,14 +31,29 @@ class PlayerBot(Bot):
         # The page has no submit button: it moves on when its timer runs out.
         yield Submission(Interaction, check_html=False)
 
+        # Round TIMEOUT_ROUND (below) ended with the officer's allocation page timing out
+        # with uneven values typed: every citizen got the equal share anyway.
+        if self.round_number == TIMEOUT_ROUND + 1 and self.player.id_in_group != C.OFFICER_ID:
+            previous = self.player.in_round(TIMEOUT_ROUND)
+            if TREATMENTS[previous.participant.treatment].resource_allocation:
+                expect(previous.actual_allocation, previous.group.equitative_allocation, 'allocation timeout splits equally')
+
         if ResourceAllocation.is_displayed(self.player):
             share = self.group.total_allocation / 3
-            # "Siguiente" submits from JavaScript, after checking the allocation adds up.
-            yield Submission(
-                ResourceAllocation,
-                dict(allocation1=share, allocation2=share, allocation3=share),
-                check_html=False,
-            )
+            if self.round_number == TIMEOUT_ROUND:
+                yield Submission(
+                    ResourceAllocation,
+                    dict(allocation1=self.group.total_allocation, allocation2=0, allocation3=0),
+                    check_html=False,
+                    timeout_happened=True,
+                )
+            else:
+                # "Siguiente" submits from JavaScript, after checking the allocation adds up.
+                yield Submission(
+                    ResourceAllocation,
+                    dict(allocation1=share, allocation2=share, allocation3=share),
+                    check_html=False,
+                )
 
         yield Results
 

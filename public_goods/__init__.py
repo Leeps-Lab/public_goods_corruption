@@ -23,6 +23,7 @@ from sql_utils import (
     history_display_row,
 )
 from treatment_config_loader import load_treatments_from_excel
+from session_timing import session_timing
 
 
 # Initialize treatment configuration
@@ -367,10 +368,13 @@ def store_actual_allocation(group):
     Validates and applies the allocation of public resources decided by the Public Officer.
 
     This function:
+    - If the officer's page timed out, assigns the default equal allocation to all citizens,
+      whatever was typed (the typed values stay in allocation1-3 for the analysis).
     - Checks if the officer's allocations are valid (i.e., they sum to the total public resources).
     - If all values are present but incorrect, assigns the default equal allocation to all citizens.
-    - If one or more allocations are missing (e.g., due to timeout), distributes the remaining
-      resources among the citizens with missing values.
+    - If one or more allocations are missing, distributes the remaining resources among the
+      citizens with missing values. (The page only submits complete allocations, so this is
+      only a safeguard.)
 
     This function should be executed **only** in treatments where the Public Officer chooses how
     to distribute public resources.
@@ -384,7 +388,13 @@ def store_actual_allocation(group):
     ]
     
     citizens = [p for p in group.get_players() if p.role != C.OFFICER_ROLE]
-    
+
+    # Timeout: equal split, as the instructions say.
+    if group.get_player_by_id(C.OFFICER_ID).timeout_penalty:
+        for citizen in citizens:
+            citizen.actual_allocation = group.equitative_allocation
+        return
+
     # Identify which values are missing
     missing_indices = [i for i, value in enumerate(allocations) if value is None]
     total_allocated = sum(value for value in allocations if value is not None)
@@ -828,16 +838,13 @@ def block_changes(prev, curr, cfg, c1_endowment):
                 'puntos en privado. Esos puntos se suman o restan al pago de la ronda.'
             )
         else:
-            changes.append(
-                'Ya no hay interacción privada: no hay chat ni intercambio de puntos. '
-                'Por eso, en este bloque el pago del funcionario es 0 puntos en cada ronda.'
-            )
+            changes.append('Ya no hay interacción privada: no hay chat ni intercambio de puntos.')
 
     if curr.resource_allocation != prev.resource_allocation:
         if curr.resource_allocation:
             changes.append(
                 'Ahora el funcionario decide cómo repartir los recursos públicos totales entre los tres ciudadanos '
-                '(ya no se reparten automáticamente en partes iguales).'
+                '(ya no se reparten automáticamente en partes iguales). Al repartir, ve cuánto aportó cada ciudadano.'
             )
         else:
             changes.append(
@@ -1625,21 +1632,6 @@ class Interaction(Page):
 
         history = get_cached_history(player)
 
-        # Instruction timing variables
-        num_treatments = len(player.session.config['treatment_order'])
-        num_rounds = player.session.config['num_rounds']
-        tot_num_rounds = num_treatments * num_rounds
-
-        avg_round_time = 4 # minutes per round
-        total_minutes = tot_num_rounds * avg_round_time
-
-        if total_minutes < 60:
-            tot_session_time = total_minutes
-            time_unit = 'minutos'
-        else:
-            tot_session_time = round(total_minutes / 60, 1)
-            time_unit = 'horas'
-
         return {
             # Interaction variables
             'others': others_info,
@@ -1652,11 +1644,7 @@ class Interaction(Page):
             'additional_channels': additional_chats if treatment_cfg.officer_interactions_public else [],
             
             # Instructions variables
-            'num_treatments': num_treatments,
-            'num_rounds': num_rounds,
-            'tot_num_rounds': tot_num_rounds,
-            'tot_session_time': tot_session_time,
-            'time_unit': time_unit,
+            **session_timing(player.session.config),
             **instructions_vars(player),
         }
 
@@ -1738,19 +1726,6 @@ class ResourceAllocation(Page):
     def vars_for_template(player):
         history = get_cached_history(player)
 
-        # Instruction timing variables
-        num_treatments = len(player.session.config['treatment_order'])
-        num_rounds = player.session.config['num_rounds']
-        tot_num_rounds = num_treatments * num_rounds
-        avg_round_time = 4
-        tot_session_time = tot_num_rounds * avg_round_time
-        
-        if tot_session_time < 60:
-            time_unit = 'minutos'
-        else:
-            tot_session_time = round((tot_num_rounds * avg_round_time) / 60, 1)
-            time_unit = 'horas'
-
         # Contribution of each citizen this round, shown above their allocation field
         contributions = {
             f'contribution{p.id_in_group}': p.field_maybe_none('contribution_points') or 0
@@ -1761,11 +1736,7 @@ class ResourceAllocation(Page):
             'history': history,
             **contributions,
             'private_interaction': TREATMENTS[player.participant.treatment].private_interaction,
-            'num_treatments': num_treatments,
-            'num_rounds': num_rounds,
-            'tot_num_rounds': tot_num_rounds,
-            'tot_session_time': tot_session_time,
-            'time_unit': time_unit,
+            **session_timing(player.session.config),
             **instructions_vars(player),
         }
     

@@ -248,13 +248,7 @@
         <div class="bi-role {{ if not ins.is_officer }}bi-role-mine{{ endif }}">
             <p class="bi-role-title">Ciudadanos {{ if not ins.is_officer }}<span class="bi-role-tag">Tu rol</span>{{ endif }}</p>
             <ul>
-                <li>
-                    {{ if ins.heterogeneous }}
-                        Deciden cuántos de sus puntos aportan al proyecto del grupo (el ciudadano 1, de 0 a {{ ins.c1_endowment }}; los ciudadanos 2 y 3, de 0 a {{ ins.endowment }}).
-                    {{ else }}
-                        Deciden cuántos de sus puntos aportan al proyecto del grupo, de 0 a {{ ins.endowment }}.
-                    {{ endif }}
-                </li>
+                <li>Deciden cuántos de sus puntos aportan al proyecto del grupo, de 0 hasta los puntos que tengan disponibles al momento de decidir.</li>
                 {{ if ins.private }}
                     <li>Pueden conversar e intercambiar puntos en privado con el funcionario.</li>
                 {{ endif }}
@@ -264,13 +258,13 @@
             <p class="bi-role-title">Funcionario {{ if ins.is_officer }}<span class="bi-role-tag">Tu rol</span>{{ endif }}</p>
             <ul>
                 {{ if ins.allocation }}
-                    <li>Decide cómo repartir los recursos públicos totales entre los tres ciudadanos. Tiene {{ ins.allocation_time }} para hacerlo.</li>
+                    <li>Decide cómo repartir los recursos públicos totales entre los tres ciudadanos.</li>
                 {{ endif }}
                 {{ if ins.private }}
                     <li>Puede conversar e intercambiar puntos en privado con cada ciudadano.</li>
                 {{ endif }}
                 {{ if not ins.allocation and not ins.private }}
-                    <li>En este bloque no toma decisiones. Su pago es 0 puntos en cada ronda.</li>
+                    <li>En este bloque no toma decisiones.</li>
                 {{ endif }}
             </ul>
         </div>
@@ -333,12 +327,8 @@
 
         <li>
             <span class="bi-step-title">Contribución al proyecto del grupo</span>
-            {{ if ins.heterogeneous }}
-                Cada ciudadano decide cuántos de sus puntos aporta al proyecto del grupo
-                (el ciudadano 1, de 0 a {{ ins.c1_endowment }}; los ciudadanos 2 y 3, de 0 a {{ ins.endowment }}).
-            {{ else }}
-                Cada ciudadano decide cuántos de sus puntos aporta al proyecto del grupo, de <strong>0 a {{ ins.endowment }}</strong>.
-            {{ endif }}
+            Cada ciudadano decide cuántos de sus puntos aporta al proyecto del grupo,
+            de <strong>0 hasta los puntos que tenga disponibles al momento de decidir</strong>.
             Los puntos que no aporta se quedan en su cuenta. El funcionario no contribuye.
             {{ if ins.sequential }}
                 <br>Esta etapa dura <strong>{{ ins.stage_time }}</strong>. Al inicio, durante {{ ins.contribution_delay }}, solo está abierta la interacción privada; después se habilita también la casilla para contribuir.
@@ -365,7 +355,8 @@
             {{ if ins.allocation }}
                 El funcionario decide cuántos puntos de los recursos públicos totales recibe cada ciudadano.
                 Puede asignar cualquier cantidad a cada uno (incluido 0, y con hasta 1 decimal), pero debe repartir el total completo.
-                En su pantalla, el funcionario ve el total de recursos públicos, pero no cuánto aportó cada ciudadano.
+                En su pantalla, el funcionario ve el total de recursos públicos y cuánto aportó cada ciudadano.
+                <br>Tiene <strong>{{ ins.allocation_time }}</strong> para hacerlo.
             {{ else }}
                 Los recursos públicos totales se reparten <strong>en partes iguales</strong> entre los tres ciudadanos,
                 sin importar cuánto aportó cada uno.
@@ -448,8 +439,8 @@
         <div class="bi-formula">Pago de la interacción privada = Puntos recibidos − Puntos enviados</div>
     {{ else }}
         <p>
-            En este bloque el funcionario no recibe puntos iniciales y no hay interacción privada,
-            por lo que su pago es <strong>0 puntos</strong> en cada ronda.
+            En este bloque no hay interacción privada, por lo que el pago del funcionario es
+            <strong>0 puntos</strong> en cada ronda.
         </p>
     {{ endif }}
 
@@ -532,7 +523,7 @@
         {{ if ins.allocation }}
             <li>
                 Si eres funcionario, tienes <strong>{{ ins.allocation_time }}</strong> para repartir los recursos públicos.
-                Los recursos que no hayas asignado a tiempo se reparten en partes iguales entre los ciudadanos.
+                Si no repartes los recursos a tiempo, se dividen en partes iguales entre los tres ciudadanos.
             </li>
         {{ endif }}
     </ul>
